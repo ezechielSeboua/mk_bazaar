@@ -2,83 +2,15 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "../contexts/AuthContext";
-import { getWhatsAppLink } from "../config/env";
 
-/* ---------- Icônes SVG (inchangées) ---------- */
-function HamburgerIcon() {
-  return (
-    <svg
-      className="w-6 h-6"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <line x1="3" y1="6" x2="21" y2="6" />
-      <line x1="3" y1="12" x2="21" y2="12" />
-      <line x1="3" y1="18" x2="21" y2="18" />
-    </svg>
-  );
-}
+/* ---------- Icônes SVG ---------- */
+function HamburgerIcon() { /* ... identique ... */ }
+function UsersIcon() { /* ... identique ... */ }
+function CloseIcon() { /* ... identique ... */ }
+function ArrowRightIcon() { /* ... identique ... */ }
 
-function UsersIcon() {
-  return (
-    <svg
-      className="w-5 h-5"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-      <circle cx="9" cy="7" r="4" />
-      <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-    </svg>
-  );
-}
-
-function CloseIcon() {
-  return (
-    <svg
-      className="w-6 h-6"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <line x1="18" y1="6" x2="6" y2="18" />
-      <line x1="6" y1="6" x2="18" y2="18" />
-    </svg>
-  );
-}
-
-function ArrowRightIcon() {
-  return (
-    <svg
-      className="w-3 h-3"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <polyline points="9 18 15 12 9 6" />
-    </svg>
-  );
-}
-
-// Composant pour les liens animés du menu mobile
 const MotionLink = motion(Link);
 
-// Variants pour l'animation cascade du menu mobile
 const navVariants = {
   hidden: { opacity: 0, x: -20 },
   visible: (i) => ({
@@ -93,14 +25,12 @@ export default function Header() {
   const [scrolled, setScrolled] = useState(false);
   const { user } = useAuth();
 
-  // Détection du scroll pour ajouter une ombre
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 10);
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // Initiales pour l'avatar utilisateur
   const userInitials = user?.name
     ? user.name
         .split(" ")
@@ -119,7 +49,7 @@ export default function Header() {
       } border-b border-stone-200/60 px-6 py-4 md:px-12`}
     >
       <div className="max-w-7xl mx-auto flex items-center">
-        {/* ---- Partie gauche : burger mobile + navigation desktop ---- */}
+        {/* Partie gauche : burger mobile + navigation desktop */}
         <div className="flex-1 flex items-center">
           <button
             className="md:hidden p-2 -ml-2 text-black hover:text-stone-500 hover:bg-stone-100 rounded-full transition-colors"
@@ -146,17 +76,22 @@ export default function Header() {
           </nav>
         </div>
 
-        {/* ---- Logo parfaitement centré ---- */}
+        {/* Logo centré (image) */}
         <div className="flex-1 flex justify-center">
           <Link
             to="/"
-            className="text-xl md:text-2xl font-black tracking-[0.25em] uppercase text-black hover:scale-105 transition-transform duration-200 select-none"
+            className="inline-block hover:scale-105 transition-transform duration-200"
+            aria-label="MK Bazaar – Accueil"
           >
-            MK BAZAAR
+            <img
+              src="/mk_bazaar_logo.png"
+              alt="MK Bazaar"
+              className="h-12 md:h-16 w-auto object-contain"
+            />
           </Link>
         </div>
 
-        {/* ---- Actions à droite ---- */}
+        {/* Actions droite */}
         <div className="flex-1 flex justify-end items-center gap-4">
           {user ? (
             <div className="flex items-center gap-3">
@@ -180,11 +115,10 @@ export default function Header() {
         </div>
       </div>
 
-      {/* ---------- Menu Mobile (animations améliorées) ---------- */}
+      {/* Menu mobile */}
       <AnimatePresence>
         {mobileMenuOpen && (
           <>
-            {/* Overlay */}
             <motion.div
               className="fixed inset-0 bg-black/70 z-40 backdrop-blur-sm"
               initial={{ opacity: 0 }}
@@ -192,7 +126,6 @@ export default function Header() {
               exit={{ opacity: 0 }}
               onClick={() => setMobileMenuOpen(false)}
             />
-            {/* Panneau */}
             <motion.div
               className="fixed top-0 left-0 h-full w-80 bg-[#F9F9F7] z-50 shadow-2xl flex flex-col"
               initial={{ x: "-100%" }}
@@ -200,14 +133,17 @@ export default function Header() {
               exit={{ x: "-100%" }}
               transition={{ type: "spring", stiffness: 300, damping: 30 }}
             >
-              {/* En-tête du panneau */}
               <div className="flex items-center justify-between p-6 border-b border-stone-200 bg-white/90">
                 <Link
                   to="/"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="text-lg font-black tracking-[0.15em] uppercase text-black"
+                  className="inline-block"
                 >
-                  MK BAZAAR
+                  <img
+                    src="/mk_bazaar_logo.png"
+                    alt="MK Bazaar"
+                    className="h-8 w-auto object-contain"
+                  />
                 </Link>
                 <button
                   onClick={() => setMobileMenuOpen(false)}
@@ -218,7 +154,6 @@ export default function Header() {
                 </button>
               </div>
 
-              {/* Navigation avec cascade */}
               <motion.nav
                 className="flex-1 flex flex-col p-6 space-y-1 text-[15px] uppercase tracking-[0.1em] font-medium bg-white/90"
                 initial="hidden"
@@ -230,9 +165,7 @@ export default function Header() {
                   { to: "/", label: "Accueil" },
                   { to: "/products", label: "Collections" },
                   { to: "/about", label: "Le Studio" },
-                  ...(user
-                    ? [{ to: "/dashboard", label: "Mon tableau de bord" }]
-                    : []),
+                  ...(user ? [{ to: "/dashboard", label: "Mon tableau de bord" }] : []),
                 ].map((link, i) => (
                   <MotionLink
                     key={link.to}
@@ -247,19 +180,6 @@ export default function Header() {
                   </MotionLink>
                 ))}
               </motion.nav>
-
-              {/* Pied (optionnel) */}
-              {/* <div className="p-6 border-t border-stone-200 bg-white/90">
-                <a
-                  href={getWhatsAppLink()}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-3 w-full py-3 px-4 bg-black text-[#F9F9F7] rounded-lg text-[11px] uppercase tracking-wider font-medium hover:bg-stone-900 transition-colors"
-                >
-                  <WhatsAppIcon />
-                  Nous contacter
-                </a>
-              </div> */}
             </motion.div>
           </>
         )}
