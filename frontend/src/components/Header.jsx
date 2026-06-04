@@ -449,8 +449,8 @@ export default function Header() {
       <header
         className={`sticky top-0 z-50 transition-all duration-300 ${
           scrolled
-            ? "shadow-md bg-[#F9F9F7]/95 backdrop-blur-lg py-3"
-            : "bg-[#F9F9F7]/80 backdrop-blur-md py-5"
+            ? "shadow-md bg-[#F9F9F7]/95 backdrop-blur-lg py-1"
+            : "bg-[#F9F9F7]/80 backdrop-blur-md py-3"
         } border-b border-stone-200/60 px-4 sm:px-8 md:px-12`}
       >
         <div className="max-w-7xl mx-auto flex items-center justify-between">
@@ -497,7 +497,7 @@ export default function Header() {
               <img
                 src="/mk_bazaar_logo.png"
                 alt="MK Bazaar"
-                className="h-10 sm:h-12 md:h-14 w-auto object-contain transition-all duration-300"
+                className="h-14 sm:h-16 md:h-20 w-auto object-contain transition-all duration-300"
               />
             </Link>
           </div>
