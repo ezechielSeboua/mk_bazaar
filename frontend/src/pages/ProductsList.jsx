@@ -104,8 +104,9 @@ export default function ProductList() {
 
   const showInitialLoad = isLoading && products.length === 0;
   const showRefreshing = isRefreshing || catalogRefreshing;
-  // Le loader personnalisé s'affiche uniquement pendant un rafraîchissement (pas au premier chargement)
-  const displayLoader = showRefreshing && !showInitialLoad;
+  // Le loader personnalisé s'affiche dès qu'un chargement est en cours
+  // sauf au tout premier chargement (où l'on garde les squelettes).
+  const displayLoader = (isLoading || isRefreshing || catalogRefreshing) && !showInitialLoad;
 
   return (
     <div className="min-h-screen flex flex-col bg-[#F9F9F7] text-black antialiased">
