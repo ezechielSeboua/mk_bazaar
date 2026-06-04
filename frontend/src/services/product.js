@@ -135,3 +135,11 @@ export const getProductsPage = async (page = 1, perPage = DASHBOARD_PER_PAGE) =>
 export const getAllProducts = async () => {
     return fetchAllPages((page) => getProductsPage(page, DASHBOARD_PER_PAGE));
 };
+
+//Supprimer plusieurs produits
+export const deleteProducts = async (ids) => {
+    return fetchAPI('/products/bulk-delete', {
+        method: 'POST',
+        body: JSON.stringify({ ids }),
+    });
+};
