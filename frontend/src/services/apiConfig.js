@@ -19,6 +19,7 @@ export const getAuthHeaders = (isJson = true) => {
     const headers = {
         'Accept': 'application/json',
         'Access-Control-Allow-Credentials': 'true',
+        'ngrok-skip-browser-warning': 'true',
         ...(token && { 'Authorization': `Bearer ${token}` })
     };
 
@@ -32,7 +33,7 @@ export const getAuthHeaders = (isJson = true) => {
 // Core fetch API
 export const fetchAPI = async (endpoint, options = {}) => {
     try {
-        const url = endpoint.startsWith('http')
+        const url = endpoint.startsWith('https')
             ? endpoint
             : `${API_URL}${endpoint}`;
 
