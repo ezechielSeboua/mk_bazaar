@@ -103,7 +103,7 @@ export default function ProductList() {
     });
 
   const showInitialLoad = isLoading && products.length === 0;
-  const showRefreshing = isRefreshing || catalogRefreshing;
+//   const showRefreshing = isRefreshing || catalogRefreshing;
   // Le loader personnalisé s'affiche dès qu'un chargement est en cours
   // sauf au tout premier chargement (où l'on garde les squelettes).
   const displayLoader = (isLoading || isRefreshing || catalogRefreshing) && !showInitialLoad;
