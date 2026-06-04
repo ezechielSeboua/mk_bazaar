@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import Header from '../components/Header';
@@ -31,24 +32,75 @@ const itemVariants = {
 
 export default function ProductList() {
     const { categories, isRefreshing: catalogRefreshing } = useCatalogData();
+    const [searchParams, setSearchParams] = useSearchParams();
 
-    const [selectedCategoryName, setSelectedCategoryName] = useState('Tous');
-    const [sortBy, setSortBy] = useState('nouveautes');
-    const [searchTerm, setSearchTerm] = useState('');
-    const [currentPage, setCurrentPage] = useState(1);
+    // Lire depuis les URL params ou utiliser des valeurs par défaut
+    const selectedCategorySlug = searchParams.get('category') || null;
+    const sortBy = searchParams.get('sort') || 'nouveautes';
+    const searchTerm = searchParams.get('search') || '';
+    const currentPage = parseInt(searchParams.get('page') || '1', 10);
+    const showOutOfStock = searchParams.get('rupture') === 'true';
 
-    const selectedCategoryId = useMemo(() => {
-        if (selectedCategoryName === 'Tous') return null;
-        const category = categories.find((c) => c.name === selectedCategoryName);
-        return category?.id || null;
-    }, [selectedCategoryName, categories]);
+    // Trouver le nom de la catégorie à partir du slug
+    const selectedCategoryName = useMemo(() => {
+        if (!selectedCategorySlug) return 'Tous';
+        const category = categories.find((c) => c.slug === selectedCategorySlug);
+        return category?.name || 'Tous';
+    }, [selectedCategorySlug, categories]);
 
-    useEffect(() => {
-        setCurrentPage(1);
-    }, [selectedCategoryName, sortBy, searchTerm]);
+    // Fonctions pour mettre à jour les URL params
+    const updateParams = (updates) => {
+        const params = new URLSearchParams(searchParams);
+        Object.entries(updates).forEach(([key, value]) => {
+            if (value === null || value === '' || value === false) {
+                params.delete(key);
+            } else {
+                params.set(key, String(value));
+            }
+        });
+        // Réinitialiser à la page 1 lors de changement de filtres
+        if (updates.sort !== undefined || updates.search !== undefined || updates.category !== undefined || updates.rupture !== undefined) {
+            params.set('page', '1');
+        }
+        setSearchParams(params);
+    };
 
-    const inStockFilter = sortBy === 'rupture' ? false : null;
+    const handleCategoryChange = (categoryName) => {
+        if (categoryName === 'Tous') {
+            updateParams({ category: null });
+        } else {
+            const category = categories.find((c) => c.name === categoryName);
+            if (category) {
+                updateParams({ category: category.slug });
+            }
+        }
+    };
 
+    const handleSortChange = (newSort) => {
+        updateParams({ sort: newSort === 'nouveautes' ? null : newSort });
+    };
+
+    const handleSearchChange = (term) => {
+        updateParams({ search: term || null });
+    };
+
+    const handleOutOfStockChange = (checked) => {
+        updateParams({ rupture: checked ? 'true' : null });
+    };
+
+    const handlePageChange = (page) => {
+        if (page >= 1 && page <= totalPages) {
+            setSearchParams((params) => {
+                params.set('page', String(page));
+                return params;
+            });
+        }
+    };
+
+    // Filtre stock: null = tous, true = en stock seulement, false = rupture seulement
+    const inStockFilter = showOutOfStock ? false : null;
+
+    // Appel au hook avec les paramètres d'URL
     const {
         products,
         totalPages,
@@ -57,7 +109,7 @@ export default function ProductList() {
         isRefreshing,
     } = useCatalogProducts({
         page: currentPage,
-        categoryId: selectedCategoryId,
+        categorySlug: selectedCategorySlug,
         sort: sortBy,
         search: searchTerm,
         inStock: inStockFilter,
@@ -66,8 +118,9 @@ export default function ProductList() {
     const showInitialLoad = isLoading && products.length === 0;
     const showRefreshing = isRefreshing || catalogRefreshing;
 
-    const clearSearch = () => setSearchTerm('');
-    const goToPage = (page) => { if (page >= 1 && page <= totalPages) setCurrentPage(page); };
+    const clearSearch = () => handleSearchChange('');
+    const goToPage = (page) => handlePageChange(page);
+    
     const getPageNumbers = () => {
         const delta = 2;
         const range = [];
@@ -97,9 +150,11 @@ export default function ProductList() {
 
                 <FilterBar
                     selectedCategory={selectedCategoryName}
-                    setSelectedCategory={setSelectedCategoryName}
+                    setSelectedCategory={handleCategoryChange}
                     sortBy={sortBy}
-                    setSortBy={setSortBy}
+                    setSortBy={handleSortChange}
+                    showOutOfStock={showOutOfStock}
+                    setShowOutOfStock={handleOutOfStockChange}
                     categories={categories}
                 />
 
@@ -115,7 +170,7 @@ export default function ProductList() {
                             type="text"
                             placeholder="Rechercher un produit..."
                             value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
+                            onChange={(e) => handleSearchChange(e.target.value)}
                             className="w-full pl-10 pr-10 py-2 border border-stone-200 rounded-full bg-white focus:outline-none focus:ring-2 focus:ring-black/10 text-sm"
                         />
                         {searchTerm && (
@@ -153,7 +208,7 @@ export default function ProductList() {
                             variants={containerVariants}
                             initial="hidden"
                             animate="visible"
-                            key={`${currentPage}-${selectedCategoryId}-${sortBy}-${searchTerm}`}
+                            key={`${currentPage}-${selectedCategorySlug}-${sortBy}-${searchTerm}-${showOutOfStock}`}
                         >
                             <AnimatePresence mode="wait">
                                 {products.map((product) => (

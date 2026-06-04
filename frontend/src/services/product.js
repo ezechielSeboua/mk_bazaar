@@ -4,11 +4,11 @@ import { fetchAllPages } from '../utils/pagination';
 const DASHBOARD_PER_PAGE = 500;
 
 // Une page de produits (boutique publique, filtres optionnels)
-export const getProducts = async (page = 1, categoryId = null, sort = null, search = null, inStock = null) => {
+export const getProducts = async (page = 1, categorySlug = null, sort = null, search = null, inStock = null) => {
     let url = `/products?page=${page}&per_page=12`;
 
-    if (categoryId && categoryId !== 'Tous') {
-        url += `&category_id=${categoryId}`;
+    if (categorySlug) {
+        url += `&category_slug=${categorySlug}`;
     }
 
     if (sort === 'prix-croissant') {

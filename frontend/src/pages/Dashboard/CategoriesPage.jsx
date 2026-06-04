@@ -47,7 +47,6 @@ const tableRow = {
     }),
 };
 
-// Composant de ligne squelette
 function SkeletonRow() {
     return (
         <motion.tr
@@ -79,7 +78,6 @@ export default function CategoriesPage() {
     const [successMessage, setSuccessMessage] = useState(null);
     const menuRef = useRef(null);
 
-    // États pour la confirmation de suppression
     const [confirmDelete, setConfirmDelete] = useState({ show: false, id: null, name: "" });
     const [deletingId, setDeletingId] = useState(null);
 
@@ -93,8 +91,21 @@ export default function CategoriesPage() {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
+    // Bonus UX : Auto-générer le slug quand le nom change (uniquement en mode création)
     const handleChange = (e) => {
-        setFormData({ ...formData, [e.target.name]: e.target.value });
+        const { name, value } = e.target;
+        setFormData((prev) => {
+            const newData = { ...prev, [name]: value };
+            if (name === 'name' && !editingId) {
+                newData.slug = value
+                    .toLowerCase()
+                    .normalize("NFD")
+                    .replace(/[\u0300-\u036f]/g, "") // Supprime les accents
+                    .replace(/[^a-z0-9]+/g, '-')     // Remplace les caractères spéciaux par des tirets
+                    .replace(/(^-|-$)+/g, '');       // Nettoie les tirets aux extrémités
+            }
+            return newData;
+        });
     };
 
     const validateForm = () => {
@@ -102,6 +113,14 @@ export default function CategoriesPage() {
         if (!formData.name.trim()) newErrors.name = 'Nom requis';
         if (!formData.slug.trim()) newErrors.slug = 'Slug requis';
         return newErrors;
+    };
+
+    // Centralisation du reset de formulaire
+    const resetForm = () => {
+        setFormData({ name: '', slug: '', description: '' });
+        setEditingId(null);
+        setErrors({});
+        setShowForm(false);
     };
 
     const handleSubmit = async (e) => {
@@ -121,21 +140,21 @@ export default function CategoriesPage() {
             if (editingId) {
                 result = await updateCategory(editingId, formData);
                 if (result.success) {
-                    setCategories(categories.map(c => c.id === editingId ? result.data : c));
+                    const updatedData = result.data?.data || result.data;
+                    setCategories(categories.map(c => c.id === editingId ? updatedData : c));
                     setSuccessMessage('Catégorie mise à jour');
-                    setEditingId(null);
                 }
             } else {
                 result = await createCategory(formData);
                 if (result.success) {
-                    setCategories([...categories, result.data.data || result.data]);
+                    const createdData = result.data?.data || result.data;
+                    setCategories([...categories, createdData]);
                     setSuccessMessage('Catégorie créée');
                 }
             }
 
             if (result?.success) {
-                setFormData({ name: '', slug: '', description: '' });
-                setShowForm(false);
+                resetForm();
                 setTimeout(() => setSuccessMessage(null), 3000);
             } else {
                 setApiError(result?.error || 'Erreur API');
@@ -148,19 +167,21 @@ export default function CategoriesPage() {
     };
 
     const handleEdit = (category) => {
-        setFormData(category);
+        setFormData({
+            name: category.name,
+            slug: category.slug,
+            description: category.description || '',
+        });
         setEditingId(category.id);
         setShowForm(true);
         setOpenMenuId(null);
     };
 
-    // Demande de suppression : ouvre la modale de confirmation
     const requestDelete = (category) => {
         setConfirmDelete({ show: true, id: category.id, name: category.name });
         setOpenMenuId(null);
     };
 
-    // Suppression effective après confirmation
     const handleDelete = async () => {
         const id = confirmDelete.id;
         if (!id) return;
@@ -185,6 +206,10 @@ export default function CategoriesPage() {
     const toggleMenu = (id) => {
         setOpenMenuId(openMenuId === id ? null : id);
     };
+
+
+    console.log('Mes categories', categories);
+    
 
     return (
         <DashboardLayout>
@@ -292,7 +317,7 @@ export default function CategoriesPage() {
                                             className="bg-black text-[#F9F9F7] px-6 py-2 text-[11px] uppercase tracking-wider font-medium hover:bg-stone-900 disabled:opacity-50">
                                             {isSubmitting ? 'Enregistrement...' : editingId ? 'Mettre à jour' : 'Créer'}
                                         </button>
-                                        <button type="button" onClick={() => { setShowForm(false); setErrors({}); }}
+                                        <button type="button" onClick={resetForm}
                                             className="border border-stone-300 px-6 py-2 text-[11px] uppercase tracking-wider font-medium hover:bg-stone-50">
                                             Annuler
                                         </button>

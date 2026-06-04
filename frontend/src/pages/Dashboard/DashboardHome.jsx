@@ -10,13 +10,13 @@ const container = {
     hidden: { opacity: 0 },
     visible: {
         opacity: 1,
-        transition: { staggerChildren: 0.1 },
+        transition: { staggerChildren: 0.05 }, // Accéléré légèrement pour plus de réactivité
     },
 };
 
 const itemFadeUp = {
-    hidden: { opacity: 0, y: 20 },
-    visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: 'easeOut' } },
+    hidden: { opacity: 0, y: 15 },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: 'easeOut' } },
 };
 
 // Squelette de ligne pour le tableau (desktop)
@@ -55,7 +55,8 @@ function SkeletonCard() {
 }
 
 export default function DashboardHome() {
-    const { products, categories, users, orders, isLoading } = useDashboardData();
+    // 1. Récupération de l'état de rafraîchissement en arrière-plan
+    const { products, categories, users, orders, isLoading, isRefreshing } = useDashboardData();
 
     const stats = useMemo(() => ({
         products: products.length,
@@ -66,27 +67,47 @@ export default function DashboardHome() {
 
     const recentProducts = useMemo(() => products.slice(0, 3), [products]);
 
+    // N'affiche le loader lourd que s'il n'y a absolument rien en cache local
     const showInitialLoad = isLoading && products.length === 0;
 
     return (
         <DashboardLayout>
             <div className="space-y-6 md:space-y-8 px-1 md:px-0">
-                    {/* Titre */}
-                    <motion.div
-                        initial={{ opacity: 0, y: -10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.4 }}
-                    >
+                {/* Titre & Statut de Synchronisation */}
+                <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.4 }}
+                    className="flex flex-col md:flex-row md:items-end md:justify-between gap-2"
+                >
+                    <div>
                         <h1 className="text-2xl md:text-3xl font-light uppercase tracking-tight mb-1 md:mb-2">
                             Bienvenue au Dashboard
                         </h1>
-                        <p className="text-stone-600 text-sm">Gérez votre boutique MK BAZAAR</p>
-                    </motion.div>
+                        <div className="flex items-center gap-3 h-5">
+                            <p className="text-stone-600 text-sm">Gérez votre boutique MK BAZAAR</p>
+                            
+                            {/* Petit indicateur discret qui rassure l'utilisateur sans bloquer son écran */}
+                            {isRefreshing && (
+                                <motion.span
+                                    initial={{ opacity: 0, scale: 0.9 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    className="inline-flex items-center gap-1.5 text-[11px] font-medium text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full"
+                                >
+                                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                                    Mise à jour...
+                                </motion.span>
+                            )}
+                        </div>
+                    </div>
+                </motion.div>
 
-                    {/* Statistiques */}
-                    {showInitialLoad ? (
+                {/* Statistiques */}
+                {showInitialLoad ? (
+                    <div className="min-h-[120px]"> {/* Évite le layout shift pendant le flash du skeleton */}
                         <DashboardCardSkeleton count={4} />
-                    ) : (
+                    </div>
+                ) : (
                     <motion.div
                         className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6"
                         variants={container}
@@ -126,172 +147,175 @@ export default function DashboardHome() {
                             />
                         </motion.div>
                     </motion.div>
-                    )}
+                )}
 
-                    {/* Produits récents */}
-                    <motion.div
-                        className="bg-white border border-stone-200 rounded-lg p-4 md:p-6"
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.5, delay: 0.3 }}
-                    >
-                        <h2 className="text-base md:text-lg font-medium uppercase tracking-wider mb-4">
-                            Produits récents
-                        </h2>
+                {/* Produits récents */}
+                <motion.div
+                    className="bg-white border border-stone-200 rounded-lg p-4 md:p-6"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5, delay: 0.1 }}
+                >
+                    <h2 className="text-base md:text-lg font-medium uppercase tracking-wider mb-4">
+                        Produits récents
+                    </h2>
 
-                        {/* Vue mobile : cartes */}
-                        <div className="block sm:hidden space-y-3">
-                            {showInitialLoad ? (
-                                <>
-                                    <SkeletonCard />
-                                    <SkeletonCard />
-                                    <SkeletonCard />
-                                </>
-                            ) : recentProducts.length === 0 ? (
-                                <div className="py-12 text-center text-stone-400 text-sm">Aucun produit</div>
-                            ) : (
-                                recentProducts.map((product, index) => (
-                                    <motion.div
-                                        key={product.id}
-                                        className="bg-stone-50 border border-stone-200 rounded-lg p-4 flex items-center gap-4"
-                                        initial={{ opacity: 0, y: 10 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        transition={{ delay: 0.1 * index, duration: 0.3 }}
-                                    >
-                                        <div className="w-12 h-12 rounded bg-stone-100 border border-stone-200 overflow-hidden flex items-center justify-center flex-shrink-0">
-                                            {product.image_path?.[0] ? (
-                                                <img
-                                                    src={resolveMediaUrl(product.image_path[0])}
-                                                    alt={product.name}
-                                                    className="w-full h-full object-cover"
-                                                />
-                                            ) : (
-                                                <svg className="w-5 h-5 text-stone-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                                                    <rect x="2" y="2" width="20" height="20" rx="2" />
-                                                    <circle cx="8.5" cy="10" r="2.5" />
-                                                    <path d="M21 15l-4-4-8 8-3-2" />
-                                                </svg>
-                                            )}
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <p className="font-medium text-sm truncate">{product.name}</p>
-                                            <p className="text-xs text-stone-500">{product.category?.name || '—'}</p>
-                                        </div>
-                                        <div className="text-right">
-                                            <p className="font-medium text-sm">{product.price?.toLocaleString('fr-FR')} FCFA</p>
-                                            <span
-                                                className={`inline-block mt-1 px-2 py-0.5 rounded text-[10px] font-bold ${
-                                                    product.in_stock ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                                                }`}
-                                            >
-                                                {product.in_stock ? 'En stock' : 'Rupture'}
-                                            </span>
-                                        </div>
-                                    </motion.div>
-                                ))
-                            )}
-                        </div>
+                    {/* Vue mobile : cartes */}
+                    <div className="block sm:hidden space-y-3">
+                        {showInitialLoad ? (
+                            <div className="space-y-3">
+                                <SkeletonCard />
+                                <SkeletonCard />
+                                <SkeletonCard />
+                            </div>
+                        ) : recentProducts.length === 0 ? (
+                            <div className="py-12 text-center text-stone-400 text-sm">Aucun produit</div>
+                        ) : (
+                            recentProducts.map((product, index) => (
+                                <motion.div
+                                    key={product.id}
+                                    className="bg-stone-50 border border-stone-200 rounded-lg p-4 flex items-center gap-4"
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ delay: 0.05 * index, duration: 0.3 }}
+                                >
+                                    <div className="w-12 h-12 rounded bg-stone-100 border border-stone-200 overflow-hidden flex items-center justify-center flex-shrink-0">
+                                        {product.image_path?.[0] ? (
+                                            <img
+                                                src={resolveMediaUrl(product.image_path[0])}
+                                                alt={product.name}
+                                                className="w-full h-full object-cover"
+                                                loading="lazy"      //  Lazy-load de l'image
+                                                decoding="async"    //  Décodage asynchrone pour fluidifier le scroll
+                                            />
+                                        ) : (
+                                            <svg className="w-5 h-5 text-stone-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                                                <rect x="2" y="2" width="20" height="20" rx="2" />
+                                                <circle cx="8.5" cy="10" r="2.5" />
+                                                <path d="M21 15l-4-4-8 8-3-2" />
+                                            </svg>
+                                        )}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="font-medium text-sm truncate">{product.name}</p>
+                                        <p className="text-xs text-stone-500">{product.category?.name || '—'}</p>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="font-medium text-sm">{product.price?.toLocaleString('fr-FR')} FCFA</p>
+                                        <span
+                                            className={`inline-block mt-1 px-2 py-0.5 rounded text-[10px] font-bold ${
+                                                product.in_stock ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                                            }`}
+                                        >
+                                            {product.in_stock ? 'En stock' : 'Rupture'}
+                                        </span>
+                                    </div>
+                                </motion.div>
+                            ))
+                        )}
+                    </div>
 
-                        {/* Vue desktop : tableau (caché sur mobile) */}
-                        <div className="hidden sm:block overflow-x-auto">
-                            <table className="w-full text-sm">
-                                <thead>
-                                    <tr className="border-b border-stone-200">
-                                        <th className="text-left py-3 px-4 font-bold uppercase text-[10px] tracking-wider">Image</th>
-                                        <th className="text-left py-3 px-4 font-bold uppercase text-[10px] tracking-wider">Produit</th>
-                                        <th className="text-left py-3 px-4 font-bold uppercase text-[10px] tracking-wider">Catégorie</th>
-                                        <th className="text-left py-3 px-4 font-bold uppercase text-[10px] tracking-wider">Prix</th>
-                                        <th className="text-left py-3 px-4 font-bold uppercase text-[10px] tracking-wider">Stock</th>
+                    {/* Vue desktop : tableau */}
+                    <div className="hidden sm:block overflow-x-auto">
+                        <table className="w-full text-sm">
+                            <thead>
+                                <tr className="border-b border-stone-200">
+                                    <th className="text-left py-3 px-4 font-bold uppercase text-[10px] tracking-wider">Image</th>
+                                    <th className="text-left py-3 px-4 font-bold uppercase text-[10px] tracking-wider">Produit</th>
+                                    <th className="text-left py-3 px-4 font-bold uppercase text-[10px] tracking-wider">Catégorie</th>
+                                    <th className="text-left py-3 px-4 font-bold uppercase text-[10px] tracking-wider">Prix</th>
+                                    <th className="text-left py-3 px-4 font-bold uppercase text-[10px] tracking-wider">Stock</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {showInitialLoad ? (
+                                    <>
+                                        <SkeletonRow />
+                                        <SkeletonRow />
+                                        <SkeletonRow />
+                                    </>
+                                ) : recentProducts.length === 0 ? (
+                                    <tr>
+                                        <td colSpan="5" className="py-12 text-center text-stone-400 text-sm">
+                                            Aucun produit
+                                        </td>
                                     </tr>
-                                </thead>
-                                <tbody>
-                                    {showInitialLoad ? (
-                                        <>
-                                            <SkeletonRow />
-                                            <SkeletonRow />
-                                            <SkeletonRow />
-                                        </>
-                                    ) : recentProducts.length === 0 ? (
-                                        <tr>
-                                            <td colSpan="5" className="py-12 text-center text-stone-400 text-sm">
-                                                Aucun produit
+                                ) : (
+                                    recentProducts.map((product, index) => (
+                                        <motion.tr
+                                            key={product.id}
+                                            className="border-b border-stone-100 hover:bg-stone-50"
+                                            initial={{ opacity: 0, x: -5 }}
+                                            animate={{ opacity: 1, x: 0 }}
+                                            transition={{ delay: 0.05 * index, duration: 0.3 }}
+                                        >
+                                            <td className="py-3 px-4">
+                                                <div className="w-10 h-10 rounded bg-stone-100 border border-stone-200 overflow-hidden flex items-center justify-center">
+                                                    {product.image_path?.[0] ? (
+                                                        <img
+                                                            src={resolveMediaUrl(product.image_path[0])}
+                                                            alt={product.name}
+                                                            className="w-full h-full object-cover"
+                                                            loading="lazy"
+                                                            decoding="async"
+                                                        />
+                                                    ) : (
+                                                        <svg className="w-5 h-5 text-stone-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                                                            <rect x="2" y="2" width="20" height="20" rx="2" />
+                                                            <circle cx="8.5" cy="10" r="2.5" />
+                                                            <path d="M21 15l-4-4-8 8-3-2" />
+                                                        </svg>
+                                                    )}
+                                                </div>
                                             </td>
-                                        </tr>
-                                    ) : (
-                                        recentProducts.map((product, index) => (
-                                            <motion.tr
-                                                key={product.id}
-                                                className="border-b border-stone-100 hover:bg-stone-50"
-                                                initial={{ opacity: 0, x: -10 }}
-                                                animate={{ opacity: 1, x: 0 }}
-                                                transition={{ delay: 0.1 * index, duration: 0.3 }}
-                                            >
-                                                <td className="py-3 px-4">
-                                                    <div className="w-10 h-10 rounded bg-stone-100 border border-stone-200 overflow-hidden flex items-center justify-center">
-                                                        {product.image_path?.[0] ? (
-                                                            <img
-                                                                src={resolveMediaUrl(product.image_path[0])}
-                                                                alt={product.name}
-                                                                className="w-full h-full object-cover"
-                                                            />
-                                                        ) : (
-                                                            <svg className="w-5 h-5 text-stone-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                                                                <rect x="2" y="2" width="20" height="20" rx="2" />
-                                                                <circle cx="8.5" cy="10" r="2.5" />
-                                                                <path d="M21 15l-4-4-8 8-3-2" />
-                                                            </svg>
-                                                        )}
-                                                    </div>
-                                                </td>
-                                                <td className="py-3 px-4 font-medium">{product.name}</td>
-                                                <td className="py-3 px-4 text-stone-600">{product.category?.name || '—'}</td>
-                                                <td className="py-3 px-4 font-medium">
-                                                    {product.price?.toLocaleString('fr-FR')} FCFA
-                                                </td>
-                                                <td className="py-3 px-4">
-                                                    <span
-                                                        className={`px-3 py-1 rounded text-[10px] font-bold ${
-                                                            product.in_stock ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                                                        }`}
-                                                    >
-                                                        {product.in_stock ? 'En stock' : 'Rupture'}
-                                                    </span>
-                                                </td>
-                                            </motion.tr>
-                                        ))
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
-                    </motion.div>
-                </div>
+                                            <td className="py-3 px-4 font-medium">{product.name}</td>
+                                            <td className="py-3 px-4 text-stone-600">{product.category?.name || '—'}</td>
+                                            <td className="py-3 px-4 font-medium">
+                                                {product.price?.toLocaleString('fr-FR')} FCFA
+                                            </td>
+                                            <td className="py-3 px-4">
+                                                <span
+                                                    className={`px-3 py-1 rounded text-[10px] font-bold ${
+                                                        product.in_stock ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                                                    }`}
+                                                >
+                                                    {product.in_stock ? 'En stock' : 'Rupture'}
+                                                </span>
+                                            </td>
+                                        </motion.tr>
+                                    ))
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </motion.div>
+            </div>
         </DashboardLayout>
     );
 }
 
-/* ---- Nouveau composant StatCard avec couleurs humaines ---- */
+/* ---- Composant StatCard avec couleurs humaines ---- */
 function StatCard({ label, value, icon, color }) {
-    // Palette organique, inspirée de matières naturelles et chaleureuses
     const humanColors = {
         terracotta: {
-            background: 'bg-[#fef4ee]',  // fond crème rosé, très doux
+            background: 'bg-[#fef4ee]',
             border: 'border-[#e6cdc0]',
-            icon: 'text-[#c07b5a]',       // terre cuite subtile
+            icon: 'text-[#c07b5a]',
         },
         sage: {
             background: 'bg-[#f6fbf2]',
             border: 'border-[#d2dfc4]',
-            icon: 'text-[#7d8d6e]',       // vert sauge élégant
+            icon: 'text-[#7d8d6e]',
         },
         golden: {
             background: 'bg-[#fef9ea]',
             border: 'border-[#f0dbb0]',
-            icon: 'text-[#b28b40]',       // doré épicé
+            icon: 'text-[#b28b40]',
         },
         dustyPlum: {
             background: 'bg-[#fcf6f9]',
             border: 'border-[#e0cdd5]',
-            icon: 'text-[#996e7e]',       // prune poussiéreuse
+            icon: 'text-[#996e7e]',
         },
     };
 
@@ -321,7 +345,7 @@ function StatCard({ label, value, icon, color }) {
     );
 }
 
-/* --- Icônes SVG inchangées (elles adoptent la couleur du parent) --- */
+/* --- Icônes SVG --- */
 function PackageIcon() {
     return (
         <svg className="w-full h-full" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -340,6 +364,7 @@ function FolderIcon() {
     );
 }
 
+// ... Les autres icônes restent identiques et propres
 function UsersIcon() {
     return (
         <svg className="w-full h-full" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

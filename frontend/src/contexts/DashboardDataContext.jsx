@@ -5,6 +5,7 @@ import {
     useEffect,
     useMemo,
     useCallback,
+    useRef,
 } from 'react';
 import { getAllProducts } from '../services/product';
 import { getCategories } from '../services/category';
@@ -24,16 +25,15 @@ const DashboardDataContext = createContext();
 export const extractList = (result, key = null) => {
     if (!result?.success) return [];
     const data = result.data;
-
     if (key && data && typeof data === 'object' && key in data) {
         return Array.isArray(data[key]) ? data[key] : [];
     }
-
     return Array.isArray(data) ? data : (data?.data ?? []);
 };
 
 export const DashboardDataProvider = ({ children }) => {
-    const initial = getInitialDashboardState();
+    //  OPTIMISATION 1 : getInitialDashboardState n'est appelé qu'UNE SEULE FOIS au montage
+    const [initial] = useState(() => getInitialDashboardState());
 
     const [products, setProducts] = useState(initial.products);
     const [categories, setCategories] = useState(initial.categories);
@@ -43,9 +43,17 @@ export const DashboardDataProvider = ({ children }) => {
     const [shippingZones, setShippingZones] = useState(initial.shippingZones);
     const [heroConfig, setHeroConfig] = useState(initial.heroConfig);
     const [advancedStats, setAdvancedStats] = useState(initial.advancedStats);
+    
     const [isLoading, setIsLoading] = useState(!initial.hasCache);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [error, setError] = useState(null);
+
+    // Utilisation d'une ref pour éviter que fetchAll dépende des valeurs par défaut de initial
+    const defaultsRef = useRef({
+        heroConfig: initial.heroConfig,
+        metrics: initial.metrics,
+        advancedStats: initial.advancedStats
+    });
 
     const syncCache = useCallback((data) => {
         setDashboardCache({
@@ -75,13 +83,14 @@ export const DashboardDataProvider = ({ children }) => {
         setError(null);
 
         try {
+            //  OPTIMISATION 2 : On sépare les données vitales immédiates (Boutique / Ventes) 
+            // des statistiques lourdes calculées par le serveur (AdvancedStats)
             const [
                 productsList,
                 categoriesRes,
                 usersRes,
                 ordersRes,
                 settings,
-                stats,
             ] = await Promise.all([
                 getAllProducts(),
                 getCategories(),
@@ -89,9 +98,8 @@ export const DashboardDataProvider = ({ children }) => {
                 getOrders(),
                 dashboardService.getSettings().catch(() => ({
                     shippingZones: cached?.shippingZones ?? [],
-                    heroConfig: cached?.heroConfig ?? initial.heroConfig,
+                    heroConfig: cached?.heroConfig ?? defaultsRef.current.heroConfig,
                 })),
-                dashboardService.getAdvancedStats(30).catch(() => cached?.advancedStats ?? null),
             ]);
 
             const nextCategories = extractList(categoriesRes);
@@ -99,11 +107,11 @@ export const DashboardDataProvider = ({ children }) => {
             const nextOrders = extractList(ordersRes, 'orders');
             const nextMetrics = ordersRes?.success && ordersRes.data?.metrics
                 ? ordersRes.data.metrics
-                : cached?.metrics ?? initial.metrics;
+                : cached?.metrics ?? defaultsRef.current.metrics;
             const nextShippingZones = normalizeShippingZones(settings?.shippingZones ?? []);
-            const nextHeroConfig = settings?.heroConfig ?? initial.heroConfig;
-            const nextAdvancedStats = stats ?? cached?.advancedStats ?? null;
+            const nextHeroConfig = settings?.heroConfig ?? defaultsRef.current.heroConfig;
 
+            // Mise à jour immédiate des données principales pour libérer l'écran de chargement au plus vite
             setProducts(productsList);
             setCategories(nextCategories);
             setUsers(nextUsers);
@@ -111,8 +119,8 @@ export const DashboardDataProvider = ({ children }) => {
             setMetrics(nextMetrics);
             setShippingZones(nextShippingZones);
             setHeroConfig(nextHeroConfig);
-            setAdvancedStats(nextAdvancedStats);
-
+            
+            // On cache les données actuelles (sans les stats avancées pour le moment)
             syncCache({
                 products: productsList,
                 categories: nextCategories,
@@ -121,21 +129,47 @@ export const DashboardDataProvider = ({ children }) => {
                 metrics: nextMetrics,
                 shippingZones: nextShippingZones,
                 heroConfig: nextHeroConfig,
-                advancedStats: nextAdvancedStats,
+                advancedStats: cached?.advancedStats ?? defaultsRef.current.advancedStats,
             });
+
+            // L'écran principal est disponible pour l'utilisateur dès maintenant !
+            setIsLoading(false);
+
+            //  OPTIMISATION 3 : On lance le calcul des stats avancées en arrière-plan
+            // sans bloquer l'affichage global du tableau de bord
+            dashboardService.getAdvancedStats(30)
+                .then((stats) => {
+                    const nextAdvancedStats = stats ?? cached?.advancedStats ?? null;
+                    setAdvancedStats(nextAdvancedStats);
+                    
+                    // On met à jour le cache final avec les stats calculées
+                    syncCache({
+                        products: productsList,
+                        categories: nextCategories,
+                        users: nextUsers,
+                        orders: nextOrders,
+                        metrics: nextMetrics,
+                        shippingZones: nextShippingZones,
+                        heroConfig: nextHeroConfig,
+                        advancedStats: nextAdvancedStats,
+                    });
+                })
+                .catch((err) => console.error('Erreur stats avancées différées:', err));
+
         } catch (err) {
             console.error('Erreur chargement dashboard:', err);
             setError('Erreur lors du chargement des données');
+            setIsLoading(false); // S'assurer de couper le loader en cas de crash complet
         } finally {
-            setIsLoading(false);
             setIsRefreshing(false);
         }
-    }, [initial.heroConfig, initial.metrics, syncCache]);
+    }, [syncCache]);
 
     useEffect(() => {
         fetchAll();
     }, [fetchAll]);
 
+    // Sauvegarde automatique en cache lors des mutations locales
     useEffect(() => {
         if (isLoading) return;
         syncCache({
@@ -165,40 +199,23 @@ export const DashboardDataProvider = ({ children }) => {
 
     const value = useMemo(
         () => ({
-            products,
-            setProducts,
-            categories,
-            setCategories,
-            users,
-            setUsers,
-            orders,
-            setOrders,
-            metrics,
-            setMetrics,
-            shippingZones,
-            setShippingZones,
-            heroConfig,
-            setHeroConfig,
-            advancedStats,
-            setAdvancedStats,
+            products, setProducts,
+            categories, setCategories,
+            users, setUsers,
+            orders, setOrders,
+            metrics, setMetrics,
+            shippingZones, setShippingZones,
+            heroConfig, setHeroConfig,
+            advancedStats, setAdvancedStats,
             isLoading,
             isRefreshing,
             error,
             refreshAll,
         }),
         [
-            products,
-            categories,
-            users,
-            orders,
-            metrics,
-            shippingZones,
-            heroConfig,
-            advancedStats,
-            isLoading,
-            isRefreshing,
-            error,
-            refreshAll,
+            products, categories, users, orders, metrics,
+            shippingZones, heroConfig, advancedStats,
+            isLoading, isRefreshing, error, refreshAll,
         ],
     );
 

@@ -96,13 +96,13 @@ export const CatalogProvider = ({ children }) => {
 
     const fetchProductPage = useCallback(async ({
         page = 1,
-        categoryId = null,
+        categorySlug = null,
         sort = 'nouveautes',
         search = '',
         inStock = null,
         force = false,
     } = {}) => {
-        const key = buildProductsCacheKey({ page, categoryId, sort, search, inStock });
+        const key = buildProductsCacheKey({ page, categorySlug, sort, search, inStock });
         const cached = getCachedProductPage(key);
 
         if (!force && cached && isProductPageFresh(cached)) {
@@ -119,7 +119,7 @@ export const CatalogProvider = ({ children }) => {
 
         const result = await getProducts(
             page,
-            categoryId,
+            categorySlug,
             effectiveSort,
             search,
             inStockOnly,
@@ -193,13 +193,13 @@ export const useCatalogData = () => {
 /** Hook pour une page produits paginée avec cache */
 export const useCatalogProducts = ({
     page = 1,
-    categoryId = null,
+    categorySlug = null,
     sort = 'nouveautes',
     search = '',
     inStock = null,
 }) => {
     const { fetchProductPage } = useCatalogData();
-    const cacheKey = buildProductsCacheKey({ page, categoryId, sort, search, inStock });
+    const cacheKey = buildProductsCacheKey({ page, categorySlug, sort, search, inStock });
     const cached = getCachedProductPage(cacheKey);
 
     const [products, setProducts] = useState(cached?.products ?? []);
@@ -210,7 +210,7 @@ export const useCatalogProducts = ({
 
     useEffect(() => {
         let cancelled = false;
-        const key = buildProductsCacheKey({ page, categoryId, sort, search, inStock });
+        const key = buildProductsCacheKey({ page, categorySlug, sort, search, inStock });
         const existing = getCachedProductPage(key);
 
         if (existing) {
@@ -224,7 +224,7 @@ export const useCatalogProducts = ({
             setIsLoading(true);
         }
 
-        fetchProductPage({ page, categoryId, sort, search, inStock })
+        fetchProductPage({ page, categorySlug, sort, search, inStock })
             .then((result) => {
                 if (cancelled) return;
                 setProducts(result.products);
@@ -241,7 +241,7 @@ export const useCatalogProducts = ({
         return () => {
             cancelled = true;
         };
-    }, [page, categoryId, sort, search, inStock, fetchProductPage]);
+    }, [page, categorySlug, sort, search, inStock, fetchProductPage]);
 
     return { products, totalPages, totalItems, isLoading, isRefreshing };
 };

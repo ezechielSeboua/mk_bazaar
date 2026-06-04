@@ -20,11 +20,11 @@ let memoryCache = {
 
 export const buildProductsCacheKey = ({
     page = 1,
-    categoryId = null,
+    categorySlug = null,
     sort = 'nouveautes',
     search = '',
     inStock = null,
-}) => JSON.stringify({ page, categoryId, sort, search: search.trim(), inStock });
+}) => JSON.stringify({ page, categorySlug, sort, search: search.trim(), inStock });
 
 export const getCatalogCache = () => memoryCache;
 

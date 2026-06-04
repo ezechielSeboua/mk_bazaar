@@ -1,75 +1,70 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { MoreVertical, Pencil, Trash2 } from "lucide-react";
 import DashboardLayout from "../../components/DashboardLayout";
+import ConfirmDialog from "../../components/ConfirmDialog";
 import { DashboardTableSkeleton } from "../../components/DashboardSkeletons";
-import {
-  createUser,
-  updateUser,
-  deleteUser,
-} from "../../services/users";
+import { createUser, updateUser, deleteUser } from "../../services/users";
 import { useDashboardData } from "../../contexts/DashboardDataContext";
+import { useAuth } from "../../contexts/AuthContext"; // <-- pour l'auto-suppression
 
-/* ---------- Icônes SVG ---------- */
-function ColonIcon() {
+/* ─── Constantes ─────────────────────────────────────────────────── */
+
+const EMPTY_FORM = { name: "", email: "", password: "", is_admin: false };
+const EMAIL_RE   = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const DATE_FMT = new Intl.DateTimeFormat("fr-FR", {
+  day: "2-digit", month: "short", year: "numeric",
+});
+
+/* ─── Micro-composants ───────────────────────────────────────────── */
+
+function Field({ label, error, children }) {
   return (
-    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-      <circle cx="12" cy="6" r="2.5" />
-      <circle cx="12" cy="18" r="2.5" />
-    </svg>
+    <div className="space-y-2">
+      <label className="text-[10px] uppercase tracking-wider font-bold block">
+        {label}
+      </label>
+      {children}
+      {error && (
+        <p className="text-red-600 text-[10px] mt-1 animate-[fadeIn_0.2s_ease-out]">
+          {error}
+        </p>
+      )}
+    </div>
   );
 }
 
-function EditIcon({ className = "w-5 h-5" }) {
-  return (
-    <svg
-      className={className}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M12 20h9" />
-      <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
-    </svg>
-  );
-}
+const inputCls = (hasError) =>
+  `w-full px-3 py-2 border text-sm transition-colors duration-200 focus:outline-none focus:border-stone-950 ${
+    hasError ? "border-red-400 bg-red-50/30" : "border-stone-300"
+  }`;
 
-function TrashIcon({ className = "w-5 h-5" }) {
-  return (
-    <svg
-      className={className}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <polyline points="3 6 5 6 21 6" />
-      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-    </svg>
-  );
-}
+/* ─── Page ───────────────────────────────────────────────────────── */
 
 export default function UsersPage() {
   const { users, setUsers, isLoading } = useDashboardData();
-  const [showForm, setShowForm] = useState(false);
-  const [editingId, setEditingId] = useState(null);
-  const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    password: "",
-    is_admin: false,
-  });
-  const [errors, setErrors] = useState({});
-  const [openMenuId, setOpenMenuId] = useState(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const menuRef = useRef(null);
+  const { user: currentUser } = useAuth(); // utilisateur connecté
 
+  // Formulaire
+  const [showForm,     setShowForm]     = useState(false);
+  const [editingId,    setEditingId]    = useState(null);
+  const [formData,     setFormData]     = useState(EMPTY_FORM);
+  const [errors,       setErrors]       = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Feedback
+  const [apiError,        setApiError]        = useState(null);
+  const [confirmDelete,   setConfirmDelete]   = useState({ show: false, id: null, name: "" });
+  const [deletingId,      setDeletingId]      = useState(null);
+
+  // Menu contextuel
+  const [openMenuId,    setOpenMenuId]    = useState(null);
+  const menuContainerRef = useRef(null);
+
+  /* ── Fermeture menu au clic extérieur ── */
   useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (menuRef.current && !menuRef.current.contains(event.target)) {
+    const handleClickOutside = (e) => {
+      if (menuContainerRef.current && !menuContainerRef.current.contains(e.target)) {
         setOpenMenuId(null);
       }
     };
@@ -77,243 +72,207 @@ export default function UsersPage() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleChange = (e) => {
+  /* ── Formulaire ── */
+
+  const handleChange = useCallback((e) => {
     const { name, value, type, checked } = e.target;
-    let newValue;
-    if (type === "checkbox") {
-      newValue = checked;
-    } else if (name === "is_admin") {
-      newValue = value === "1";
-    } else {
-      newValue = value;
-    }
+    const newValue = type === "checkbox"
+      ? checked
+      : name === "is_admin"
+        ? value === "1"
+        : value;
+
     setFormData((prev) => ({ ...prev, [name]: newValue }));
-    if (errors[name]) setErrors((prev) => ({ ...prev, [name]: "" }));
-  };
+    setErrors((prev) => prev[name] ? { ...prev, [name]: "" } : prev);
+  }, []);
 
-  const validateForm = () => {
-    const newErrors = {};
-    if (!formData.name.trim()) newErrors.name = "Le nom est requis";
-    if (!formData.email.trim()) newErrors.email = "L'email est requis";
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email))
-      newErrors.email = "Email invalide";
+  const validateForm = useCallback(() => {
+    const e = {};
+    if (!formData.name.trim())  e.name  = "Le nom est requis";
+    if (!formData.email.trim()) e.email = "L'email est requis";
+    else if (!EMAIL_RE.test(formData.email)) e.email = "Email invalide";
     if (!editingId && !formData.password.trim())
-      newErrors.password = "Mot de passe requis pour un nouvel utilisateur";
-    return newErrors;
-  };
+      e.password = "Mot de passe requis pour un nouvel utilisateur";
+    return e;
+  }, [formData, editingId]);
 
-  const handleSubmit = async (e) => {
+  const resetForm = useCallback(() => {
+    setShowForm(false);
+    setEditingId(null);
+    setFormData(EMPTY_FORM);
+    setErrors({});
+  }, []);
+
+  const handleSubmit = useCallback(async (e) => {
     e.preventDefault();
     const newErrors = validateForm();
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors);
-      return;
-    }
+    if (Object.keys(newErrors).length) { setErrors(newErrors); return; }
 
     setIsSubmitting(true);
+    setApiError(null);
+
     try {
       const payload = {
-        name: formData.name,
-        email: formData.email,
-        is_admin: formData.is_admin ? true : false,
+        name:     formData.name,
+        email:    formData.email,
+        is_admin: Boolean(formData.is_admin),
+        ...(formData.password.trim() && { password: formData.password }),
       };
 
-      if (formData.password.trim()) {
-        payload.password = formData.password;
-      }
-
       if (editingId) {
-        const updated = await updateUser(editingId, payload);
-        if (updated.success) {
+        const result = await updateUser(editingId, payload);
+        if (result.success) {
           setUsers((prev) =>
-            prev.map((u) => (u.id === editingId ? { ...u, ...payload } : u)),
+            prev.map((u) => (u.id === editingId ? { ...u, ...payload } : u))
           );
+          resetForm();
+        } else {
+          setApiError(result?.error || "Erreur lors de la mise à jour");
         }
       } else {
-        const created = await createUser(payload);
-        if (created.success) {
-          setUsers((prev) => [...prev, created.data]);
+        const result = await createUser(payload);
+        if (result.success) {
+          setUsers((prev) => [...prev, result.data]);
+          resetForm();
+        } else {
+          setApiError(result?.error || "Erreur lors de la création");
         }
       }
-
-      setFormData({ name: "", email: "", password: "", is_admin: false });
-      setEditingId(null);
-      setShowForm(false);
-      setErrors({});
-    } catch (error) {
-      console.error(error);
+    } catch (err) {
+      console.error(err);
+      setApiError("Erreur inattendue");
     } finally {
       setIsSubmitting(false);
     }
-  };
+  }, [formData, editingId, validateForm, resetForm, setUsers]);
 
-  const handleEdit = (user) => {
+  const handleEdit = useCallback((user) => {
     setFormData({
-      name: user.name,
-      email: user.email,
+      name:     user.name     ?? "",
+      email:    user.email    ?? "",
       password: "",
-      is_admin: user.is_admin === 1 || user.is_admin === true, // conversion
+      is_admin: user.is_admin === 1 || user.is_admin === true,
     });
     setEditingId(user.id);
     setShowForm(true);
     setOpenMenuId(null);
-  };
+  }, []);
 
-  const handleDelete = async (id) => {
-    if (!confirm("Êtes-vous sûr de vouloir supprimer cet utilisateur ?"))
-      return;
-    try {
-      await deleteUser(id);
-      setUsers((prev) => prev.filter((u) => u.id !== id));
-    } catch (error) {
-      console.error(error);
-    }
+  /* ── Suppression ── */
+  const requestDelete = useCallback((user) => {
+    setConfirmDelete({ show: true, id: user.id, name: user.name });
     setOpenMenuId(null);
-  };
+  }, []);
 
-  const handleCancel = () => {
-    setShowForm(false);
-    setEditingId(null);
-    setFormData({ name: "", email: "", password: "", is_admin: false });
-    setErrors({});
-  };
+  const handleDelete = useCallback(async () => {
+    const { id } = confirmDelete;
+    if (!id) return;
+    setDeletingId(id);
+    try {
+      const result = await deleteUser(id);
+      if (result?.success !== false) {
+        setUsers((prev) => prev.filter((u) => u.id !== id));
+      } else {
+        setApiError(result?.error || "Erreur lors de la suppression");
+      }
+    } catch (err) {
+      console.error(err);
+      setApiError("Erreur inattendue");
+    } finally {
+      setDeletingId(null);
+      setConfirmDelete({ show: false, id: null, name: "" });
+    }
+  }, [confirmDelete, setUsers]);
 
-  const toggleMenu = (id) => {
-    setOpenMenuId((prev) => (prev === id ? null : id));
-  };
-
+  /* ─── Rendu ─────────────────────────────────────────────────────── */
   return (
     <DashboardLayout>
+      {/* Keyframes CSS */}
+      <style>{`
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideDown { from { opacity: 0; transform: translateY(-12px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes scaleIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+        @keyframes tableFadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+      `}</style>
+
       <div className="space-y-6">
+
+        {/* Erreur API */}
+        {apiError && (
+          <div className="bg-red-50 border border-red-200 p-3 text-red-700 text-sm animate-[slideDown_0.25s_ease-out]">
+            {apiError}
+          </div>
+        )}
+
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-light uppercase tracking-tight">
               Utilisateurs
             </h1>
-            <p className="text-stone-600 text-sm mt-1">
-              {isLoading && users.length === 0 ? (
-                <span className="inline-block w-24 h-4 bg-stone-200 rounded animate-pulse" />
-              ) : (
-                `${users.length} utilisateurs`
-              )}
+            <p className="text-stone-600 text-sm mt-1 transition-all duration-300">
+              {isLoading && users.length === 0
+                ? <span className="inline-block w-24 h-4 bg-stone-200 rounded animate-pulse" />
+                : `${users.length} utilisateur(s)`
+              }
             </p>
           </div>
-          {!showForm && (
-            <button
-              onClick={() => setShowForm(true)}
-              className="bg-black text-[#F9F9F7] px-6 py-3 text-[11px] uppercase tracking-wider font-medium hover:bg-stone-900"
-            >
-              + Ajouter un utilisateur
-            </button>
-          )}
+          <div className="relative h-11 w-56 flex justify-end">
+            {!showForm && (
+              <button
+                onClick={() => setShowForm(true)}
+                className="absolute right-0 bg-black text-[#F9F9F7] px-6 py-3 text-[11px] uppercase tracking-wider font-medium hover:bg-stone-900 transition-all duration-200 active:scale-[0.98] animate-[fadeIn_0.2s_ease-out]"
+              >
+                + Ajouter un utilisateur
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Formulaire */}
         {showForm && (
-          <div className="bg-white border border-stone-200 rounded-lg p-6">
-            <h2 className="text-lg font-medium uppercase tracking-wider mb-6">
+          <div className="bg-white border border-stone-200 rounded-lg p-6 shadow-sm origin-top animate-[slideDown_0.28s_cubic-bezier(0.16,1,0.3,1)]">
+            <h2 className="text-lg font-medium uppercase tracking-wider mb-6 text-stone-800">
               {editingId ? "Éditer l'utilisateur" : "Nouvel utilisateur"}
             </h2>
             <form onSubmit={handleSubmit} className="space-y-4 max-w-2xl">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-[10px] uppercase tracking-wider font-bold block mb-2">
-                    Nom complet *
-                  </label>
-                  <input
-                    type="text"
-                    name="name"
-                    value={formData.name}
-                    onChange={handleChange}
-                    className={`w-full px-3 py-2 border text-sm ${
-                      errors.name ? "border-red-400" : "border-stone-300"
-                    }`}
-                  />
-                  {errors.name && (
-                    <p className="text-red-600 text-[10px] mt-1">
-                      {errors.name}
-                    </p>
-                  )}
-                </div>
-                <div>
-                  <label className="text-[10px] uppercase tracking-wider font-bold block mb-2">
-                    Email *
-                  </label>
-                  <input
-                    type="email"
-                    name="email"
-                    value={formData.email}
-                    onChange={handleChange}
-                    className={`w-full px-3 py-2 border text-sm ${
-                      errors.email ? "border-red-400" : "border-stone-300"
-                    }`}
-                  />
-                  {errors.email && (
-                    <p className="text-red-600 text-[10px] mt-1">
-                      {errors.email}
-                    </p>
-                  )}
-                </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Field label="Nom complet *" error={errors.name}>
+                  <input type="text" name="name" value={formData.name}
+                    onChange={handleChange} className={inputCls(errors.name)} />
+                </Field>
+                <Field label="Email *" error={errors.email}>
+                  <input type="email" name="email" value={formData.email}
+                    onChange={handleChange} className={inputCls(errors.email)} />
+                </Field>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-[10px] uppercase tracking-wider font-bold block mb-2">
-                    Rôle
-                  </label>
-                  <select
-                    name="is_admin"
-                    value={formData.is_admin ? "1" : "0"}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Field label="Rôle">
+                  <select name="is_admin" value={formData.is_admin ? "1" : "0"}
                     onChange={handleChange}
-                    className="w-full px-3 py-2 border border-stone-300 text-sm"
+                    className="w-full px-3 py-2 border border-stone-300 text-sm transition-colors focus:outline-none focus:border-stone-950"
                   >
                     <option value="0">Client</option>
                     <option value="1">Administrateur(trice)</option>
                   </select>
-                </div>
-                <div>
-                  <label className="text-[10px] uppercase tracking-wider font-bold block mb-2">
-                    Mot de passe {!editingId && "*"}
-                  </label>
-                  <input
-                    type="password"
-                    name="password"
-                    value={formData.password}
+                </Field>
+                <Field label={`Mot de passe${!editingId ? " *" : ""}`} error={errors.password}>
+                  <input type="password" name="password" value={formData.password}
                     onChange={handleChange}
-                    placeholder={
-                      editingId
-                        ? "Laisser vide pour conserver le mot de passe"
-                        : ""
-                    }
-                    className={`w-full px-3 py-2 border text-sm ${
-                      errors.password ? "border-red-400" : "border-stone-300"
-                    }`}
-                  />
-                  {errors.password && (
-                    <p className="text-red-600 text-[10px] mt-1">
-                      {errors.password}
-                    </p>
-                  )}
-                </div>
+                    placeholder={editingId ? "Laisser vide pour conserver" : ""}
+                    className={inputCls(errors.password)} />
+                </Field>
               </div>
 
               <div className="flex gap-3 pt-4">
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="bg-black text-[#F9F9F7] px-6 py-2 text-[11px] uppercase tracking-wider font-medium hover:bg-stone-900 disabled:opacity-50"
+                <button type="submit" disabled={isSubmitting}
+                  className="bg-black text-[#F9F9F7] px-6 py-2 text-[11px] uppercase tracking-wider font-medium hover:bg-stone-900 disabled:opacity-50 transition-all active:scale-[0.98]"
                 >
-                  {isSubmitting
-                    ? "Enregistrement..."
-                    : editingId
-                      ? "Mettre à jour"
-                      : "Créer"}
+                  {isSubmitting ? "Enregistrement..." : editingId ? "Mettre à jour" : "Créer"}
                 </button>
-                <button
-                  type="button"
-                  onClick={handleCancel}
-                  className="border border-stone-300 px-6 py-2 text-[11px] uppercase tracking-wider font-medium hover:bg-stone-50"
+                <button type="button" onClick={resetForm}
+                  className="border border-stone-300 px-6 py-2 text-[11px] uppercase tracking-wider font-medium hover:bg-stone-50 transition-colors"
                 >
                   Annuler
                 </button>
@@ -322,106 +281,106 @@ export default function UsersPage() {
           </div>
         )}
 
-        {/* Liste */}
-        <div className="bg-white border border-stone-200 rounded-lg">
+        {/* Tableau */}
+        <div
+          className="bg-white border border-stone-200 rounded-lg shadow-sm overflow-hidden animate-[tableFadeIn_0.45s_ease-out]"
+          key={users.length} // remonte l'animation à chaque changement de la liste
+        >
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-stone-50 border-b border-stone-200">
                 <tr>
-                  <th className="text-left py-3 px-6 font-bold uppercase text-[10px] tracking-wider">
-                    Nom
-                  </th>
-                  <th className="text-left py-3 px-6 font-bold uppercase text-[10px] tracking-wider">
-                    Email
-                  </th>
-                  <th className="text-left py-3 px-6 font-bold uppercase text-[10px] tracking-wider">
-                    Rôle
-                  </th>
-                  <th className="text-left py-3 px-6 font-bold uppercase text-[10px] tracking-wider">
-                    Date d'inscription
-                  </th>
-                  <th className="text-left py-3 px-6 font-bold uppercase text-[10px] tracking-wider">
-                    Actions
-                  </th>
+                  {["Nom", "Email", "Rôle", "Date d'inscription", "Actions"].map((h) => (
+                    <th key={h} className="text-left py-3 px-6 font-bold uppercase text-[10px] tracking-wider text-stone-500">
+                      {h}
+                    </th>
+                  ))}
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-stone-100">
                 {isLoading && users.length === 0 ? (
                   <DashboardTableSkeleton rows={4} cols={5} />
                 ) : users.length === 0 ? (
                   <tr>
-                    <td colSpan="5" className="py-12 text-center text-stone-400 text-sm">
+                    <td colSpan="5" className="py-12 text-center text-stone-400 text-sm animate-[fadeIn_0.3s_ease-out]">
                       Aucun utilisateur
                     </td>
                   </tr>
                 ) : (
-                users.map((user) => (
-                  <tr
-                    key={user.id}
-                    className="border-b border-stone-100 hover:bg-stone-50"
-                  >
-                    <td className="py-4 px-6 font-medium">{user.name}</td>
-                    <td className="py-4 px-6 text-stone-600">{user.email}</td>
-                    <td className="py-4 px-6">
-                      <span
-                        className={`px-3 py-1 rounded text-[10px] font-bold ${
-                          user.is_admin
-                            ? "bg-purple-100 text-purple-800"
-                            : "bg-stone-100 text-stone-800"
-                        }`}
-                      >
-                        {user.is_admin ? "Administrateur" : "Client"}
-                      </span>
-                    </td>
-                    <td className="py-4 px-6 text-stone-600">
-                      {user.created_at
-                        ? new Date(user.created_at).toLocaleDateString(
-                            "fr-FR",
-                            {
-                              day: "2-digit",
-                              month: "short",
-                              year: "numeric",
-                            },
-                          )
-                        : "—"}
-                    </td>
-                    <td className="py-4 px-6 relative overflow-visible">
-                      <button
-                        onClick={() => toggleMenu(user.id)}
-                        className="text-stone-500 hover:text-stone-800 p-1 rounded transition-colors"
-                        title="Actions"
-                      >
-                        <ColonIcon />
-                      </button>
-                      {openMenuId === user.id && (
-                        <div
-                          ref={menuRef}
-                          className="absolute right-6 top-full mt-1 w-40 bg-white border border-stone-200 rounded shadow-lg z-50 py-1"
+                  users.map((user) => {
+                    const isSelf = currentUser?.id === user.id;
+                    return (
+                      <tr key={user.id} className="hover:bg-stone-50/80 transition-colors duration-150">
+                        <td className="py-4 px-6 font-medium text-stone-900">{user.name}</td>
+                        <td className="py-4 px-6 text-stone-600">{user.email}</td>
+                        <td className="py-4 px-6">
+                          <span className={`px-2.5 py-1 rounded text-[10px] font-bold tracking-wide transition-all ${
+                            user.is_admin
+                              ? "bg-purple-50 text-purple-700 border border-purple-100"
+                              : "bg-stone-100 text-stone-800"
+                          }`}>
+                            {user.is_admin ? "Administrateur" : "Client"}
+                          </span>
+                        </td>
+                        <td className="py-4 px-6 text-stone-600">
+                          {user.created_at ? DATE_FMT.format(new Date(user.created_at)) : "—"}
+                        </td>
+
+                        {/* Menu contextuel */}
+                        <td className="py-4 px-6 relative overflow-visible"
+                          ref={openMenuId === user.id ? menuContainerRef : null}
                         >
                           <button
-                            onClick={() => handleEdit(user)}
-                            className="w-full text-left px-4 py-2 text-[13px] hover:bg-stone-100 transition-colors flex items-center gap-2"
+                            onClick={() => setOpenMenuId((id) => id === user.id ? null : user.id)}
+                            className={`p-1 rounded transition-all duration-150 ${
+                              openMenuId === user.id ? "bg-stone-100 text-stone-900" : "text-stone-400 hover:text-stone-700 hover:bg-stone-50"
+                            }`}
                           >
-                            <EditIcon className="w-4 h-4" />
-                            Éditer
+                            <MoreVertical className="w-4 h-4" />
                           </button>
-                          <button
-                            onClick={() => handleDelete(user.id)}
-                            className="w-full text-left px-4 py-2 text-[13px] text-red-600 hover:bg-red-50 transition-colors flex items-center gap-2"
-                          >
-                            <TrashIcon className="w-4 h-4" />
-                            Supprimer
-                          </button>
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                ))
+                          
+                          {openMenuId === user.id && (
+                            <div className="absolute right-6 top-full mt-1 w-40 bg-white border border-stone-200 rounded shadow-xl z-50 py-1 origin-top-right animate-[scaleIn_0.15s_cubic-bezier(0.16,1,0.3,1)]">
+                              <button onClick={() => handleEdit(user)}
+                                className="w-full text-left px-4 py-2 text-[13px] text-stone-700 hover:bg-stone-50 transition-colors flex items-center gap-2"
+                              >
+                                <Pencil className="w-3.5 h-3.5 text-stone-400" /> Éditer
+                              </button>
+                              {/* Suppression impossible pour soi-même */}
+                              {!isSelf && (
+                                <button onClick={() => requestDelete(user)}
+                                  className="w-full text-left px-4 py-2 text-[13px] text-red-600 hover:bg-red-50/60 transition-colors flex items-center gap-2"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5 text-red-400" /> Supprimer
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
           </div>
         </div>
+
+        {/* Confirmation suppression */}
+        <ConfirmDialog
+          open={confirmDelete.show}
+          title="Confirmer la suppression"
+          message={
+            <>
+              Voulez-vous vraiment supprimer{" "}
+              <span className="font-semibold text-black">"{confirmDelete.name}"</span>
+              {" "}? Cette action est irréversible.
+            </>
+          }
+          onConfirm={handleDelete}
+          onCancel={() => setConfirmDelete({ show: false, id: null, name: "" })}
+          loading={deletingId === confirmDelete.id}
+        />
       </div>
     </DashboardLayout>
   );
