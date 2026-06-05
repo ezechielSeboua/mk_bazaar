@@ -4,4 +4,4 @@ Allow: /
 Disallow: /dashboard
 Disallow: /login
 
-Sitemap: http://localhost:5173/sitemap.xml
+Sitemap: https://mk-bazaar.vercel.app//sitemap.xm
