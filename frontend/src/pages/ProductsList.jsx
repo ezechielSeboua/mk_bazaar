@@ -1,7 +1,7 @@
-import { useMemo } from "react";
+import { useState, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, X, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, X, ChevronLeft, ChevronRight, SlidersHorizontal } from "lucide-react";
 import Header from "../components/Header";
 import ProductHeader from "../components/ProductHeader";
 import FilterBar from "../components/FilterBar";
@@ -38,6 +38,7 @@ const itemVariants = {
 export default function ProductList() {
   const { categories, isRefreshing: catalogRefreshing } = useCatalogData();
   const [searchParams, setSearchParams] = useSearchParams();
+  const [showFilters, setShowFilters] = useState(false); // pour mobile
 
   const selectedCategorySlug = searchParams.get("category") || null;
   const sortBy = searchParams.get("sort") || "nouveautes";
@@ -114,7 +115,7 @@ export default function ProductList() {
         path="/products"
       />
       <Header />
-      <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 py-8 sm:py-12 md:py-16 w-full">
+      <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-10 md:py-16 w-full">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -123,24 +124,48 @@ export default function ProductList() {
           <ProductHeader />
         </motion.div>
 
-        <FilterBar
-          selectedCategory={selectedCategoryName}
-          setSelectedCategory={handleCategoryChange}
-          sortBy={sortBy}
-          setSortBy={handleSortChange}
-          showOutOfStock={showOutOfStock}
-          setShowOutOfStock={handleOutOfStockChange}
-          categories={categories}
-        />
+        {/* Filtres : bouton d'affichage sur mobile, toujours visible sur desktop */}
+        <div className="lg:hidden mb-4">
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 border border-stone-200 rounded-lg text-sm bg-white text-stone-700 hover:bg-stone-50 transition-colors"
+          >
+            <SlidersHorizontal className="w-4 h-4" />
+            {showFilters ? "Masquer les filtres" : "Afficher les filtres"}
+          </button>
+        </div>
 
-        <motion.div className="mb-8 max-w-md mx-auto md:mx-0 relative">
+        <AnimatePresence>
+          {(showFilters || window.innerWidth >= 1024) && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.3 }}
+              className="overflow-hidden"
+            >
+              <FilterBar
+                selectedCategory={selectedCategoryName}
+                setSelectedCategory={handleCategoryChange}
+                sortBy={sortBy}
+                setSortBy={handleSortChange}
+                showOutOfStock={showOutOfStock}
+                setShowOutOfStock={handleOutOfStockChange}
+                categories={categories}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Barre de recherche */}
+        <motion.div className="mb-6 md:mb-8 max-w-md mx-auto md:mx-0 relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
           <input
             type="text"
             placeholder="Rechercher un produit..."
             value={searchTerm}
             onChange={(e) => handleSearchChange(e.target.value)}
-            className="w-full pl-10 pr-10 py-2 border border-stone-200 rounded-full bg-white text-sm"
+            className="w-full pl-10 pr-10 py-2.5 border border-stone-200 rounded-full bg-white text-sm focus:outline-none focus:ring-2 focus:ring-stone-300"
           />
           {searchTerm && (
             <button
@@ -152,9 +177,9 @@ export default function ProductList() {
           )}
         </motion.div>
 
-        {/* Affichage conditionnel propre */}
+        {/* Affichage conditionnel */}
         {showInitialLoad ? (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-8 sm:gap-y-12">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-3 sm:gap-x-4 gap-y-6 sm:gap-y-10">
             {Array.from({ length: 8 }).map((_, i) => (
               <SkeletonCard key={i} />
             ))}
@@ -164,7 +189,7 @@ export default function ProductList() {
             <CapybaraLoader message="Chargement…" />
           </div>
         ) : products.length === 0 ? (
-          <div className="text-center py-12 sm:py-24 text-stone-400 text-xs uppercase tracking-widest">
+          <div className="text-center py-16 sm:py-24 text-stone-400 text-xs uppercase tracking-widest">
             Aucun résultat.
           </div>
         ) : (
@@ -175,7 +200,7 @@ export default function ProductList() {
               </p>
             )}
             <motion.div
-              className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-8 sm:gap-y-12"
+              className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-3 sm:gap-x-4 gap-y-6 sm:gap-y-10"
               variants={containerVariants}
               initial="hidden"
               animate="visible"
@@ -189,32 +214,38 @@ export default function ProductList() {
                 ))}
               </AnimatePresence>
             </motion.div>
+
             {totalPages > 1 && (
-              <div className="flex justify-center items-center gap-2 mt-8 sm:mt-12">
+              <div className="flex justify-center items-center gap-1 sm:gap-2 mt-8 sm:mt-12">
                 <button
                   onClick={() => handlePageChange(currentPage - 1)}
                   disabled={currentPage === 1}
-                  className="p-2 border rounded-full hover:bg-stone-100"
+                  className="p-2 border rounded-full hover:bg-stone-100 disabled:opacity-40"
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
-                {[...Array(totalPages)].map((_, i) => (
-                  <button
-                    key={i}
-                    onClick={() => handlePageChange(i + 1)}
-                    className={`w-8 h-8 rounded-full text-sm ${
-                      currentPage === i + 1
-                        ? "bg-black text-white"
-                        : "hover:bg-stone-100"
-                    }`}
-                  >
-                    {i + 1}
-                  </button>
-                ))}
+
+                {/* Numéros de page – affichage compact sur mobile */}
+                <div className="flex gap-1 sm:gap-2">
+                  {[...Array(totalPages)].map((_, i) => (
+                    <button
+                      key={i}
+                      onClick={() => handlePageChange(i + 1)}
+                      className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full text-xs sm:text-sm font-medium transition-colors ${
+                        currentPage === i + 1
+                          ? "bg-black text-white"
+                          : "hover:bg-stone-100 text-stone-700"
+                      }`}
+                    >
+                      {i + 1}
+                    </button>
+                  ))}
+                </div>
+
                 <button
                   onClick={() => handlePageChange(currentPage + 1)}
                   disabled={currentPage === totalPages}
-                  className="p-2 border rounded-full hover:bg-stone-100"
+                  className="p-2 border rounded-full hover:bg-stone-100 disabled:opacity-40"
                 >
                   <ChevronRight className="w-4 h-4" />
                 </button>

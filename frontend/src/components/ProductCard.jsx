@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import { Star } from "lucide-react";
 import { resolveMediaUrl, DEFAULT_PLACEHOLDER_IMAGE } from "../config/env";
 
-// Icône SVG pour la catégorie (tag)
+/* ---------- Icônes ---------- */
 const CategoryIcon = () => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
@@ -11,7 +11,7 @@ const CategoryIcon = () => (
     viewBox="0 0 24 24"
     strokeWidth={1.5}
     stroke="currentColor"
-    className="w-4 h-4 mr-1"
+    className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1"
   >
     <path
       strokeLinecap="round"
@@ -37,38 +37,16 @@ export default function ProductCard({ product, delay = 0 }) {
     ? resolveMediaUrl(product.image_path[0])
     : DEFAULT_PLACEHOLDER_IMAGE;
 
-  const name = product.name || "Natasha Romanoff";
+  const name = product.name || "Sans titre";
   const categoryName =
     typeof product.category === "object"
       ? product.category?.name
-      : product.category || "Brand Designer";
+      : product.category || "—";
 
-  const description = product.description || "Description par défaut";
+  const description = product.description || "";
   const rating = product.rating || "4.8";
-  const price = `${product.price || 50} FCFA`;
+  const price = `${product.price || 0} FCFA`;
   const inStock = product.in_stock;
-
-  // --- Gestion des favoris (localStorage) ---
-  //   const [isFavorite, setIsFavorite] = useState(false);
-
-  //   useEffect(() => {
-  //     const favorites = JSON.parse(localStorage.getItem("favorites") || "[]");
-  //     setIsFavorite(favorites.includes(product.id));
-  //   }, [product.id]);
-
-  //   const toggleFavorite = (e) => {
-  //     e.preventDefault();
-  //     e.stopPropagation();
-  //     const favorites = JSON.parse(localStorage.getItem("favorites") || "[]");
-  //     let newFavorites;
-  //     if (isFavorite) {
-  //       newFavorites = favorites.filter((id) => id !== product.id);
-  //     } else {
-  //       newFavorites = [...favorites, product.id];
-  //     }
-  //     localStorage.setItem("favorites", JSON.stringify(newFavorites));
-  //     setIsFavorite(!isFavorite);
-  //   };
 
   return (
     <motion.div
@@ -77,8 +55,7 @@ export default function ProductCard({ product, delay = 0 }) {
       viewport={{ once: true, amount: 0.2 }}
       transition={{ duration: 0.5, delay }}
       whileHover={{ y: -8, transition: { duration: 0.2 } }}
-      // Hauteur responsive : plus petite sur mobile, normale à partir de sm
-      className="group relative bg-white rounded-2xl shadow-lg hover:shadow-xl transition-shadow duration-300 overflow-hidden h-[420px] sm:h-[500px]"
+      className="group relative bg-white rounded-2xl shadow-lg hover:shadow-xl transition-shadow duration-300 overflow-hidden h-[300px] sm:h-[400px] md:h-[500px]"
     >
       {/* Image de fond */}
       <div className="absolute inset-0 w-full h-full">
@@ -90,88 +67,71 @@ export default function ProductCard({ product, delay = 0 }) {
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
       </div>
 
-      {/* Bouton favoris (cœur) en haut à droite - optionnel */}
-      {/* <button
-        onClick={toggleFavorite}
-        className="absolute top-4 right-4 z-20 p-2 rounded-full bg-black/50 backdrop-blur-sm hover:bg-black/70 transition-colors"
-        aria-label={isFavorite ? "Retirer des favoris" : "Ajouter aux favoris"}
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 24 24"
-          fill={isFavorite ? "currentColor" : "none"}
-          stroke="currentColor"
-          strokeWidth="1.5"
-          className="w-5 h-5 text-white"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z"
-          />
-        </svg>
-      </button> */}
+      {/* Contenu superposé */}
+      <div className="absolute bottom-0 left-0 right-0 z-10 p-3 sm:p-5 text-white">
+        {/* Nom du produit */}
+        <h2 className="text-base sm:text-lg md:text-xl font-bold tracking-tight leading-tight">
+          {name}
+        </h2>
 
-      {/* Contenu en bas */}
-      <div className="absolute bottom-0 left-0 right-0 z-10 p-4 sm:p-6 text-white">
-        {/* Nom du produit : taille réduite sur mobile */}
-        <h2 className="text-lg sm:text-xl font-bold tracking-tight">{name}</h2>
-        {/* Description : police plus petite sur mobile */}
-        <p className="text-xs sm:text-sm mt-1 leading-relaxed text-white/90 line-clamp-2 sm:line-clamp-none">
-          {description}
-        </p>
+        {/* Description (limitée à 2 lignes sur mobile, 3 sur tablette+) */}
+        {description && (
+          <p className="text-[11px] sm:text-xs md:text-sm mt-1 leading-relaxed text-white/90 line-clamp-2 sm:line-clamp-3">
+            {description}
+          </p>
+        )}
 
-        {/* Ligne de notation et prix : espacement réduit sur mobile */}
-        <div className="flex justify-around items-center border-y border-white/20 py-2 my-2 sm:py-3 sm:my-3">
+        {/* Note & Prix */}
+        <div className="flex justify-around items-center border-y border-white/20 py-1.5 my-1.5 sm:py-2 sm:my-2">
           <div className="text-center">
             <div className="flex items-center justify-center gap-1">
               <Star className="w-3 h-3 sm:w-4 sm:h-4 fill-amber-400 text-amber-400" />
-              <span className="font-bold text-xs sm:text-sm">{rating}</span>
+              <span className="font-bold text-[11px] sm:text-sm">{rating}</span>
             </div>
-            <span className="text-[8px] sm:text-[9px] uppercase tracking-wider text-white/70 font-medium">
+            <span className="text-[8px] sm:text-[10px] uppercase tracking-wider text-white/70 font-medium">
               Note
             </span>
           </div>
           <div className="text-center">
-            <div className="font-bold text-xs sm:text-sm">{price}</div>
-            <span className="text-[8px] sm:text-[9px] uppercase tracking-wider text-white/70 font-medium">
+            <div className="font-bold text-[11px] sm:text-sm">{price}</div>
+            <span className="text-[8px] sm:text-[10px] uppercase tracking-wider text-white/70 font-medium">
               Prix
             </span>
           </div>
         </div>
 
-        {/* Catégorie et statut */}
+        {/* Catégorie + Statut */}
         <div className="flex justify-between items-center">
           <div className="flex items-center mt-1 sm:mt-2">
             <CategoryIcon />
-            <p className="text-xs sm:text-sm font-medium">{categoryName}</p>
+            <p className="text-[11px] sm:text-xs md:text-sm font-medium truncate max-w-[100px] sm:max-w-none">
+              {categoryName}
+            </p>
           </div>
-          <div>
-            <span
-              className={`inline-block px-2 py-0.5 sm:py-1 text-[10px] sm:text-xs font-semibold rounded-full ${
-                inStock
-                  ? "bg-green-100 text-green-800"
-                  : "bg-red-100 text-red-800"
-              }`}
-            >
-              {inStock ? "En stock" : "Rupture de stock"}
-            </span>
-          </div>
+          <span
+            className={`inline-block px-2 py-0.5 text-[10px] sm:text-[11px] font-semibold rounded-full ${
+              inStock
+                ? "bg-green-100 text-green-800"
+                : "bg-red-100 text-red-800"
+            }`}
+          >
+            {inStock ? "En stock" : "Rupture"}
+          </span>
         </div>
 
-        {/* Bouton passer commande (désactivé si rupture) */}
-        <Link to={`/products/${product.slug}`}>
+        {/* Bouton commander */}
+        <Link to={`/products/${product.slug}`} className="block mt-2 sm:mt-3">
           <motion.button
             whileHover={inStock ? { scale: 1.02 } : {}}
             whileTap={inStock ? { scale: 0.98 } : {}}
             disabled={!inStock}
-            className={`w-full py-2.5 sm:py-3 rounded-full flex items-center justify-center gap-2 sm:gap-4 mt-3 sm:mt-4 text-xs sm:text-sm font-medium uppercase tracking-wider transition-colors duration-300 shadow-md ${
+            className={`w-full py-2 sm:py-2.5 rounded-full flex items-center justify-center gap-1.5 sm:gap-2 text-[11px] sm:text-xs font-medium uppercase tracking-wider transition-colors duration-300 shadow-md ${
               inStock
                 ? "bg-white text-black hover:bg-green-500 hover:text-white"
                 : "bg-stone-400 text-stone-600 cursor-not-allowed"
             }`}
           >
-            {inStock ? "Passer commande" : "Indisponible"}
+            {inStock ? "Commander" : "Indisponible"}
             {inStock && <WhatsAppIcon />}
           </motion.button>
         </Link>

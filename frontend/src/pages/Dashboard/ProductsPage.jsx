@@ -13,6 +13,7 @@ import {
   Square,
   ChevronLeft,
   ChevronRight,
+  SlidersHorizontal,
 } from "lucide-react";
 import DashboardLayout from "../../components/DashboardLayout";
 import ConfirmDialog from "../../components/ConfirmDialog";
@@ -37,7 +38,7 @@ const EMPTY_FORM = {
   featured: false,
 };
 
-const ITEMS_PER_PAGE = 10; // Nombre de produits par page
+const ITEMS_PER_PAGE = 10;
 
 const generateSlug = (name) =>
   name
@@ -65,12 +66,12 @@ function SkeletonRow() {
       animate={{ opacity: [0.6, 1, 0.6] }}
       transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
     >
-      {["w-10", "w-32", "w-20", "w-16", "w-16", "w-12", "w-12"].map(
+      {["w-8", "w-24", "w-20", "w-14", "w-14", "w-10", "w-10"].map(
         (wClass, i) => (
-          <td key={i} className="py-4 px-6">
+          <td key={i} className="py-3 px-2 md:py-4 md:px-4">
             <div className={`h-4 ${wClass} bg-stone-200 rounded`} />
           </td>
-        ),
+        )
       )}
     </motion.tr>
   );
@@ -128,6 +129,9 @@ export default function ProductsPage() {
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
 
+  // Filtres visibles sur mobile ?
+  const [showFilters, setShowFilters] = useState(false);
+
   /* ── Nettoyage ── */
   useEffect(() => {
     return () => {
@@ -173,14 +177,12 @@ export default function ProductsPage() {
     });
   }, [products, searchQuery, categoryFilter, stockFilter, featuredFilter]);
 
-  // Réinitialiser la page quand les filtres ou les données changent
   useEffect(() => {
     setCurrentPage(1);
   }, [filteredProducts]);
 
-  // Produits paginés (après filtrage)
   const totalPages = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE) || 1;
-  const safePage = Math.min(currentPage, totalPages); // éviter de dépasser si la taille diminue
+  const safePage = Math.min(currentPage, totalPages);
   const paginatedProducts = useMemo(() => {
     const start = (safePage - 1) * ITEMS_PER_PAGE;
     return filteredProducts.slice(start, start + ITEMS_PER_PAGE);
@@ -214,7 +216,6 @@ export default function ProductsPage() {
     });
   };
 
-  // La sélection est déjà réinitialisée dans le useEffect sur filteredProducts (ci-dessous)
   useEffect(() => {
     setSelectedIds(new Set());
   }, [filteredProducts]);
@@ -422,7 +423,7 @@ export default function ProductsPage() {
   /* ─── Rendu ─────────────────────────────────────────────────── */
   return (
     <DashboardLayout>
-      <div className="space-y-6">
+      <div className="space-y-4 md:space-y-6">
         {/* Messages */}
         <AnimatePresence>
           {apiError && (
@@ -451,13 +452,13 @@ export default function ProductsPage() {
 
         {/* Header */}
         <motion.div
-          className="flex items-center justify-between"
+          className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
         >
           <div>
-            <h1 className="text-3xl font-light uppercase tracking-tight">
+            <h1 className="text-2xl md:text-3xl font-light uppercase tracking-tight">
               Produits
             </h1>
             <p className="text-stone-600 text-sm mt-1">
@@ -477,11 +478,11 @@ export default function ProductsPage() {
               )}
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             {selectedIds.size > 0 && (
               <button
                 onClick={() => setConfirmBulkDelete(true)}
-                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 text-[11px] uppercase tracking-wider font-medium rounded transition-colors"
+                className="bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 sm:px-4 sm:py-2 text-[10px] sm:text-[11px] uppercase tracking-wider font-medium rounded transition-colors"
               >
                 Supprimer ({selectedIds.size})
               </button>
@@ -489,88 +490,74 @@ export default function ProductsPage() {
             {!showForm && (
               <button
                 onClick={() => setShowForm(true)}
-                className="bg-black text-[#F9F9F7] px-6 py-3 text-[11px] uppercase tracking-wider font-medium hover:bg-stone-900 transition-colors"
+                className="bg-black text-[#F9F9F7] px-4 py-2 sm:px-6 sm:py-3 text-[10px] sm:text-[11px] uppercase tracking-wider font-medium hover:bg-stone-900 transition-colors"
               >
-                + Ajouter un produit
+                + Ajouter
               </button>
             )}
           </div>
         </motion.div>
 
-        {/* Filtres */}
+        {/* Bouton Filtres (mobile) */}
         {!showForm && (
-          <motion.div
-            className="bg-white border border-stone-200 rounded-xl p-5 shadow-sm"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: 0.1 }}
-          >
-            <div className="flex flex-col lg:flex-row lg:items-end gap-4">
-              <div className="flex-1 min-w-0">
-                <FilterLabel>Rechercher</FilterLabel>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Nom ou slug..."
-                    className="w-full pl-10 pr-4 py-2.5 border border-stone-200 rounded-lg text-sm bg-stone-50 focus:bg-white focus:border-stone-400 focus:ring-1 focus:ring-stone-400 transition-all outline-none"
-                  />
-                </div>
-              </div>
-
-              <FilterSelect
-                label="Catégorie"
-                icon={<Tag className="w-4 h-4 text-stone-400" />}
-                value={categoryFilter}
-                onChange={(e) => setCategoryFilter(e.target.value)}
-                className="w-full lg:w-48"
-              >
-                <option value="">Toutes</option>
-                {categories.map((c) => (
-                  <option key={c.id} value={String(c.id)}>
-                    {c.name}
-                  </option>
-                ))}
-              </FilterSelect>
-
-              <FilterSelect
-                label="Stock"
-                icon={<Package className="w-4 h-4 text-stone-400" />}
-                value={stockFilter}
-                onChange={(e) => setStockFilter(e.target.value)}
-                className="w-full lg:w-40"
-              >
-                <option value="">Tous</option>
-                <option value="in_stock">En stock</option>
-                <option value="out_of_stock">Rupture</option>
-              </FilterSelect>
-
-              <FilterSelect
-                label="Mis en avant"
-                icon={<Star className="w-4 h-4 text-stone-400" />}
-                value={featuredFilter}
-                onChange={(e) => setFeaturedFilter(e.target.value)}
-                className="w-full lg:w-40"
-              >
-                <option value="">Tous</option>
-                <option value="yes">Oui</option>
-                <option value="no">Non</option>
-              </FilterSelect>
-
+          <div className="lg:hidden">
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 border border-stone-200 rounded-lg text-sm bg-white text-stone-700 hover:bg-stone-50 transition-colors"
+            >
+              <SlidersHorizontal className="w-4 h-4" />
+              {showFilters ? "Masquer les filtres" : "Afficher les filtres"}
               {hasActiveFilters && (
-                <button
-                  type="button"
-                  onClick={resetFilters}
-                  className="w-full lg:w-auto flex items-center gap-1.5 border border-red-200 bg-red-50 text-red-700 px-4 py-2.5 text-[11px] uppercase tracking-wider font-medium rounded-lg hover:bg-red-100 hover:border-red-300 transition-colors whitespace-nowrap"
-                >
-                  <RotateCcw className="w-3.5 h-3.5" /> Réinitialiser
-                </button>
+                <span className="ml-1 w-2 h-2 rounded-full bg-[#c07b5a]" />
               )}
-            </div>
-          </motion.div>
+            </button>
+          </div>
         )}
+
+        {/* Filtres (desktop toujours visibles, mobile conditionnel) */}
+        {!showForm && (
+          <div className="hidden lg:block">
+            <FiltersBlock
+              searchQuery={searchQuery}
+              setSearchQuery={setSearchQuery}
+              categoryFilter={categoryFilter}
+              setCategoryFilter={setCategoryFilter}
+              stockFilter={stockFilter}
+              setStockFilter={setStockFilter}
+              featuredFilter={featuredFilter}
+              setFeaturedFilter={setFeaturedFilter}
+              categories={categories}
+              hasActiveFilters={hasActiveFilters}
+              resetFilters={resetFilters}
+            />
+          </div>
+        )}
+
+        <AnimatePresence>
+          {!showForm && showFilters && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.3 }}
+              className="overflow-hidden lg:hidden"
+            >
+              <FiltersBlock
+                searchQuery={searchQuery}
+                setSearchQuery={setSearchQuery}
+                categoryFilter={categoryFilter}
+                setCategoryFilter={setCategoryFilter}
+                stockFilter={stockFilter}
+                setStockFilter={setStockFilter}
+                featuredFilter={featuredFilter}
+                setFeaturedFilter={setFeaturedFilter}
+                categories={categories}
+                hasActiveFilters={hasActiveFilters}
+                resetFilters={resetFilters}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Formulaire */}
         <AnimatePresence>
@@ -582,12 +569,12 @@ export default function ProductsPage() {
               transition={{ duration: 0.3 }}
               className="overflow-hidden"
             >
-              <div className="bg-white border border-stone-200 rounded-lg p-6">
-                <h2 className="text-lg font-medium uppercase tracking-wider mb-6">
+              <div className="bg-white border border-stone-200 rounded-lg p-4 sm:p-6">
+                <h2 className="text-base sm:text-lg font-medium uppercase tracking-wider mb-4 sm:mb-6">
                   {editingId ? "Éditer le produit" : "Nouveau produit"}
                 </h2>
                 <form onSubmit={handleSubmit} className="space-y-4 max-w-3xl">
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <Field label="Nom *" error={errors.name}>
                       <input
                         type="text"
@@ -603,13 +590,13 @@ export default function ProductsPage() {
                         name="slug"
                         value={formData.slug}
                         onChange={handleChange}
-                        placeholder="Auto-généré à partir du nom"
+                        placeholder="Auto-généré"
                         className={inputCls(errors.slug)}
                       />
                     </Field>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <Field label="Catégorie *" error={errors.category_id}>
                       <select
                         name="category_id"
@@ -657,7 +644,7 @@ export default function ProductsPage() {
                             <img
                               src={resolveMediaUrl(img.url)}
                               alt=""
-                              className="w-20 h-20 object-cover rounded border border-stone-200"
+                              className="w-16 h-16 sm:w-20 sm:h-20 object-cover rounded border border-stone-200"
                             />
                             <button
                               type="button"
@@ -691,7 +678,7 @@ export default function ProductsPage() {
                             key={i}
                             src={url}
                             alt=""
-                            className="w-20 h-20 object-cover rounded border border-stone-200"
+                            className="w-16 h-16 sm:w-20 sm:h-20 object-cover rounded border border-stone-200"
                           />
                         ))}
                       </div>
@@ -702,7 +689,7 @@ export default function ProductsPage() {
                     <button
                       type="submit"
                       disabled={isSubmitting}
-                      className="bg-black text-[#F9F9F7] px-6 py-2 text-[11px] uppercase tracking-wider font-medium hover:bg-stone-900 disabled:opacity-50"
+                      className="bg-black text-[#F9F9F7] px-4 sm:px-6 py-2 text-[10px] sm:text-[11px] uppercase tracking-wider font-medium hover:bg-stone-900 disabled:opacity-50"
                     >
                       {isSubmitting
                         ? "Enregistrement..."
@@ -713,7 +700,7 @@ export default function ProductsPage() {
                     <button
                       type="button"
                       onClick={resetForm}
-                      className="border border-stone-300 px-6 py-2 text-[11px] uppercase tracking-wider font-medium hover:bg-stone-50"
+                      className="border border-stone-300 px-4 sm:px-6 py-2 text-[10px] sm:text-[11px] uppercase tracking-wider font-medium hover:bg-stone-50"
                     >
                       Annuler
                     </button>
@@ -732,10 +719,10 @@ export default function ProductsPage() {
           transition={{ duration: 0.5, delay: 0.2 }}
         >
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-xs md:text-sm">
               <thead className="bg-stone-50 border-b border-stone-200">
                 <tr>
-                  <th className="py-3 px-4 w-10">
+                  <th className="py-3 px-2 md:px-4 w-8 md:w-10">
                     <button
                       onClick={toggleSelectAll}
                       className="text-stone-500 hover:text-black"
@@ -759,7 +746,7 @@ export default function ProductsPage() {
                   ].map((h) => (
                     <th
                       key={h}
-                      className="text-left py-3 px-6 font-bold uppercase text-[10px] tracking-wider"
+                      className="text-left py-3 px-2 md:px-4 font-bold uppercase text-[10px] tracking-wider"
                     >
                       {h}
                     </th>
@@ -803,7 +790,7 @@ export default function ProductsPage() {
                       initial="hidden"
                       animate="visible"
                     >
-                      <td className="py-4 px-4">
+                      <td className="py-3 px-2 md:px-4">
                         <button
                           onClick={() => toggleSelect(product.id)}
                           className="text-stone-500 hover:text-black"
@@ -815,8 +802,8 @@ export default function ProductsPage() {
                           )}
                         </button>
                       </td>
-                      <td className="py-4 px-6">
-                        <div className="w-10 h-10 rounded bg-stone-100 border border-stone-200 overflow-hidden flex items-center justify-center">
+                      <td className="py-3 px-2 md:px-4">
+                        <div className="w-8 h-8 md:w-10 md:h-10 rounded bg-stone-100 border border-stone-200 overflow-hidden flex items-center justify-center">
                           {product.image_path?.[0] ? (
                             <img
                               src={resolveMediaUrl(product.image_path[0])}
@@ -824,21 +811,23 @@ export default function ProductsPage() {
                               className="w-full h-full object-cover"
                             />
                           ) : (
-                            <Package className="w-5 h-5 text-stone-400" />
+                            <Package className="w-4 h-4 md:w-5 md:h-5 text-stone-400" />
                           )}
                         </div>
                       </td>
-                      <td className="py-4 px-6 font-medium">{product.name}</td>
-                      <td className="py-4 px-6 text-stone-600">
+                      <td className="py-3 px-2 md:px-4 font-medium">
+                        {product.name}
+                      </td>
+                      <td className="py-3 px-2 md:px-4 text-stone-600">
                         {product.category?.name ??
                           categories.find((c) => c.id === product.category_id)
                             ?.name ??
                           "—"}
                       </td>
-                      <td className="py-4 px-6 font-medium">
+                      <td className="py-3 px-2 md:px-4 font-medium">
                         {product.price} FCFA
                       </td>
-                      <td className="py-4 px-6">
+                      <td className="py-3 px-2 md:px-4">
                         <Badge
                           on={product.in_stock}
                           onLabel="En stock"
@@ -847,7 +836,7 @@ export default function ProductsPage() {
                           offCls="bg-red-100 text-red-800"
                         />
                       </td>
-                      <td className="py-4 px-6">
+                      <td className="py-3 px-2 md:px-4">
                         <Badge
                           on={product.featured}
                           onLabel="Oui"
@@ -856,12 +845,7 @@ export default function ProductsPage() {
                           offCls="bg-stone-100 text-stone-500"
                         />
                       </td>
-                      <td
-                        className="py-4 px-6 relative overflow-visible"
-                        ref={
-                          openMenuId === product.id ? menuContainerRef : null
-                        }
-                      >
+                      <td className="py-3 px-2 md:px-4 relative overflow-visible">
                         <button
                           onClick={() =>
                             setOpenMenuId((id) =>
@@ -870,10 +854,10 @@ export default function ProductsPage() {
                           }
                           className="text-stone-500 hover:text-stone-800 p-1 rounded transition-colors"
                         >
-                          <MoreVertical className="w-5 h-5" />
+                          <MoreVertical className="w-4 h-4 md:w-5 md:h-5" />
                         </button>
                         {openMenuId === product.id && (
-                          <div className="absolute right-6 top-full mt-1 w-40 bg-white border border-stone-200 rounded shadow-lg z-50 py-1">
+                          <div className="absolute right-0 md:right-4 top-full mt-1 w-40 bg-white border border-stone-200 rounded shadow-lg z-50 py-1">
                             <button
                               onClick={() => handleEdit(product)}
                               className="w-full text-left px-4 py-2 text-[13px] hover:bg-stone-100 transition-colors flex items-center gap-2"
@@ -898,7 +882,7 @@ export default function ProductsPage() {
 
           {/* Pagination */}
           {!isLoading && filteredProducts.length > 0 && totalPages > 1 && (
-            <div className="flex items-center justify-between px-6 py-4 border-t border-stone-200 bg-stone-50/50">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-4 sm:px-6 py-3 sm:py-4 border-t border-stone-200 bg-stone-50/50">
               <span className="text-xs text-stone-500">
                 Page {safePage} sur {totalPages} · {filteredProducts.length}{" "}
                 produit(s)
@@ -967,7 +951,90 @@ export default function ProductsPage() {
   );
 }
 
-/* ─── Micro-composants utilitaires ──────────────────────────────── */
+/* ─── Sous-composants utilitaires ──────────────────────────────── */
+
+function FiltersBlock({
+  searchQuery,
+  setSearchQuery,
+  categoryFilter,
+  setCategoryFilter,
+  stockFilter,
+  setStockFilter,
+  featuredFilter,
+  setFeaturedFilter,
+  categories,
+  hasActiveFilters,
+  resetFilters,
+}) {
+  return (
+    <div className="bg-white border border-stone-200 rounded-xl p-4 sm:p-5 shadow-sm">
+      <div className="flex flex-col lg:flex-row lg:items-end gap-4">
+        <div className="flex-1 min-w-0">
+          <FilterLabel>Rechercher</FilterLabel>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Nom ou slug..."
+              className="w-full pl-10 pr-4 py-2.5 border border-stone-200 rounded-lg text-sm bg-stone-50 focus:bg-white focus:border-stone-400 focus:ring-1 focus:ring-stone-400 transition-all outline-none"
+            />
+          </div>
+        </div>
+
+        <FilterSelect
+          label="Catégorie"
+          icon={<Tag className="w-4 h-4 text-stone-400" />}
+          value={categoryFilter}
+          onChange={(e) => setCategoryFilter(e.target.value)}
+          className="w-full lg:w-48"
+        >
+          <option value="">Toutes</option>
+          {categories.map((c) => (
+            <option key={c.id} value={String(c.id)}>
+              {c.name}
+            </option>
+          ))}
+        </FilterSelect>
+
+        <FilterSelect
+          label="Stock"
+          icon={<Package className="w-4 h-4 text-stone-400" />}
+          value={stockFilter}
+          onChange={(e) => setStockFilter(e.target.value)}
+          className="w-full lg:w-40"
+        >
+          <option value="">Tous</option>
+          <option value="in_stock">En stock</option>
+          <option value="out_of_stock">Rupture</option>
+        </FilterSelect>
+
+        <FilterSelect
+          label="Mis en avant"
+          icon={<Star className="w-4 h-4 text-stone-400" />}
+          value={featuredFilter}
+          onChange={(e) => setFeaturedFilter(e.target.value)}
+          className="w-full lg:w-40"
+        >
+          <option value="">Tous</option>
+          <option value="yes">Oui</option>
+          <option value="no">Non</option>
+        </FilterSelect>
+
+        {hasActiveFilters && (
+          <button
+            type="button"
+            onClick={resetFilters}
+            className="w-full lg:w-auto flex items-center gap-1.5 border border-red-200 bg-red-50 text-red-700 px-4 py-2.5 text-[11px] uppercase tracking-wider font-medium rounded-lg hover:bg-red-100 hover:border-red-300 transition-colors whitespace-nowrap"
+          >
+            <RotateCcw className="w-3.5 h-3.5" /> Réinitialiser
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
 
 function FilterLabel({ children }) {
   return (
@@ -1020,7 +1087,7 @@ const inputCls = (hasError) =>
 function Badge({ on, onLabel, offLabel, onCls, offCls }) {
   return (
     <span
-      className={`px-3 py-1 rounded text-[10px] font-bold ${on ? onCls : offCls}`}
+      className={`px-2 py-0.5 md:px-3 md:py-1 rounded text-[10px] font-bold ${on ? onCls : offCls}`}
     >
       {on ? onLabel : offLabel}
     </span>
@@ -1040,7 +1107,6 @@ function EmptyRow({ colSpan, message, children }) {
     </tr>
   );
 }
-
 
 // import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 // import { motion, AnimatePresence } from "framer-motion";

@@ -37,7 +37,6 @@ function TrashIcon() {
     );
 }
 
-// Variantes d'animation
 const tableRow = {
     hidden: { opacity: 0, x: -10 },
     visible: (i) => ({
@@ -54,10 +53,10 @@ function SkeletonRow() {
             animate={{ opacity: [0.6, 1, 0.6] }}
             transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
         >
-            <td className="py-4 px-6"><div className="h-4 w-32 bg-stone-200 rounded" /></td>
-            <td className="py-4 px-6"><div className="h-4 w-24 bg-stone-200 rounded" /></td>
-            <td className="py-4 px-6"><div className="h-4 w-48 bg-stone-200 rounded" /></td>
-            <td className="py-4 px-6"><div className="h-4 w-20 bg-stone-200 rounded" /></td>
+            <td className="py-3 px-3 md:py-4 md:px-6"><div className="h-4 w-24 md:w-32 bg-stone-200 rounded" /></td>
+            <td className="py-3 px-3 md:py-4 md:px-6"><div className="h-4 w-20 md:w-24 bg-stone-200 rounded" /></td>
+            <td className="py-3 px-3 md:py-4 md:px-6"><div className="h-4 w-36 md:w-48 bg-stone-200 rounded" /></td>
+            <td className="py-3 px-3 md:py-4 md:px-6"><div className="h-4 w-16 md:w-20 bg-stone-200 rounded" /></td>
         </motion.tr>
     );
 }
@@ -91,7 +90,6 @@ export default function CategoriesPage() {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    // Bonus UX : Auto-générer le slug quand le nom change (uniquement en mode création)
     const handleChange = (e) => {
         const { name, value } = e.target;
         setFormData((prev) => {
@@ -100,9 +98,9 @@ export default function CategoriesPage() {
                 newData.slug = value
                     .toLowerCase()
                     .normalize("NFD")
-                    .replace(/[\u0300-\u036f]/g, "") // Supprime les accents
-                    .replace(/[^a-z0-9]+/g, '-')     // Remplace les caractères spéciaux par des tirets
-                    .replace(/(^-|-$)+/g, '');       // Nettoie les tirets aux extrémités
+                    .replace(/[\u0300-\u036f]/g, "")
+                    .replace(/[^a-z0-9]+/g, '-')
+                    .replace(/(^-|-$)+/g, '');
             }
             return newData;
         });
@@ -115,7 +113,6 @@ export default function CategoriesPage() {
         return newErrors;
     };
 
-    // Centralisation du reset de formulaire
     const resetForm = () => {
         setFormData({ name: '', slug: '', description: '' });
         setEditingId(null);
@@ -207,13 +204,9 @@ export default function CategoriesPage() {
         setOpenMenuId(openMenuId === id ? null : id);
     };
 
-
-    console.log('Mes categories', categories);
-    
-
     return (
         <DashboardLayout>
-            <div className="space-y-6">
+            <div className="space-y-4 md:space-y-6">
                 {/* Messages */}
                 <AnimatePresence>
                     {apiError && (
@@ -240,13 +233,13 @@ export default function CategoriesPage() {
 
                 {/* Header */}
                 <motion.div
-                    className="flex items-center justify-between"
+                    className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.4 }}
                 >
                     <div>
-                        <h1 className="text-3xl font-light uppercase tracking-tight">Catégories</h1>
+                        <h1 className="text-2xl md:text-3xl font-light uppercase tracking-tight">Catégories</h1>
                         <p className="text-stone-600 text-sm mt-1">
                             {isLoading && categories.length === 0 ? (
                                 <span className="inline-block w-20 h-4 bg-stone-200 rounded animate-pulse" />
@@ -265,7 +258,7 @@ export default function CategoriesPage() {
                     {!showForm && (
                         <button
                             onClick={() => setShowForm(true)}
-                            className="bg-black text-[#F9F9F7] px-6 py-3 text-[11px] uppercase tracking-wider font-medium hover:bg-stone-900 transition-colors"
+                            className="bg-black text-[#F9F9F7] px-4 py-2.5 sm:px-6 sm:py-3 text-[10px] sm:text-[11px] uppercase tracking-wider font-medium hover:bg-stone-900 transition-colors self-start sm:self-auto"
                         >
                             + Ajouter une catégorie
                         </button>
@@ -282,12 +275,12 @@ export default function CategoriesPage() {
                             transition={{ duration: 0.3 }}
                             className="overflow-hidden"
                         >
-                            <div className="bg-white border border-stone-200 rounded-lg p-6">
-                                <h2 className="text-lg font-medium uppercase tracking-wider mb-6">
+                            <div className="bg-white border border-stone-200 rounded-lg p-4 sm:p-6">
+                                <h2 className="text-base sm:text-lg font-medium uppercase tracking-wider mb-4 sm:mb-6">
                                     {editingId ? 'Éditer la catégorie' : 'Nouvelle catégorie'}
                                 </h2>
                                 <form onSubmit={handleSubmit} className="space-y-4 max-w-2xl">
-                                    <div className="grid grid-cols-2 gap-4">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         <div>
                                             <label className="text-[10px] uppercase tracking-wider font-bold block mb-2">Nom *</label>
                                             <input
@@ -314,11 +307,11 @@ export default function CategoriesPage() {
                                     </div>
                                     <div className="flex gap-3 pt-4">
                                         <button type="submit" disabled={isSubmitting}
-                                            className="bg-black text-[#F9F9F7] px-6 py-2 text-[11px] uppercase tracking-wider font-medium hover:bg-stone-900 disabled:opacity-50">
+                                            className="bg-black text-[#F9F9F7] px-4 sm:px-6 py-2 text-[10px] sm:text-[11px] uppercase tracking-wider font-medium hover:bg-stone-900 disabled:opacity-50">
                                             {isSubmitting ? 'Enregistrement...' : editingId ? 'Mettre à jour' : 'Créer'}
                                         </button>
                                         <button type="button" onClick={resetForm}
-                                            className="border border-stone-300 px-6 py-2 text-[11px] uppercase tracking-wider font-medium hover:bg-stone-50">
+                                            className="border border-stone-300 px-4 sm:px-6 py-2 text-[10px] sm:text-[11px] uppercase tracking-wider font-medium hover:bg-stone-50">
                                             Annuler
                                         </button>
                                     </div>
@@ -339,10 +332,10 @@ export default function CategoriesPage() {
                         <table className="w-full text-sm">
                             <thead className="bg-stone-50 border-b border-stone-200">
                                 <tr>
-                                    <th className="text-left py-3 px-6 font-bold uppercase text-[10px] tracking-wider">Nom</th>
-                                    <th className="text-left py-3 px-6 font-bold uppercase text-[10px] tracking-wider">Slug</th>
-                                    <th className="text-left py-3 px-6 font-bold uppercase text-[10px] tracking-wider">Description</th>
-                                    <th className="text-left py-3 px-6 font-bold uppercase text-[10px] tracking-wider">Actions</th>
+                                    <th className="text-left py-3 px-3 md:px-6 font-bold uppercase text-[10px] tracking-wider">Nom</th>
+                                    <th className="text-left py-3 px-3 md:px-6 font-bold uppercase text-[10px] tracking-wider">Slug</th>
+                                    <th className="text-left py-3 px-3 md:px-6 font-bold uppercase text-[10px] tracking-wider">Description</th>
+                                    <th className="text-left py-3 px-3 md:px-6 font-bold uppercase text-[10px] tracking-wider">Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -368,10 +361,10 @@ export default function CategoriesPage() {
                                             initial="hidden"
                                             animate="visible"
                                         >
-                                            <td className="py-4 px-6 font-medium">{category.name}</td>
-                                            <td className="py-4 px-6 text-stone-600">{category.slug}</td>
-                                            <td className="py-4 px-6 text-stone-600 text-[13px]">{category.description}</td>
-                                            <td className="py-4 px-6 relative overflow-visible">
+                                            <td className="py-3 px-3 md:py-4 md:px-6 font-medium text-xs md:text-sm">{category.name}</td>
+                                            <td className="py-3 px-3 md:py-4 md:px-6 text-stone-600 text-xs md:text-sm">{category.slug}</td>
+                                            <td className="py-3 px-3 md:py-4 md:px-6 text-stone-600 text-[11px] md:text-[13px]">{category.description}</td>
+                                            <td className="py-3 px-3 md:py-4 md:px-6 relative overflow-visible">
                                                 <button
                                                     onClick={() => toggleMenu(category.id)}
                                                     className="text-stone-500 hover:text-stone-800 p-1 rounded transition-colors"
@@ -381,7 +374,7 @@ export default function CategoriesPage() {
                                                 {openMenuId === category.id && (
                                                     <div
                                                         ref={menuRef}
-                                                        className="absolute right-6 top-full mt-1 w-40 bg-white border border-stone-200 rounded shadow-lg z-50 py-1"
+                                                        className="absolute right-0 md:right-6 top-full mt-1 w-40 bg-white border border-stone-200 rounded shadow-lg z-50 py-1"
                                                     >
                                                         <button
                                                             onClick={() => handleEdit(category)}

@@ -5,12 +5,12 @@ import ConfirmDialog from "../../components/ConfirmDialog";
 import { DashboardTableSkeleton } from "../../components/DashboardSkeletons";
 import { createUser, updateUser, deleteUser } from "../../services/users";
 import { useDashboardData } from "../../contexts/DashboardDataContext";
-import { useAuth } from "../../contexts/AuthContext"; // <-- pour l'auto-suppression
+import { useAuth } from "../../contexts/AuthContext";
 
 /* ─── Constantes ─────────────────────────────────────────────────── */
 
 const EMPTY_FORM = { name: "", email: "", password: "", is_admin: false };
-const EMAIL_RE   = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const DATE_FMT = new Intl.DateTimeFormat("fr-FR", {
   day: "2-digit", month: "short", year: "numeric",
@@ -43,22 +43,24 @@ const inputCls = (hasError) =>
 
 export default function UsersPage() {
   const { users, setUsers, isLoading } = useDashboardData();
-  const { user: currentUser } = useAuth(); // utilisateur connecté
+  const { user: currentUser } = useAuth();
 
   // Formulaire
-  const [showForm,     setShowForm]     = useState(false);
-  const [editingId,    setEditingId]    = useState(null);
-  const [formData,     setFormData]     = useState(EMPTY_FORM);
-  const [errors,       setErrors]       = useState({});
+  const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [formData, setFormData] = useState(EMPTY_FORM);
+  const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Feedback
-  const [apiError,        setApiError]        = useState(null);
-  const [confirmDelete,   setConfirmDelete]   = useState({ show: false, id: null, name: "" });
-  const [deletingId,      setDeletingId]      = useState(null);
+  const [apiError, setApiError] = useState(null);
+  const [successMessage, setSuccessMessage] = useState(null);
+  const successTimerRef = useRef(null);
+  const [confirmDelete, setConfirmDelete] = useState({ show: false, id: null, name: "" });
+  const [deletingId, setDeletingId] = useState(null);
 
   // Menu contextuel
-  const [openMenuId,    setOpenMenuId]    = useState(null);
+  const [openMenuId, setOpenMenuId] = useState(null);
   const menuContainerRef = useRef(null);
 
   /* ── Fermeture menu au clic extérieur ── */
@@ -70,6 +72,18 @@ export default function UsersPage() {
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  /* ── Afficher un message de succès temporaire ── */
+  const showSuccess = useCallback((msg) => {
+    setSuccessMessage(msg);
+    clearTimeout(successTimerRef.current);
+    successTimerRef.current = setTimeout(() => setSuccessMessage(null), 3000);
+  }, []);
+
+  // Nettoyage du timer
+  useEffect(() => {
+    return () => clearTimeout(successTimerRef.current);
   }, []);
 
   /* ── Formulaire ── */
@@ -88,7 +102,7 @@ export default function UsersPage() {
 
   const validateForm = useCallback(() => {
     const e = {};
-    if (!formData.name.trim())  e.name  = "Le nom est requis";
+    if (!formData.name.trim()) e.name = "Le nom est requis";
     if (!formData.email.trim()) e.email = "L'email est requis";
     else if (!EMAIL_RE.test(formData.email)) e.email = "Email invalide";
     if (!editingId && !formData.password.trim())
@@ -113,8 +127,8 @@ export default function UsersPage() {
 
     try {
       const payload = {
-        name:     formData.name,
-        email:    formData.email,
+        name: formData.name,
+        email: formData.email,
         is_admin: Boolean(formData.is_admin),
         ...(formData.password.trim() && { password: formData.password }),
       };
@@ -125,6 +139,7 @@ export default function UsersPage() {
           setUsers((prev) =>
             prev.map((u) => (u.id === editingId ? { ...u, ...payload } : u))
           );
+          showSuccess("Utilisateur mis à jour avec succès.");
           resetForm();
         } else {
           setApiError(result?.error || "Erreur lors de la mise à jour");
@@ -133,6 +148,7 @@ export default function UsersPage() {
         const result = await createUser(payload);
         if (result.success) {
           setUsers((prev) => [...prev, result.data]);
+          showSuccess("Utilisateur créé avec succès.");
           resetForm();
         } else {
           setApiError(result?.error || "Erreur lors de la création");
@@ -144,12 +160,12 @@ export default function UsersPage() {
     } finally {
       setIsSubmitting(false);
     }
-  }, [formData, editingId, validateForm, resetForm, setUsers]);
+  }, [formData, editingId, validateForm, resetForm, setUsers, showSuccess]);
 
   const handleEdit = useCallback((user) => {
     setFormData({
-      name:     user.name     ?? "",
-      email:    user.email    ?? "",
+      name: user.name ?? "",
+      email: user.email ?? "",
       password: "",
       is_admin: user.is_admin === 1 || user.is_admin === true,
     });
@@ -172,6 +188,7 @@ export default function UsersPage() {
       const result = await deleteUser(id);
       if (result?.success !== false) {
         setUsers((prev) => prev.filter((u) => u.id !== id));
+        showSuccess("Utilisateur supprimé.");
       } else {
         setApiError(result?.error || "Erreur lors de la suppression");
       }
@@ -182,7 +199,7 @@ export default function UsersPage() {
       setDeletingId(null);
       setConfirmDelete({ show: false, id: null, name: "" });
     }
-  }, [confirmDelete, setUsers]);
+  }, [confirmDelete, setUsers, showSuccess]);
 
   /* ─── Rendu ─────────────────────────────────────────────────────── */
   return (
@@ -195,7 +212,7 @@ export default function UsersPage() {
         @keyframes tableFadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
       `}</style>
 
-      <div className="space-y-6">
+      <div className="space-y-4 md:space-y-6">
 
         {/* Erreur API */}
         {apiError && (
@@ -204,10 +221,17 @@ export default function UsersPage() {
           </div>
         )}
 
+        {/* Message de succès */}
+        {successMessage && (
+          <div className="bg-green-50 border border-green-200 p-3 text-green-700 text-sm animate-[slideDown_0.25s_ease-out]">
+            {successMessage}
+          </div>
+        )}
+
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
-            <h1 className="text-3xl font-light uppercase tracking-tight">
+            <h1 className="text-2xl md:text-3xl font-light uppercase tracking-tight">
               Utilisateurs
             </h1>
             <p className="text-stone-600 text-sm mt-1 transition-all duration-300">
@@ -217,22 +241,20 @@ export default function UsersPage() {
               }
             </p>
           </div>
-          <div className="relative h-11 w-56 flex justify-end">
-            {!showForm && (
-              <button
-                onClick={() => setShowForm(true)}
-                className="absolute right-0 bg-black text-[#F9F9F7] px-6 py-3 text-[11px] uppercase tracking-wider font-medium hover:bg-stone-900 transition-all duration-200 active:scale-[0.98] animate-[fadeIn_0.2s_ease-out]"
-              >
-                + Ajouter un utilisateur
-              </button>
-            )}
-          </div>
+          {!showForm && (
+            <button
+              onClick={() => setShowForm(true)}
+              className="self-start sm:self-auto bg-black text-[#F9F9F7] px-4 py-2.5 sm:px-6 sm:py-3 text-[10px] sm:text-[11px] uppercase tracking-wider font-medium hover:bg-stone-900 transition-all duration-200 active:scale-[0.98] animate-[fadeIn_0.2s_ease-out]"
+            >
+              + Ajouter un utilisateur
+            </button>
+          )}
         </div>
 
         {/* Formulaire */}
         {showForm && (
-          <div className="bg-white border border-stone-200 rounded-lg p-6 shadow-sm origin-top animate-[slideDown_0.28s_cubic-bezier(0.16,1,0.3,1)]">
-            <h2 className="text-lg font-medium uppercase tracking-wider mb-6 text-stone-800">
+          <div className="bg-white border border-stone-200 rounded-lg p-4 sm:p-6 shadow-sm origin-top animate-[slideDown_0.28s_cubic-bezier(0.16,1,0.3,1)]">
+            <h2 className="text-base sm:text-lg font-medium uppercase tracking-wider mb-4 sm:mb-6 text-stone-800">
               {editingId ? "Éditer l'utilisateur" : "Nouvel utilisateur"}
             </h2>
             <form onSubmit={handleSubmit} className="space-y-4 max-w-2xl">
@@ -267,12 +289,12 @@ export default function UsersPage() {
 
               <div className="flex gap-3 pt-4">
                 <button type="submit" disabled={isSubmitting}
-                  className="bg-black text-[#F9F9F7] px-6 py-2 text-[11px] uppercase tracking-wider font-medium hover:bg-stone-900 disabled:opacity-50 transition-all active:scale-[0.98]"
+                  className="bg-black text-[#F9F9F7] px-4 sm:px-6 py-2 text-[10px] sm:text-[11px] uppercase tracking-wider font-medium hover:bg-stone-900 disabled:opacity-50 transition-all active:scale-[0.98]"
                 >
                   {isSubmitting ? "Enregistrement..." : editingId ? "Mettre à jour" : "Créer"}
                 </button>
                 <button type="button" onClick={resetForm}
-                  className="border border-stone-300 px-6 py-2 text-[11px] uppercase tracking-wider font-medium hover:bg-stone-50 transition-colors"
+                  className="border border-stone-300 px-4 sm:px-6 py-2 text-[10px] sm:text-[11px] uppercase tracking-wider font-medium hover:bg-stone-50 transition-colors"
                 >
                   Annuler
                 </button>
@@ -284,14 +306,14 @@ export default function UsersPage() {
         {/* Tableau */}
         <div
           className="bg-white border border-stone-200 rounded-lg shadow-sm overflow-hidden animate-[tableFadeIn_0.45s_ease-out]"
-          key={users.length} // remonte l'animation à chaque changement de la liste
+          key={users.length}
         >
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-xs md:text-sm">
               <thead className="bg-stone-50 border-b border-stone-200">
                 <tr>
-                  {["Nom", "Email", "Rôle", "Date d'inscription", "Actions"].map((h) => (
-                    <th key={h} className="text-left py-3 px-6 font-bold uppercase text-[10px] tracking-wider text-stone-500">
+                  {["Nom", "Email", "Rôle", "Date", "Actions"].map((h) => (
+                    <th key={h} className="text-left py-3 px-2 md:px-4 font-bold uppercase text-[10px] tracking-wider text-stone-500">
                       {h}
                     </th>
                   ))}
@@ -311,23 +333,27 @@ export default function UsersPage() {
                     const isSelf = currentUser?.id === user.id;
                     return (
                       <tr key={user.id} className="hover:bg-stone-50/80 transition-colors duration-150">
-                        <td className="py-4 px-6 font-medium text-stone-900">{user.name}</td>
-                        <td className="py-4 px-6 text-stone-600">{user.email}</td>
-                        <td className="py-4 px-6">
-                          <span className={`px-2.5 py-1 rounded text-[10px] font-bold tracking-wide transition-all ${
+                        <td className="py-3 px-2 md:py-4 md:px-4 font-medium text-stone-900 truncate max-w-[120px] sm:max-w-none">
+                          {user.name}
+                        </td>
+                        <td className="py-3 px-2 md:py-4 md:px-4 text-stone-600 truncate max-w-[150px] sm:max-w-none">
+                          {user.email}
+                        </td>
+                        <td className="py-3 px-2 md:py-4 md:px-4">
+                          <span className={`inline-block px-2 py-0.5 md:px-2.5 md:py-1 rounded text-[10px] font-bold tracking-wide ${
                             user.is_admin
                               ? "bg-purple-50 text-purple-700 border border-purple-100"
                               : "bg-stone-100 text-stone-800"
                           }`}>
-                            {user.is_admin ? "Administrateur" : "Client"}
+                            {user.is_admin ? "Admin" : "Client"}
                           </span>
                         </td>
-                        <td className="py-4 px-6 text-stone-600">
+                        <td className="py-3 px-2 md:py-4 md:px-4 text-stone-600 whitespace-nowrap">
                           {user.created_at ? DATE_FMT.format(new Date(user.created_at)) : "—"}
                         </td>
 
                         {/* Menu contextuel */}
-                        <td className="py-4 px-6 relative overflow-visible"
+                        <td className="py-3 px-2 md:py-4 md:px-4 relative overflow-visible"
                           ref={openMenuId === user.id ? menuContainerRef : null}
                         >
                           <button
@@ -340,13 +366,12 @@ export default function UsersPage() {
                           </button>
                           
                           {openMenuId === user.id && (
-                            <div className="absolute right-6 top-full mt-1 w-40 bg-white border border-stone-200 rounded shadow-xl z-50 py-1 origin-top-right animate-[scaleIn_0.15s_cubic-bezier(0.16,1,0.3,1)]">
+                            <div className="absolute right-0 md:right-4 top-full mt-1 w-40 bg-white border border-stone-200 rounded shadow-xl z-50 py-1 origin-top-right animate-[scaleIn_0.15s_cubic-bezier(0.16,1,0.3,1)]">
                               <button onClick={() => handleEdit(user)}
                                 className="w-full text-left px-4 py-2 text-[13px] text-stone-700 hover:bg-stone-50 transition-colors flex items-center gap-2"
                               >
                                 <Pencil className="w-3.5 h-3.5 text-stone-400" /> Éditer
                               </button>
-                              {/* Suppression impossible pour soi-même */}
                               {!isSelf && (
                                 <button onClick={() => requestDelete(user)}
                                   className="w-full text-left px-4 py-2 text-[13px] text-red-600 hover:bg-red-50/60 transition-colors flex items-center gap-2"
