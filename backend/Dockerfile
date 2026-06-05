@@ -5,9 +5,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpng-dev \
     libzip-dev \
     libpq-dev \
+    postgresql-server-dev-all \
     zip \
     unzip \
-    git \
     && rm -rf /var/lib/apt/lists/*
 
 # Installer les extensions PHP nécessaires (incluant pdo_pgsql pour PostgreSQL)
