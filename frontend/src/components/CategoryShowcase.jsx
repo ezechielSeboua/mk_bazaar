@@ -10,14 +10,16 @@ export default function CategoryShowcase() {
 
     if (showInitialLoad) {
         return (
-            <section className="w-full min-h-[500px] flex flex-col justify-center items-center px-4">
-                <div className="max-w-7xl w-full text-center mb-10">
-                    <span className="text-[10px] uppercase tracking-[0.3em] text-stone-400 font-bold">Nos univers</span>
-                    <h2 className="text-2xl md:text-3xl font-light uppercase tracking-tight mt-2">
+            <section className="w-full py-12 md:py-16 flex flex-col justify-center items-center px-4">
+                <div className="max-w-7xl w-full text-center mb-8 md:mb-10">
+                    <span className="text-[10px] uppercase tracking-[0.3em] text-stone-400 font-bold">
+                        Nos univers
+                    </span>
+                    <h2 className="text-xl sm:text-2xl md:text-3xl font-light uppercase tracking-tight mt-2">
                         Explorez par <span className="font-normal">catégorie</span>
                     </h2>
                 </div>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 max-w-5xl mx-auto w-full">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 md:gap-6 max-w-5xl mx-auto w-full">
                     {[...Array(4)].map((_, idx) => (
                         <div key={idx} className="animate-pulse">
                             <div className="aspect-square rounded-2xl bg-stone-200" />
@@ -32,14 +34,16 @@ export default function CategoryShowcase() {
     if (showcaseCategories.length === 0) return null;
 
     return (
-        <section className="w-full min-h-[500px] flex flex-col justify-center items-center px-4">
-            <div className="max-w-7xl w-full text-center mb-10">
-                <span className="text-[10px] uppercase tracking-[0.3em] text-stone-400 font-bold">Nos univers</span>
-                <h2 className="text-2xl md:text-3xl font-light uppercase tracking-tight mt-2">
+        <section className="w-full py-12 md:py-16 flex flex-col justify-center items-center px-4">
+            <div className="max-w-7xl w-full text-center mb-8 md:mb-10">
+                <span className="text-[10px] uppercase tracking-[0.3em] text-stone-400 font-bold">
+                    Nos univers
+                </span>
+                <h2 className="text-xl sm:text-2xl md:text-3xl font-light uppercase tracking-tight mt-2">
                     Explorez par <span className="font-normal">catégorie</span>
                 </h2>
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 max-w-5xl mx-auto w-full">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 md:gap-6 max-w-5xl mx-auto w-full">
                 {showcaseCategories.map((cat, idx) => {
                     const imageUrl = cat.image_path?.[0]
                         ? resolveMediaUrl(cat.image_path[0])
@@ -65,10 +69,12 @@ export default function CategoryShowcase() {
                                         loading="lazy"
                                     />
                                     <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition flex items-center justify-center">
-                                        <span className="text-white text-4xl">{icon}</span>
+                                        <span className="text-white text-3xl md:text-4xl">{icon}</span>
                                     </div>
                                 </div>
-                                <p className="text-center mt-2 text-sm font-medium uppercase tracking-wide">{cat.name}</p>
+                                <p className="text-center mt-2 text-xs sm:text-sm font-medium uppercase tracking-wide">
+                                    {cat.name}
+                                </p>
                             </Link>
                         </motion.div>
                     );
