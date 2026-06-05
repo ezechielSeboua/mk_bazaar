@@ -34,7 +34,7 @@ export default function CategoryShowcase() {
     if (showcaseCategories.length === 0) return null;
 
     return (
-        <section className="w-full py-12 md:py-16 flex flex-col justify-center items-center px-4">
+        <section className="w-full py-8 md:py-16 flex flex-col justify-center items-center px-4">
             <div className="max-w-7xl w-full text-center mb-8 md:mb-10">
                 <span className="text-[10px] uppercase tracking-[0.3em] text-stone-400 font-bold">
                     Nos univers
