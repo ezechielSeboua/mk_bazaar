@@ -103,10 +103,8 @@ export default function ProductList() {
     });
 
   const showInitialLoad = isLoading && products.length === 0;
-//   const showRefreshing = isRefreshing || catalogRefreshing;
-  // Le loader personnalisé s'affiche dès qu'un chargement est en cours
-  // sauf au tout premier chargement (où l'on garde les squelettes).
-  const displayLoader = (isLoading || isRefreshing || catalogRefreshing) && !showInitialLoad;
+  const displayLoader =
+    (isLoading || isRefreshing || catalogRefreshing) && !showInitialLoad;
 
   return (
     <div className="min-h-screen flex flex-col bg-[#F9F9F7] text-black antialiased">
@@ -116,7 +114,7 @@ export default function ProductList() {
         path="/products"
       />
       <Header />
-      <main className="flex-1 max-w-7xl mx-auto px-6 py-12 md:py-16 w-full">
+      <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 py-8 sm:py-12 md:py-16 w-full">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -156,28 +154,28 @@ export default function ProductList() {
 
         {/* Affichage conditionnel propre */}
         {showInitialLoad ? (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-12">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-8 sm:gap-y-12">
             {Array.from({ length: 8 }).map((_, i) => (
               <SkeletonCard key={i} />
             ))}
           </div>
         ) : displayLoader ? (
-          <div className="min-h-[300px] flex items-center justify-center">
+          <div className="min-h-[200px] sm:min-h-[300px] flex items-center justify-center">
             <CapybaraLoader message="Chargement…" />
           </div>
         ) : products.length === 0 ? (
-          <div className="text-center py-24 text-stone-400 text-xs uppercase tracking-widest">
+          <div className="text-center py-12 sm:py-24 text-stone-400 text-xs uppercase tracking-widest">
             Aucun résultat.
           </div>
         ) : (
           <>
             {totalItems > 0 && (
-              <p className="text-xs text-stone-500 mb-6 uppercase tracking-wider">
+              <p className="text-xs text-stone-500 mb-4 sm:mb-6 uppercase tracking-wider">
                 {totalItems} produit{totalItems > 1 ? "s" : ""}
               </p>
             )}
             <motion.div
-              className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-12"
+              className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-8 sm:gap-y-12"
               variants={containerVariants}
               initial="hidden"
               animate="visible"
@@ -192,7 +190,7 @@ export default function ProductList() {
               </AnimatePresence>
             </motion.div>
             {totalPages > 1 && (
-              <div className="flex justify-center items-center gap-2 mt-12">
+              <div className="flex justify-center items-center gap-2 mt-8 sm:mt-12">
                 <button
                   onClick={() => handlePageChange(currentPage - 1)}
                   disabled={currentPage === 1}
@@ -204,7 +202,11 @@ export default function ProductList() {
                   <button
                     key={i}
                     onClick={() => handlePageChange(i + 1)}
-                    className={`w-8 h-8 rounded-full text-sm ${currentPage === i + 1 ? "bg-black text-white" : "hover:bg-stone-100"}`}
+                    className={`w-8 h-8 rounded-full text-sm ${
+                      currentPage === i + 1
+                        ? "bg-black text-white"
+                        : "hover:bg-stone-100"
+                    }`}
                   >
                     {i + 1}
                   </button>

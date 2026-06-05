@@ -8,6 +8,7 @@ import CategoryShowcase from "../components/CategoryShowcase";
 import { useHomeProducts } from "../contexts/CatalogContext";
 import Seo from "../components/Seo";
 import { buildOrganizationJsonLd } from "../utils/seoStructuredData";
+import WhatsAppFloatingButton from "../components/WhatsAppFloatingButton"; // ← composant à créer
 
 const CAROUSEL_IMAGES = [
     "https://images.unsplash.com/photo-1601924994987-69e26d50dc26?w=1200&h=675&fit=crop",
@@ -76,6 +77,9 @@ export default function Home() {
             </main>
 
             <Footer />
+
+            {/* Bouton WhatsApp flottant */}
+            <WhatsAppFloatingButton />
         </div>
     );
 }

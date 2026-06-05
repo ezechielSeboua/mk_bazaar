@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import DashboardLayout from '../../components/DashboardLayout';
 import { useDashboardData } from '../../contexts/DashboardDataContext';
 import { DashboardCardSkeleton, DashboardTableSkeleton } from '../../components/DashboardSkeletons';
@@ -25,6 +25,14 @@ function CalendarIcon() {
   );
 }
 
+function FilterIcon() {
+  return (
+    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+    </svg>
+  );
+}
+
 export default function FinancesPage() {
   const { orders, isLoading, error } = useDashboardData();
 
@@ -33,17 +41,17 @@ export default function FinancesPage() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [sortConfig, setSortConfig] = useState({ key: 'date', direction: 'desc' });
+  const [showFilters, setShowFilters] = useState(false); // pour mobile
 
   const showInitialLoad = isLoading && orders.length === 0;
+  const hasActiveFilters = searchTerm || statusFilter !== 'Tous' || startDate || endDate;
+
   const filteredOrders = useMemo(() => {
     let results = orders ? [...orders] : [];
 
-    // Filtre de statut
     if (statusFilter !== 'Tous') {
       results = results.filter(order => order.status === statusFilter);
     }
-
-    // Filtre de recherche textuelle via 'order_number'
     if (searchTerm.trim()) {
       const term = searchTerm.trim().toLowerCase();
       results = results.filter(order => {
@@ -51,27 +59,22 @@ export default function FinancesPage() {
         return orderNumber.includes(term);
       });
     }
-
-    // Filtre par plage de dates (created_at)
     if (startDate || endDate) {
       results = results.filter(order => {
         if (!order.created_at) return false;
         const orderDateStr = order.created_at.substring(0, 10);
-
         if (startDate && orderDateStr < startDate) return false;
         if (endDate && orderDateStr > endDate) return false;
         return true;
       });
     }
 
-    // Tri des résultats
     results.sort((a, b) => {
       if (sortConfig.key === 'date') {
         return sortConfig.direction === 'desc' 
           ? new Date(b.created_at) - new Date(a.created_at) 
           : new Date(a.created_at) - new Date(b.created_at);
       } else if (sortConfig.key === 'amount') {
-        // 'total_price' contient déjà la livraison, le tri est direct
         const totalA = a.total_price || 0;
         const totalB = b.total_price || 0;
         return sortConfig.direction === 'desc' ? totalB - totalA : totalA - totalB;
@@ -82,7 +85,7 @@ export default function FinancesPage() {
     return results;
   }, [orders, searchTerm, statusFilter, startDate, endDate, sortConfig]);
 
-  // 2. Calcul complet et dynamique des KPIs synchronisés (CORRECTION LOGIQUE BRUT VS TOTAL)
+  // KPIs (inchangés)
   const financialMetrics = useMemo(() => {
     let totalRevenueWithDelivery = 0;
     let totalRevenueBrut = 0;
@@ -91,10 +94,9 @@ export default function FinancesPage() {
     let lostRevenue = 0;
 
     filteredOrders.forEach(o => {
-      const total = o.total_price || 0; // Contient la livraison (ex: 17500)
-      const delivery = o.delivery_fee || 0; // (ex: 1500)
-      const brut = total - delivery; // Vrai brut calculé (ex: 16000)
-
+      const total = o.total_price || 0;
+      const delivery = o.delivery_fee || 0;
+      const brut = total - delivery;
       if (o.status === 'completed' || o.status === 'delivered') {
         totalRevenueWithDelivery += total;
         totalRevenueBrut += brut;
@@ -102,7 +104,7 @@ export default function FinancesPage() {
         totalPendingWithDelivery += total;
         totalPendingBrut += brut;
       } else if (o.status === 'cancelled') {
-        lostRevenue += brut; // Perte sur la valeur marchande (sans livraison)
+        lostRevenue += brut;
       }
     });
 
@@ -116,7 +118,6 @@ export default function FinancesPage() {
     };
   }, [filteredOrders]);
 
-  // Formateurs
   const formatFCFA = (amount) => {
     return new Intl.NumberFormat('fr-FR', {
       style: 'currency',
@@ -142,11 +143,9 @@ export default function FinancesPage() {
     setSortConfig({ key: 'date', direction: 'desc' });
   };
 
-  const hasActiveFilters = searchTerm || statusFilter !== 'Tous' || startDate || endDate;
-
   return (
     <DashboardLayout>
-      <div className="space-y-8">
+      <div className="space-y-6 md:space-y-8">
         {/* En-tête */}
         <motion.div
           initial={{ opacity: 0, y: -10 }}
@@ -170,225 +169,201 @@ export default function FinancesPage() {
         {showInitialLoad ? (
           <DashboardCardSkeleton count={4} />
         ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-          {/* Chiffre d'Affaires Encaissé */}
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="bg-white p-5 rounded-xl border border-stone-200 shadow-sm flex flex-col justify-between"
-          >
-            <div>
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold text-stone-500 uppercase tracking-wider">
-                  Revenus Encaissés
-                </span>
-                <span className="w-2 h-2 rounded-full bg-emerald-500" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5">
+            {/* ... les 4 cartes KPI, inchangées ... */}
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="bg-white p-5 rounded-xl border border-stone-200 shadow-sm flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-stone-500 uppercase tracking-wider">Revenus Encaissés</span>
+                  <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                </div>
+                <p className="text-xl font-semibold text-black mt-3">{formatFCFA(financialMetrics.totalRevenueWithDelivery)}</p>
               </div>
-              <p className="text-xl font-semibold text-black mt-3">
-                {formatFCFA(financialMetrics.totalRevenueWithDelivery)}
-              </p>
-            </div>
-            <div className="flex justify-between items-center mt-4 pt-2 border-t border-stone-100 text-xs text-stone-500">
-              <span>Dont brut :</span>
-              <span className="font-medium text-stone-700">{formatFCFA(financialMetrics.totalRevenueBrut)}</span>
-            </div>
-          </motion.div>
-
-          {/* Somme En Attente */}
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.15 }}
-            className="bg-white p-5 rounded-xl border border-stone-200 shadow-sm flex flex-col justify-between"
-          >
-            <div>
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold text-stone-500 uppercase tracking-wider">
-                  En Attente de Livraison
-                </span>
-                <span className="w-2 h-2 rounded-full bg-amber-500" />
+              <div className="flex justify-between items-center mt-4 pt-2 border-t border-stone-100 text-xs text-stone-500">
+                <span>Dont brut :</span>
+                <span className="font-medium text-stone-700">{formatFCFA(financialMetrics.totalRevenueBrut)}</span>
               </div>
-              <p className="text-xl font-semibold text-amber-600 mt-3">
-                {formatFCFA(financialMetrics.totalPendingWithDelivery)}
-              </p>
-            </div>
-            <div className="flex justify-between items-center mt-4 pt-2 border-t border-stone-100 text-xs text-stone-500">
-              <span>Dont brut :</span>
-              <span className="font-medium text-stone-700">{formatFCFA(financialMetrics.totalPendingBrut)}</span>
-            </div>
-          </motion.div>
-
-          {/* Pertes d'Annulation */}
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="bg-white p-5 rounded-xl border border-stone-200 shadow-sm flex flex-col justify-between"
-          >
-            <div>
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold text-stone-500 uppercase tracking-wider">
-                  Pertes d'Annulation
-                </span>
-                <span className="w-2 h-2 rounded-full bg-red-500" />
+            </motion.div>
+            {/* ... les 3 autres cartes, identiques à l'original ... */}
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="bg-white p-5 rounded-xl border border-stone-200 shadow-sm flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-stone-500 uppercase tracking-wider">En Attente de Livraison</span>
+                  <span className="w-2 h-2 rounded-full bg-amber-500" />
+                </div>
+                <p className="text-xl font-semibold text-amber-600 mt-3">{formatFCFA(financialMetrics.totalPendingWithDelivery)}</p>
               </div>
-              <p className="text-xl font-semibold text-red-600 mt-3">
-                {formatFCFA(financialMetrics.lostRevenue)}
-              </p>
-            </div>
-            <div className="mt-4 pt-2 border-t border-stone-100 text-xs text-stone-400">
-              Valeur marchande perdue
-            </div>
-          </motion.div>
-
-          {/* Activité Globale */}
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.25 }}
-            className="bg-white p-5 rounded-xl border border-stone-200 shadow-sm flex flex-col justify-between"
-          >
-            <div>
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold text-stone-500 uppercase tracking-wider">
-                  Volume d'Affaires Global
-                </span>
-                <span className="w-2 h-2 rounded-full bg-stone-900" />
+              <div className="flex justify-between items-center mt-4 pt-2 border-t border-stone-100 text-xs text-stone-500">
+                <span>Dont brut :</span>
+                <span className="font-medium text-stone-700">{formatFCFA(financialMetrics.totalPendingBrut)}</span>
               </div>
-              <p className="text-xl font-semibold text-stone-900 mt-3">
-                {formatFCFA(financialMetrics.grandTotalActivity)}
-              </p>
-            </div>
-            <div className="mt-4 pt-2 border-t border-stone-100 text-xs text-stone-400">
-              Encaissé + En attente cumulés
-            </div>
-          </motion.div>
-        </div>
+            </motion.div>
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="bg-white p-5 rounded-xl border border-stone-200 shadow-sm flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-stone-500 uppercase tracking-wider">Pertes d'Annulation</span>
+                  <span className="w-2 h-2 rounded-full bg-red-500" />
+                </div>
+                <p className="text-xl font-semibold text-red-600 mt-3">{formatFCFA(financialMetrics.lostRevenue)}</p>
+              </div>
+              <div className="mt-4 pt-2 border-t border-stone-100 text-xs text-stone-400">Valeur marchande perdue</div>
+            </motion.div>
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} className="bg-white p-5 rounded-xl border border-stone-200 shadow-sm flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-stone-500 uppercase tracking-wider">Volume d'Affaires Global</span>
+                  <span className="w-2 h-2 rounded-full bg-stone-900" />
+                </div>
+                <p className="text-xl font-semibold text-stone-900 mt-3">{formatFCFA(financialMetrics.grandTotalActivity)}</p>
+              </div>
+              <div className="mt-4 pt-2 border-t border-stone-100 text-xs text-stone-400">Encaissé + En attente cumulés</div>
+            </motion.div>
+          </div>
         )}
 
-        {/* Bloc Filtres */}
-        <motion.div
-          className="bg-white border border-stone-200 rounded-xl p-5 shadow-sm"
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.15 }}
-        >
-          <div className="flex flex-col gap-4">
-            <div className="flex flex-col lg:flex-row lg:items-end gap-4">
-              {/* Recherche */}
-              <div className="flex-1 min-w-0">
-                <label className="text-[10px] uppercase tracking-wider font-bold text-stone-500 block mb-2">
-                  Rechercher
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <SearchIcon />
+        {/* Bouton mobile pour afficher/masquer les filtres */}
+        <div className="lg:hidden">
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 border border-stone-200 rounded-lg text-sm bg-white text-stone-700 hover:bg-stone-50 transition-colors"
+          >
+            <FilterIcon />
+            {showFilters ? 'Masquer les filtres' : 'Afficher les filtres'}
+            {hasActiveFilters && (
+              <span className="ml-2 w-2 h-2 rounded-full bg-[#c07b5a]" />
+            )}
+          </button>
+        </div>
+
+        {/* Bloc Filtres (affiché conditionnellement sur mobile, toujours visible sur desktop) */}
+        <AnimatePresence>
+          {(showFilters || window.innerWidth >= 1024) && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.3 }}
+              className="overflow-hidden"
+            >
+              <div className="bg-white border border-stone-200 rounded-xl p-5 shadow-sm">
+                <div className="flex flex-col gap-4">
+                  <div className="flex flex-col lg:flex-row lg:items-end gap-4">
+                    {/* Recherche */}
+                    <div className="flex-1 min-w-0">
+                      <label className="text-[10px] uppercase tracking-wider font-bold text-stone-500 block mb-2">
+                        Rechercher
+                      </label>
+                      <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                          <SearchIcon />
+                        </div>
+                        <input
+                          type="text"
+                          value={searchTerm}
+                          onChange={(e) => setSearchTerm(e.target.value)}
+                          placeholder="Ex: MK-960332..."
+                          className="w-full pl-10 pr-4 py-2.5 border border-stone-200 rounded-lg text-sm bg-stone-50 focus:bg-white focus:border-stone-400 focus:ring-1 focus:ring-stone-400 transition-all outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Statut */}
+                    <div className="w-full lg:w-40">
+                      <label className="text-[10px] uppercase tracking-wider font-bold text-stone-500 block mb-2">
+                        Statut
+                      </label>
+                      <select
+                        value={statusFilter}
+                        onChange={(e) => setStatusFilter(e.target.value)}
+                        className="w-full px-4 py-2.5 border border-stone-200 rounded-lg text-sm bg-stone-50 focus:bg-white focus:border-stone-400 focus:ring-1 focus:ring-stone-400 transition-all outline-none"
+                      >
+                        <option value="Tous">Tous</option>
+                        <option value="completed">Livré</option>
+                        <option value="pending">En attente</option>
+                        <option value="cancelled">Annulé</option>
+                      </select>
+                    </div>
+
+                    {/* Tri */}
+                    <div className="w-full lg:w-44">
+                      <label className="text-[10px] uppercase tracking-wider font-bold text-stone-500 block mb-2">
+                        Trier par
+                      </label>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setSortConfig({ key: 'date', direction: sortConfig.key === 'date' ? (sortConfig.direction === 'desc' ? 'asc' : 'desc') : 'desc' })}
+                          className={`flex-1 px-3 py-2.5 text-xs font-medium rounded-lg border transition-colors ${
+                            sortConfig.key === 'date' ? 'bg-black text-white border-black' : 'bg-stone-50 text-stone-700 border-stone-200 hover:bg-white'
+                          }`}
+                        >
+                          Date {sortConfig.key === 'date' && (sortConfig.direction === 'desc' ? '↓' : '↑')}
+                        </button>
+                        <button
+                          onClick={() => setSortConfig({ key: 'amount', direction: sortConfig.key === 'amount' ? (sortConfig.direction === 'desc' ? 'asc' : 'desc') : 'desc' })}
+                          className={`flex-1 px-3 py-2.5 text-xs font-medium rounded-lg border transition-colors ${
+                            sortConfig.key === 'amount' ? 'bg-black text-white border-black' : 'bg-stone-50 text-stone-700 border-stone-200 hover:bg-white'
+                          }`}
+                        >
+                          Montant {sortConfig.key === 'amount' && (sortConfig.direction === 'desc' ? '↓' : '↑')}
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                  <input
-                    type="text"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    placeholder="Ex: MK-960332..."
-                    className="w-full pl-10 pr-4 py-2.5 border border-stone-200 rounded-lg text-sm bg-stone-50 focus:bg-white focus:border-stone-400 focus:ring-1 focus:ring-stone-400 transition-all outline-none"
-                  />
-                </div>
-              </div>
 
-              {/* Statut */}
-              <div className="w-full lg:w-40">
-                <label className="text-[10px] uppercase tracking-wider font-bold text-stone-500 block mb-2">
-                  Statut
-                </label>
-                <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  className="w-full px-4 py-2.5 border border-stone-200 rounded-lg text-sm bg-stone-50 focus:bg-white focus:border-stone-400 focus:ring-1 focus:ring-stone-400 transition-all outline-none"
-                >
-                  <option value="Tous">Tous</option>
-                  <option value="completed">Livré</option>
-                  <option value="pending">En attente</option>
-                  <option value="cancelled">Annulé</option>
-                </select>
-              </div>
-
-              {/* Tri */}
-              <div className="w-full lg:w-44">
-                <label className="text-[10px] uppercase tracking-wider font-bold text-stone-500 block mb-2">
-                  Trier par
-                </label>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setSortConfig({ key: 'date', direction: sortConfig.key === 'date' ? (sortConfig.direction === 'desc' ? 'asc' : 'desc') : 'desc' })}
-                    className={`flex-1 px-3 py-2.5 text-xs font-medium rounded-lg border transition-colors ${
-                      sortConfig.key === 'date' ? 'bg-black text-white border-black' : 'bg-stone-50 text-stone-700 border-stone-200 hover:bg-white'
-                    }`}
-                  >
-                    Date {sortConfig.key === 'date' && (sortConfig.direction === 'desc' ? '↓' : '↑')}
-                  </button>
-                  <button
-                    onClick={() => setSortConfig({ key: 'amount', direction: sortConfig.key === 'amount' ? (sortConfig.direction === 'desc' ? 'asc' : 'desc') : 'desc' })}
-                    className={`flex-1 px-3 py-2.5 text-xs font-medium rounded-lg border transition-colors ${
-                      sortConfig.key === 'amount' ? 'bg-black text-white border-black' : 'bg-stone-50 text-stone-700 border-stone-200 hover:bg-white'
-                    }`}
-                  >
-                    Montant {sortConfig.key === 'amount' && (sortConfig.direction === 'desc' ? '↓' : '↑')}
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Dates */}
-            <div className="flex flex-col sm:flex-row items-end gap-4">
-              <div className="w-full sm:w-48">
-                <label className="text-[10px] uppercase tracking-wider font-bold text-stone-500 block mb-2">
-                  Date début
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <CalendarIcon />
+                  {/* Dates + bouton reset */}
+                  <div className="flex flex-col sm:flex-row items-end gap-4">
+                    <div className="w-full sm:w-48">
+                      <label className="text-[10px] uppercase tracking-wider font-bold text-stone-500 block mb-2">
+                        Date début
+                      </label>
+                      <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                          <CalendarIcon />
+                        </div>
+                        <input
+                          type="date"
+                          value={startDate}
+                          onChange={(e) => setStartDate(e.target.value)}
+                          className="w-full pl-10 pr-3 py-2.5 border border-stone-200 rounded-lg text-sm bg-stone-50 focus:bg-white focus:border-stone-400 focus:ring-1 focus:ring-stone-400 transition-all outline-none"
+                        />
+                      </div>
+                    </div>
+                    <div className="w-full sm:w-48">
+                      <label className="text-[10px] uppercase tracking-wider font-bold text-stone-500 block mb-2">
+                        Date fin
+                      </label>
+                      <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                          <CalendarIcon />
+                        </div>
+                        <input
+                          type="date"
+                          value={endDate}
+                          onChange={(e) => setEndDate(e.target.value)}
+                          className="w-full pl-10 pr-3 py-2.5 border border-stone-200 rounded-lg text-sm bg-stone-50 focus:bg-white focus:border-stone-400 focus:ring-1 focus:ring-stone-400 transition-all outline-none"
+                        />
+                      </div>
+                    </div>
+                    {hasActiveFilters && (
+                      <button
+                        onClick={clearFilters}
+                        className="w-full sm:w-auto flex items-center gap-1.5 border border-red-200 bg-red-50 text-red-700 px-4 py-2.5 text-[11px] uppercase tracking-wider font-medium rounded-lg hover:bg-red-100 hover:border-red-300 transition-colors whitespace-nowrap"
+                      >
+                        <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="1 4 1 10 7 10" />
+                          <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
+                        </svg>
+                        Réinitialiser
+                      </button>
+                    )}
                   </div>
-                  <input
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                    className="w-full pl-10 pr-3 py-2.5 border border-stone-200 rounded-lg text-sm bg-stone-50 focus:bg-white focus:border-stone-400 focus:ring-1 focus:ring-stone-400 transition-all outline-none"
-                  />
                 </div>
               </div>
-              <div className="w-full sm:w-48">
-                <label className="text-[10px] uppercase tracking-wider font-bold text-stone-500 block mb-2">
-                  Date fin
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <CalendarIcon />
-                  </div>
-                  <input
-                    type="date"
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                    className="w-full pl-10 pr-3 py-2.5 border border-stone-200 rounded-lg text-sm bg-stone-50 focus:bg-white focus:border-stone-400 focus:ring-1 focus:ring-stone-400 transition-all outline-none"
-                  />
-                </div>
-              </div>
-              {hasActiveFilters && (
-                <button
-                  onClick={clearFilters}
-                  className="w-full sm:w-auto flex items-center gap-1.5 border border-red-200 bg-red-50 text-red-700 px-4 py-2.5 text-[11px] uppercase tracking-wider font-medium rounded-lg hover:bg-red-100 hover:border-red-300 transition-colors whitespace-nowrap"
-                >
-                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="1 4 1 10 7 10" />
-                    <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
-                  </svg>
-                  Réinitialiser
-                </button>
-              )}
-            </div>
-          </div>
-        </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-        {/* Tableau */}
+        {/* Tableau (inchangé) */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -418,10 +393,9 @@ export default function FinancesPage() {
                   <DashboardTableSkeleton rows={5} cols={5} />
                 ) : filteredOrders.length > 0 ? (
                   filteredOrders.map((order, index) => {
-                    const amountTotal = order.total_price || 0; 
+                    const amountTotal = order.total_price || 0;
                     const deliveryFee = order.delivery_fee || 0;
-                    const amountBrut = amountTotal - deliveryFee; // Correction directe dans le tableau également
-
+                    const amountBrut = amountTotal - deliveryFee;
                     return (
                       <motion.tr
                         key={order.id || index}
