@@ -427,7 +427,7 @@ export default function OrdersPage() {
                       </thead>
                       <tbody>
                         {(selectedCommand.products || []).map((prod, i) => {
-                          const firstImage = prod.image_path?.[0] || prod.image_path;
+                          const firstImage = prod.image_path;
                           const imageUrl = Array.isArray(firstImage) ? firstImage[0] : firstImage;
                           return (
                             <tr key={i} className="border-b border-stone-100 last:border-b-0">
