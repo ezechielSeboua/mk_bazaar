@@ -16,21 +16,8 @@ class UserSeeder extends Seeder
         User::create([
             'name' => 'Marie Dagua',
             'email' => 'marie.dagua@epitech.eu',
-            'password' => 'password',
+            'password' => bcrypt('password'),
             'is_admin' => true,
         ]);
-
-        // Création d'un utilisateur régulier
-        // User::create([
-        //     'name' => 'Utilisateur Test',
-        //     'email' => 'user@example.com',
-        //     'password' => 'password',
-        //     'is_admin' => false,
-        // ]);
-
-        // Création de 10 utilisateurs aléatoires
-        // User::factory(10)->create([
-        //     'password' => 'password',
-        // ]);
     }
 }

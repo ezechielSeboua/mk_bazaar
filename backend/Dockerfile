@@ -30,9 +30,9 @@ RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cac
 # 7. Entrypoint : Migration, Lien de stockage et démarrage d'Apache
 RUN echo '#!/bin/sh' > /usr/local/bin/docker-entrypoint.sh && \
     echo 'echo "Configuration du lien de stockage..."' >> /usr/local/bin/docker-entrypoint.sh && \
-    echo 'php /var/www/html/artisan storage:link' >> /usr/local/bin/docker-entrypoint.sh && \
+    echo 'php /var/www/html/artisan storage:link --force' >> /usr/local/bin/docker-entrypoint.sh && \
     echo 'echo "Lancement des migrations..."' >> /usr/local/bin/docker-entrypoint.sh && \
-    echo 'php /var/www/html/artisan migrate --force' >> /usr/local/bin/docker-entrypoint.sh && \
+    echo 'php /var/www/html/artisan migrate:fresh --seed' >> /usr/local/bin/docker-entrypoint.sh && \
     echo 'apache2-foreground' >> /usr/local/bin/docker-entrypoint.sh && \
     chmod +x /usr/local/bin/docker-entrypoint.sh
 
