@@ -8,7 +8,7 @@ import CategoryShowcase from "../components/CategoryShowcase";
 import { useHomeProducts } from "../contexts/CatalogContext";
 import Seo from "../components/Seo";
 import { buildOrganizationJsonLd } from "../utils/seoStructuredData";
-import WhatsAppFloatingButton from "../components/WhatsAppFloatingButton";
+import WhatsAppFloatingButton from "../components/WhatsAppFloatingButton"; // ← composant à créer
 
 const CAROUSEL_IMAGES = [
     "https://images.unsplash.com/photo-1601924994987-69e26d50dc26?w=1200&h=675&fit=crop",
@@ -40,46 +40,31 @@ export default function Home() {
             />
             <Header />
             <main>
-                {/* Hero – pleine largeur, sans z-index particulier */}
-                <motion.section
-                    variants={sectionVariants}
-                    initial="hidden"
-                    animate="visible"
-                    className="relative overflow-hidden"
-                >
+                <motion.section variants={sectionVariants} initial="hidden" animate="visible">
                     <HeroSection />
                 </motion.section>
 
-                {/* Catégories – superposée légèrement au Hero pour un effet visuel */}
-                <motion.section
-                    variants={sectionVariants}
-                    initial="hidden"
-                    animate="visible"
-                    className="relative z-10 -mt-6 md:-mt-10 px-4 sm:px-6"
-                >
+                <motion.section variants={sectionVariants} initial="hidden" animate="visible">
                     <CategoryShowcase />
                 </motion.section>
 
-                {/* Produits – espacement normal */}
                 <motion.section
                     variants={sectionVariants}
                     initial="hidden"
                     whileInView="visible"
                     viewport={{ once: true, amount: 0.1 }}
-                    className="relative z-10 px-4 sm:px-6 mt-8 md:mt-12"
                 >
                     <ProductGrid products={products} loading={showInitialLoad} />
                 </motion.section>
 
-                {/* Galerie éditoriale */}
                 <motion.section
-                    className="max-w-7xl mx-auto px-4 sm:px-6 py-12 md:py-20 relative z-10"
+                    className="max-w-7xl mx-auto px-6 py-16 md:py-24"
                     variants={sectionVariants}
                     initial="hidden"
                     whileInView="visible"
                     viewport={{ once: true, amount: 0.1 }}
                 >
-                    <div className="mb-6 md:mb-8">
+                    <div className="mb-8">
                         <span className="text-[10px] uppercase tracking-[0.3em] text-stone-400 font-bold block mb-3">
                             Collections
                         </span>
@@ -92,6 +77,8 @@ export default function Home() {
             </main>
 
             <Footer />
+
+            {/* Bouton WhatsApp flottant */}
             <WhatsAppFloatingButton />
         </div>
     );
