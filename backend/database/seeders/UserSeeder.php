@@ -14,8 +14,8 @@ class UserSeeder extends Seeder
     {
         // Création d'un administrateur
         User::create([
-            'name' => 'Administrateur',
-            'email' => 'admin@example.com',
+            'name' => 'Marie Dagua',
+            'email' => 'marie.dagua@epitech.eu',
             'password' => 'password',
             'is_admin' => true,
         ]);
