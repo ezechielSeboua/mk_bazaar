@@ -418,12 +418,16 @@ export default function DashboardLayout({ children }) {
                 </span>
               )}
             </div>
-            <div className="flex items-center gap-4">
+             <div className="flex items-center gap-4">
               <span className="text-sm text-stone-600 hidden sm:block">
-                {user?.name || "Admin"}
+                <strong>Bienvenue</strong> , {user?.name || "Admin"}
               </span>
-              <div className="w-10 h-10 bg-stone-300 rounded-full flex items-center justify-center text-stone-700 font-bold">
-                {user?.name?.charAt(0)?.toUpperCase() || "A"}
+              <div className="w-12 h-12 rounded-full flex items-center justify-cente text-stone-700 font-bold">
+                {/* {user?.name?.charAt(0)?.toUpperCase() || "A"} */}
+                <img 
+                className="flex mt-2"
+                src="/mk_bazaar_logo.png" 
+                alt="Logo" />
               </div>
             </div>
           </div>
