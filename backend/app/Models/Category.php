@@ -18,10 +18,10 @@ class Category extends Model
      * Définit la clé de routage par défaut pour Laravel.
      * Cela permet de lier automatiquement les routes au 'slug' plutôt qu'à l'id.
      */
-    public function getRouteKeyName(): string
-    {
-        return 'slug';
-    }
+    // public function getRouteKeyName(): string
+    // {
+    //     return 'slug';
+    // }
 
     /**
      * Relation avec les produits.
