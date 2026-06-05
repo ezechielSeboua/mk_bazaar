@@ -23,6 +23,8 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 # 5. Copie du code et installation des dépendances Laravel
 COPY . /var/www/html
 RUN composer install --no-dev --optimize-autoloader
+# Création du lien symbolique pour rendre les images du dossier 'storage' accessibles
+RUN php /var/www/html/artisan storage:link
 
 # 6. Gestion des permissions
 RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
