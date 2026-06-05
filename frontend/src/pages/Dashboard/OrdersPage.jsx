@@ -427,14 +427,13 @@ export default function OrdersPage() {
                       </thead>
                       <tbody>
                         {(selectedCommand.products || []).map((prod, i) => {
-                          console.log("Image path for product", prod.image_path);
                           const firstImage = prod.image_path;
-                          console.log("Image path for product", firstImage);
                           const imageUrl = Array.isArray(firstImage) ? firstImage[0] : firstImage;
-                          console.log("Image path for product", imageUrl);
                           return (
                             <tr key={i} className="border-b border-stone-100 last:border-b-0">
+                              {/* Mon image {prod.image_path?.[0]} */}
                               <td className="py-2 px-2 md:px-4">
+
                                 <div className="w-8 h-8 md:w-10 md:h-10 rounded bg-stone-100 border border-stone-200 overflow-hidden flex items-center justify-center">
                                   {imageUrl ? (
                                     <img
