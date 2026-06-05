@@ -39,8 +39,8 @@ export default function Home() {
                 jsonLd={buildOrganizationJsonLd()}
             />
             <Header />
-            <main className="space-y-12 md:space-y-20">
-                {/* Hero section – pleine largeur */}
+            <main>
+                {/* Hero – pleine largeur, sans z-index particulier */}
                 <motion.section
                     variants={sectionVariants}
                     initial="hidden"
@@ -50,30 +50,30 @@ export default function Home() {
                     <HeroSection />
                 </motion.section>
 
-                {/* Catégories */}
+                {/* Catégories – superposée légèrement au Hero pour un effet visuel */}
                 <motion.section
                     variants={sectionVariants}
                     initial="hidden"
                     animate="visible"
-                    className="relative overflow-hidden px-4 sm:px-6"
+                    className="relative z-10 -mt-6 md:-mt-10 px-4 sm:px-6"
                 >
                     <CategoryShowcase />
                 </motion.section>
 
-                {/* Produits */}
+                {/* Produits – espacement normal */}
                 <motion.section
                     variants={sectionVariants}
                     initial="hidden"
                     whileInView="visible"
                     viewport={{ once: true, amount: 0.1 }}
-                    className="relative overflow-hidden px-4 sm:px-6"
+                    className="relative z-10 px-4 sm:px-6 mt-8 md:mt-12"
                 >
                     <ProductGrid products={products} loading={showInitialLoad} />
                 </motion.section>
 
                 {/* Galerie éditoriale */}
                 <motion.section
-                    className="max-w-7xl mx-auto px-4 sm:px-6 py-12 md:py-20 relative overflow-hidden"
+                    className="max-w-7xl mx-auto px-4 sm:px-6 py-12 md:py-20 relative z-10"
                     variants={sectionVariants}
                     initial="hidden"
                     whileInView="visible"
