@@ -1,6 +1,6 @@
 FROM php:8.4-apache
 
-# Installer les dépendances système et PostgreSQL
+# 1. Installation des dépendances système
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libpng-dev \
     libzip-dev \
@@ -10,25 +10,29 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     unzip \
     && rm -rf /var/lib/apt/lists/*
 
-# Installer les extensions PHP nécessaires (incluant pdo_pgsql pour PostgreSQL)
+# 2. Installation des extensions PHP
 RUN docker-php-ext-install pdo_pgsql pdo_mysql gd zip
 
-# Activer le module rewrite d'Apache (nécessaire pour les routes Laravel)
+# 3. Configuration Apache
 RUN a2enmod rewrite
-
-# Copier le code du projet
-COPY . /var/www/html
-
-# Configurer Apache pour pointer sur le dossier 'public'
 RUN sed -i 's|/var/www/html|/var/www/html/public|g' /etc/apache2/sites-available/000-default.conf
 
-# Installer Composer
+# 4. Installation de Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# Installer les dépendances PHP
+# 5. Copie du code et installation des dépendances Laravel
+COPY . /var/www/html
 RUN composer install --no-dev --optimize-autoloader
 
-# Donner les permissions nécessaires
+# 6. Gestion des permissions
 RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
 
+# 7. Automatisation des migrations au démarrage
+RUN echo '#!/bin/sh' > /usr/local/bin/docker-entrypoint.sh && \
+    echo 'php /var/www/html/artisan migrate --force' >> /usr/local/bin/docker-entrypoint.sh && \
+    echo 'apache2-foreground' >> /usr/local/bin/docker-entrypoint.sh && \
+    chmod +x /usr/local/bin/docker-entrypoint.sh
+
 EXPOSE 80
+
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
