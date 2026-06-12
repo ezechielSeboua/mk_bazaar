@@ -8,20 +8,22 @@ import {
     deleteCategory
 } from '../../services/category';
 import { useDashboardData } from '../../contexts/DashboardDataContext';
+import { resolveMediaUrl } from '../../config/env';
 
 /* ---------- Icônes SVG ---------- */
 function ColonIcon() {
     return (
         <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-            <circle cx="12" cy="6" r="2.5" />
-            <circle cx="12" cy="18" r="2.5" />
+            <circle cx="12" cy="6" r="2" />
+            <circle cx="12" cy="12" r="2" />
+            <circle cx="12" cy="18" r="2" />
         </svg>
     );
 }
 
 function EditIcon() {
     return (
-        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M12 20h9" />
             <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
         </svg>
@@ -30,19 +32,27 @@ function EditIcon() {
 
 function TrashIcon() {
     return (
-        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="3 6 5 6 21 6" />
             <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
         </svg>
     );
 }
 
+function UploadIcon() {
+    return (
+        <svg className="w-6 h-6 text-stone-400 group-hover:text-black transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z" />
+        </svg>
+    );
+}
+
 const tableRow = {
-    hidden: { opacity: 0, x: -10 },
+    hidden: { opacity: 0, y: 8 },
     visible: (i) => ({
         opacity: 1,
-        x: 0,
-        transition: { delay: i * 0.05, duration: 0.3 },
+        y: 0,
+        transition: { delay: i * 0.03, duration: 0.25, ease: "easeOut" },
     }),
 };
 
@@ -53,10 +63,12 @@ function SkeletonRow() {
             animate={{ opacity: [0.6, 1, 0.6] }}
             transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
         >
-            <td className="py-3 px-3 md:py-4 md:px-6"><div className="h-4 w-24 md:w-32 bg-stone-200 rounded" /></td>
-            <td className="py-3 px-3 md:py-4 md:px-6"><div className="h-4 w-20 md:w-24 bg-stone-200 rounded" /></td>
-            <td className="py-3 px-3 md:py-4 md:px-6"><div className="h-4 w-36 md:w-48 bg-stone-200 rounded" /></td>
-            <td className="py-3 px-3 md:py-4 md:px-6"><div className="h-4 w-16 md:w-20 bg-stone-200 rounded" /></td>
+            <td className="py-4 px-4 md:px-6"><div className="h-4 w-32 bg-stone-100 rounded animate-pulse" /></td>
+            <td className="py-4 px-4 md:px-6"><div className="h-4 w-24 bg-stone-100 rounded animate-pulse" /></td>
+            <td className="py-4 px-4 md:px-6"><div className="h-4 w-48 bg-stone-100 rounded animate-pulse" /></td>
+            <td className="py-4 px-4 md:px-6"><div className="h-10 w-10 bg-stone-100 rounded animate-pulse" /></td>
+            <td className="py-4 px-4 md:px-6"><div className="h-5 w-14 bg-stone-100 rounded-full animate-pulse" /></td>
+            <td className="py-4 px-4 md:px-6"><div className="h-8 w-8 bg-stone-100 rounded-full animate-pulse ml-auto" /></td>
         </motion.tr>
     );
 }
@@ -65,24 +77,34 @@ export default function CategoriesPage() {
     const { categories, setCategories, isLoading } = useDashboardData();
     const [showForm, setShowForm] = useState(false);
     const [editingId, setEditingId] = useState(null);
+    
     const [formData, setFormData] = useState({
         name: '',
         slug: '',
         description: '',
+        is_active: true,
     });
+    
+    const [imageFile, setImageFile] = useState(null);
+    const [imagePreview, setImagePreview] = useState(null);
+    const [isDragOver, setIsDragOver] = useState(false);
+    const [isSlugManual, setIsSlugManual] = useState(false);
+
     const [errors, setErrors] = useState({});
     const [openMenuId, setOpenMenuId] = useState(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [apiError, setApiError] = useState(null);
     const [successMessage, setSuccessMessage] = useState(null);
-    const menuRef = useRef(null);
-
+    
+    const fileInputRef = useRef(null);
+    const formRef = useRef(null);
     const [confirmDelete, setConfirmDelete] = useState({ show: false, id: null, name: "" });
     const [deletingId, setDeletingId] = useState(null);
 
+    // Fermeture du menu d'actions lors d'un clic à l'extérieur
     useEffect(() => {
         const handleClickOutside = (event) => {
-            if (menuRef.current && !menuRef.current.contains(event.target)) {
+            if (!event.target.closest('.action-menu-container')) {
                 setOpenMenuId(null);
             }
         };
@@ -90,20 +112,53 @@ export default function CategoriesPage() {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
+    const generateSlug = (text) => {
+        return text
+            .toLowerCase()
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/(^-|-$)+/g, '');
+    };
+
     const handleChange = (e) => {
-        const { name, value } = e.target;
+        const { name, value, type, checked } = e.target;
+        
+        if (name === 'slug') {
+            setIsSlugManual(value.trim() !== "");
+        }
+
         setFormData((prev) => {
-            const newData = { ...prev, [name]: value };
-            if (name === 'name' && !editingId) {
-                newData.slug = value
-                    .toLowerCase()
-                    .normalize("NFD")
-                    .replace(/[\u0300-\u036f]/g, "")
-                    .replace(/[^a-z0-9]+/g, '-')
-                    .replace(/(^-|-$)+/g, '');
+            const newData = { ...prev, [name]: type === 'checkbox' ? checked : value };
+            if (name === 'name' && !editingId && !isSlugManual) {
+                newData.slug = generateSlug(value);
             }
             return newData;
         });
+    };
+
+    const processFile = (file) => {
+        if (file && file.type.startsWith('image/')) {
+            setImageFile(file);
+            setImagePreview(URL.createObjectURL(file));
+        }
+    };
+
+    const handleFileChange = (e) => {
+        processFile(e.target.files[0]);
+    };
+
+    const handleDragLeave = (e) => {
+        e.preventDefault();
+        setIsDragOver(false);
+    };
+
+    const handleDrop = (e) => {
+        e.preventDefault();
+        setIsDragOver(false);
+        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+            processFile(e.dataTransfer.files[0]);
+        }
     };
 
     const validateForm = () => {
@@ -114,7 +169,11 @@ export default function CategoriesPage() {
     };
 
     const resetForm = () => {
-        setFormData({ name: '', slug: '', description: '' });
+        setFormData({ name: '', slug: '', description: '', is_active: true });
+        setImageFile(null);
+        setImagePreview(null);
+        setIsSlugManual(false);
+        if (fileInputRef.current) fileInputRef.current.value = "";
         setEditingId(null);
         setErrors({});
         setShowForm(false);
@@ -130,37 +189,52 @@ export default function CategoriesPage() {
 
         setIsSubmitting(true);
         setApiError(null);
-        setSuccessMessage(null);
+
+        const dataToSend = new FormData();
+        dataToSend.append('name', formData.name);
+        dataToSend.append('slug', formData.slug);
+        dataToSend.append('description', formData.description);
+        dataToSend.append('is_active', formData.is_active ? '1' : '0');
+        
+        if (imageFile) {
+            dataToSend.append('image_path', imageFile);
+        }
 
         try {
             let result;
             if (editingId) {
-                result = await updateCategory(editingId, formData);
+                dataToSend.append('_method', 'PUT');
+                result = await updateCategory(editingId, dataToSend); 
+                
                 if (result.success) {
                     const updatedData = result.data?.data || result.data;
                     setCategories(categories.map(c => c.id === editingId ? updatedData : c));
-                    setSuccessMessage('Catégorie mise à jour');
+                    triggerNotification('Catégorie mise à jour avec succès');
+                    resetForm();
                 }
             } else {
-                result = await createCategory(formData);
+                result = await createCategory(dataToSend);
                 if (result.success) {
                     const createdData = result.data?.data || result.data;
                     setCategories([...categories, createdData]);
-                    setSuccessMessage('Catégorie créée');
+                    triggerNotification('Catégorie créée avec succès');
+                    resetForm();
                 }
             }
 
-            if (result?.success) {
-                resetForm();
-                setTimeout(() => setSuccessMessage(null), 3000);
-            } else {
-                setApiError(result?.error || 'Erreur API');
+            if (!result?.success) {
+                setApiError(result?.error || 'Une erreur est survenue lors de la communication avec le serveur.');
             }
         } catch (err) {
-            setApiError('Erreur inattendue');
+            setApiError('Erreur de connexion réseau inattendue.');
         } finally {
             setIsSubmitting(false);
         }
+    };
+
+    const triggerNotification = (message) => {
+        setSuccessMessage(message);
+        setTimeout(() => setSuccessMessage(null), 4000);
     };
 
     const handleEdit = (category) => {
@@ -168,15 +242,19 @@ export default function CategoriesPage() {
             name: category.name,
             slug: category.slug,
             description: category.description || '',
+            is_active: category.is_active === 1 || category.is_active === true,
         });
+        
+        setImagePreview(category.image_path || null);
+        setImageFile(null);
+        setIsSlugManual(true);
         setEditingId(category.id);
         setShowForm(true);
         setOpenMenuId(null);
-    };
-
-    const requestDelete = (category) => {
-        setConfirmDelete({ show: true, id: category.id, name: category.name });
-        setOpenMenuId(null);
+        
+        setTimeout(() => {
+            formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 100);
     };
 
     const handleDelete = async () => {
@@ -187,13 +265,12 @@ export default function CategoriesPage() {
             const result = await deleteCategory(id);
             if (result.success) {
                 setCategories(categories.filter(c => c.id !== id));
-                setSuccessMessage('Catégorie supprimée');
-                setTimeout(() => setSuccessMessage(null), 3000);
+                triggerNotification('Catégorie supprimée définitivement');
             } else {
-                setApiError(result?.error || 'Erreur lors de la suppression');
+                setApiError(result?.error || 'Impossible de supprimer cette catégorie.');
             }
         } catch (err) {
-            setApiError('Erreur inattendue');
+            setApiError('Erreur système lors du traitement de la suppression.');
         } finally {
             setDeletingId(null);
             setConfirmDelete({ show: false, id: null, name: "" });
@@ -206,136 +283,184 @@ export default function CategoriesPage() {
 
     return (
         <DashboardLayout>
-            <div className="space-y-4 md:space-y-6">
-                {/* Messages */}
-                <AnimatePresence>
-                    {apiError && (
-                        <motion.div
-                            initial={{ opacity: 0, y: -10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0 }}
-                            className="bg-red-50 border border-red-200 p-3 text-red-700 text-sm"
-                        >
-                            {apiError}
-                        </motion.div>
-                    )}
-                    {successMessage && (
-                        <motion.div
-                            initial={{ opacity: 0, y: -10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0 }}
-                            className="bg-green-50 border border-green-200 p-3 text-green-700 text-sm"
-                        >
-                            {successMessage}
-                        </motion.div>
-                    )}
-                </AnimatePresence>
+            <div className="space-y-6 max-w-[1600px] mx-auto relative px-1">
+                
+                {/* Notification Floating System */}
+                <div className="fixed top-6 right-6 z-50 flex flex-col gap-3 w-80 pointer-events-none">
+                    <AnimatePresence>
+                        {apiError && (
+                            <motion.div
+                                initial={{ opacity: 0, x: 50, scale: 0.9 }}
+                                animate={{ opacity: 1, x: 0, scale: 1 }}
+                                exit={{ opacity: 0, x: 20, scale: 0.9 }}
+                                className="pointer-events-auto bg-stone-900 border border-red-500 text-red-200 p-4 rounded text-xs tracking-wide uppercase font-medium shadow-xl"
+                            >
+                                <div className="flex justify-between items-start">
+                                    <span>{apiError}</span>
+                                    <button onClick={() => setApiError(null)} className="ml-2 text-stone-400 hover:text-white">✕</button>
+                                </div>
+                            </motion.div>
+                        )}
+                        {successMessage && (
+                            <motion.div
+                                initial={{ opacity: 0, x: 50, scale: 0.9 }}
+                                animate={{ opacity: 1, x: 0, scale: 1 }}
+                                exit={{ opacity: 0, x: 20, scale: 0.9 }}
+                                className="pointer-events-auto bg-black text-[#F9F9F7] border border-stone-800 p-4 rounded text-xs tracking-wide uppercase font-medium shadow-xl"
+                            >
+                                {successMessage}
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+                </div>
 
-                {/* Header */}
-                <motion.div
-                    className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.4 }}
-                >
+                {/* Header Section */}
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-stone-100 pb-5">
                     <div>
-                        <h1 className="text-2xl md:text-3xl font-light uppercase tracking-tight">Catégories</h1>
-                        <p className="text-stone-600 text-sm mt-1">
+                        <h1 className="text-xl md:text-2xl font-light uppercase tracking-wider text-stone-900">Catégories</h1>
+                        <p className="text-stone-500 text-xs mt-1">
                             {isLoading && categories.length === 0 ? (
-                                <span className="inline-block w-20 h-4 bg-stone-200 rounded animate-pulse" />
+                                <span className="inline-block w-16 h-3 bg-stone-100 rounded animate-pulse" />
                             ) : (
-                                <motion.span
-                                    key={categories.length}
-                                    initial={{ scale: 1.2 }}
-                                    animate={{ scale: 1 }}
-                                    transition={{ duration: 0.2 }}
-                                >
-                                    {categories.length} catégorie(s)
-                                </motion.span>
+                                <span>{categories.length} entité(s) enregistrée(s)</span>
                             )}
                         </p>
                     </div>
                     {!showForm && (
                         <button
                             onClick={() => setShowForm(true)}
-                            className="bg-black text-[#F9F9F7] px-4 py-2.5 sm:px-6 sm:py-3 text-[10px] sm:text-[11px] uppercase tracking-wider font-medium hover:bg-stone-900 transition-colors self-start sm:self-auto"
+                            className="bg-black text-[#F9F9F7] px-5 py-2.5 text-[11px] uppercase tracking-widest font-semibold hover:bg-stone-800 transition-all active:scale-[0.98]"
                         >
-                            + Ajouter une catégorie
+                            + Nouvelle catégorie
                         </button>
                     )}
-                </motion.div>
+                </div>
 
-                {/* Formulaire */}
+                {/* Interactive Form Section */}
                 <AnimatePresence>
                     {showForm && (
                         <motion.div
-                            initial={{ opacity: 0, height: 0 }}
-                            animate={{ opacity: 1, height: 'auto' }}
-                            exit={{ opacity: 0, height: 0 }}
-                            transition={{ duration: 0.3 }}
-                            className="overflow-hidden"
+                            ref={formRef}
+                            initial={{ opacity: 0, y: -15 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -15 }}
+                            transition={{ duration: 0.25, ease: "easeOut" }}
+                            className="bg-white border border-stone-200 shadow-sm rounded-lg p-5 md:p-6"
                         >
-                            <div className="bg-white border border-stone-200 rounded-lg p-4 sm:p-6">
-                                <h2 className="text-base sm:text-lg font-medium uppercase tracking-wider mb-4 sm:mb-6">
-                                    {editingId ? 'Éditer la catégorie' : 'Nouvelle catégorie'}
-                                </h2>
-                                <form onSubmit={handleSubmit} className="space-y-4 max-w-2xl">
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="text-[10px] uppercase tracking-wider font-bold block mb-2">Nom *</label>
-                                            <input
-                                                type="text" name="name" value={formData.name} onChange={handleChange}
-                                                className={`w-full px-3 py-2 border text-sm ${errors.name ? 'border-red-400' : 'border-stone-300'}`}
-                                            />
-                                            {errors.name && <p className="text-red-600 text-[10px] mt-1">{errors.name}</p>}
-                                        </div>
-                                        <div>
-                                            <label className="text-[10px] uppercase tracking-wider font-bold block mb-2">Slug *</label>
-                                            <input
-                                                type="text" name="slug" value={formData.slug} onChange={handleChange}
-                                                className={`w-full px-3 py-2 border text-sm ${errors.slug ? 'border-red-400' : 'border-stone-300'}`}
-                                            />
-                                            {errors.slug && <p className="text-red-600 text-[10px] mt-1">{errors.slug}</p>}
-                                        </div>
+                            <h2 className="text-xs font-bold uppercase tracking-widest text-stone-400 mb-6">
+                                {editingId ? 'Modification de la fiche' : 'Création de fiche'}
+                            </h2>
+                            <form onSubmit={handleSubmit} className="space-y-5 max-w-4xl">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                                    <div>
+                                        <label className="text-[10px] uppercase tracking-wider font-bold text-stone-700 block mb-2">Nom complet *</label>
+                                        <input
+                                            type="text" name="name" value={formData.name} onChange={handleChange}
+                                            className={`w-full px-3 py-2.5 border text-sm focus:outline-none transition-colors ${errors.name ? 'border-red-500 bg-red-50/20' : 'border-stone-300 focus:border-black'}`}
+                                            placeholder="Ex: Électronique, Mobilier..."
+                                        />
+                                        {errors.name && <p className="text-red-500 text-[10px] mt-1.5 uppercase font-medium tracking-wide">{errors.name}</p>}
                                     </div>
                                     <div>
-                                        <label className="text-[10px] uppercase tracking-wider font-bold block mb-2">Description</label>
-                                        <textarea
-                                            name="description" value={formData.description} onChange={handleChange}
-                                            rows="3" className="w-full px-3 py-2 border border-stone-300 text-sm"
+                                        <label className="text-[10px] uppercase tracking-wider font-bold text-stone-700 block mb-2">Lien URL (Slug) *</label>
+                                        <input
+                                            type="text" name="slug" value={formData.slug} onChange={handleChange}
+                                            className={`w-full px-3 py-2.5 border text-sm focus:outline-none transition-colors ${errors.slug ? 'border-red-500 bg-red-50/20' : 'border-stone-300 focus:border-black'}`}
+                                            placeholder="Ex: electronique-de-salon"
                                         />
+                                        {errors.slug && <p className="text-red-500 text-[10px] mt-1.5 uppercase font-medium tracking-wide">{errors.slug}</p>}
                                     </div>
-                                    <div className="flex gap-3 pt-4">
-                                        <button type="submit" disabled={isSubmitting}
-                                            className="bg-black text-[#F9F9F7] px-4 sm:px-6 py-2 text-[10px] sm:text-[11px] uppercase tracking-wider font-medium hover:bg-stone-900 disabled:opacity-50">
-                                            {isSubmitting ? 'Enregistrement...' : editingId ? 'Mettre à jour' : 'Créer'}
-                                        </button>
-                                        <button type="button" onClick={resetForm}
-                                            className="border border-stone-300 px-4 sm:px-6 py-2 text-[10px] sm:text-[11px] uppercase tracking-wider font-medium hover:bg-stone-50">
-                                            Annuler
-                                        </button>
+                                </div>
+                                
+                                <div>
+                                    <label className="text-[10px] uppercase tracking-wider font-bold text-stone-700 block mb-2">Description descriptive</label>
+                                    <textarea
+                                        name="description" value={formData.description} onChange={handleChange}
+                                        rows="2" className="w-full px-3 py-2.5 border border-stone-300 text-sm focus:outline-none focus:border-black transition-colors resize-none"
+                                        placeholder="Description facultative de la gamme de produits..."
+                                    />
+                                </div>
+                                
+                                <div>
+                                    <label className="text-[10px] uppercase tracking-wider font-bold text-stone-700 block mb-2">Image d'illustration</label>
+                                    <div 
+                                        onClick={() => fileInputRef.current?.click()}
+                                        onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
+                                        onDragLeave={handleDragLeave}
+                                        onDrop={handleDrop}
+                                        className={`group relative border-2 border-dashed rounded-lg p-5 flex flex-col items-center justify-center gap-3 cursor-pointer transition-all ${
+                                            isDragOver ? 'border-black bg-stone-50' : 'border-stone-200 bg-stone-50/50 hover:bg-stone-50 hover:border-stone-400'
+                                        }`}
+                                    >
+                                        <input
+                                            type="file" ref={fileInputRef} accept="image/*" onChange={handleFileChange} className="hidden"
+                                        />
+                                        
+                                        {imagePreview ? (
+                                            <div className="flex items-center gap-5 w-full">
+                                                <div className="w-16 h-16 rounded overflow-hidden border border-stone-200 bg-white shadow-sm flex-shrink-0">
+                                                    <img src={imagePreview.startsWith('blob:') ? imagePreview : resolveMediaUrl(imagePreview)} alt="Preview" className="w-full h-full object-cover" />
+                                                </div>
+                                                <div className="text-left">
+                                                    <p className="text-xs font-medium text-stone-900">Image sélectionnée</p>
+                                                    <p className="text-[11px] text-stone-500 mt-0.5">Cliquez ou glissez à nouveau pour remplacer.</p>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <>
+                                                <UploadIcon />
+                                                <div className="text-center">
+                                                    <p className="text-xs font-medium text-stone-800">Glissez-déposez un fichier ici, ou <span className="underline font-bold">parcourez</span></p>
+                                                    <p className="text-[10px] text-stone-400 mt-1 uppercase tracking-wider">Format WebP, JPG, PNG jusqu'à 2 Mo</p>
+                                                </div>
+                                            </>
+                                        )}
                                     </div>
-                                </form>
-                            </div>
+                                </div>
+
+                                <div className="inline-flex items-center gap-2.5 pt-1">
+                                    <input
+                                        type="checkbox" name="is_active" id="is_active" checked={formData.is_active} onChange={handleChange}
+                                        className="w-4 h-4 rounded border-stone-300 text-black focus:ring-transparent checked:bg-black accent-black cursor-pointer"
+                                    />
+                                    <label htmlFor="is_active" className="text-xs font-semibold uppercase tracking-wider text-stone-700 select-none cursor-pointer">
+                                        Rendre cette catégorie visible sur le catalogue
+                                    </label>
+                                </div>
+
+                                <div className="flex gap-3 border-t border-stone-100 pt-5 mt-2">
+                                    <button type="submit" disabled={isSubmitting}
+                                        className="bg-black text-[#F9F9F7] px-5 py-2.5 text-[11px] uppercase tracking-widest font-semibold hover:bg-stone-800 disabled:opacity-40 transition-colors">
+                                        {isSubmitting ? 'Opération en cours...' : editingId ? 'Valider les modifications' : 'Enregistrer la catégorie'}
+                                    </button>
+                                    <button type="button" onClick={resetForm}
+                                        className="border border-stone-300 text-stone-700 px-5 py-2.5 text-[11px] uppercase tracking-widest font-semibold hover:bg-stone-50 hover:text-black transition-colors">
+                                        Annuler
+                                    </button>
+                                </div>
+                            </form>
                         </motion.div>
                     )}
                 </AnimatePresence>
 
-                {/* Tableau */}
+                {/* Table View Component */}
                 <motion.div
-                    className="bg-white border border-stone-200 rounded-lg"
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.5, delay: 0.2 }}
+                    className="bg-white border border-stone-200 rounded-lg shadow-sm"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.3, delay: 0.1 }}
                 >
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
-                            <thead className="bg-stone-50 border-b border-stone-200">
-                                <tr>
-                                    <th className="text-left py-3 px-3 md:px-6 font-bold uppercase text-[10px] tracking-wider">Nom</th>
-                                    <th className="text-left py-3 px-3 md:px-6 font-bold uppercase text-[10px] tracking-wider">Slug</th>
-                                    <th className="text-left py-3 px-3 md:px-6 font-bold uppercase text-[10px] tracking-wider">Description</th>
-                                    <th className="text-left py-3 px-3 md:px-6 font-bold uppercase text-[10px] tracking-wider">Actions</th>
+                    {/* Le div parent garde l'overflow, mais chaque cellule d'action reste isolée et visible grâce au z-index */}
+                    <div className="overflow-x-auto min-h-[300px]">
+                        <table className="w-full text-left border-collapse">
+                            <thead>
+                                <tr className="bg-stone-50/70 border-b border-stone-200">
+                                    <th className="py-3 px-4 md:px-6 font-bold uppercase text-[10px] text-stone-500 tracking-wider">Nom</th>
+                                    <th className="py-3 px-4 md:px-6 font-bold uppercase text-[10px] text-stone-500 tracking-wider">Identifiant URL</th>
+                                    <th className="py-3 px-4 md:px-6 font-bold uppercase text-[10px] text-stone-500 tracking-wider hidden md:table-cell">Description</th>
+                                    <th className="py-3 px-4 md:px-6 font-bold uppercase text-[10px] text-stone-500 tracking-wider w-16 text-center">Visuel</th>
+                                    <th className="py-3 px-4 md:px-6 font-bold uppercase text-[10px] text-stone-500 tracking-wider w-24">Statut</th>
+                                    <th className="py-3 px-4 md:px-6 font-bold uppercase text-[10px] text-stone-500 tracking-wider w-16 text-right">Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -347,49 +472,80 @@ export default function CategoriesPage() {
                                     </>
                                 ) : categories.length === 0 ? (
                                     <tr>
-                                        <td colSpan="4" className="py-12 text-center text-stone-400 text-sm">
-                                            Aucune catégorie pour le moment.
+                                        <td colSpan="6" className="py-14 text-center text-stone-400 text-xs uppercase tracking-widest bg-stone-50/20">
+                                            Aucune donnée disponible pour le moment.
                                         </td>
                                     </tr>
                                 ) : (
                                     categories.map((category, index) => (
                                         <motion.tr
                                             key={category.id}
-                                            className="border-b border-stone-100 hover:bg-stone-50"
+                                            className="group border-b border-stone-100 hover:bg-stone-50/40 transition-colors"
                                             custom={index}
                                             variants={tableRow}
                                             initial="hidden"
                                             animate="visible"
                                         >
-                                            <td className="py-3 px-3 md:py-4 md:px-6 font-medium text-xs md:text-sm">{category.name}</td>
-                                            <td className="py-3 px-3 md:py-4 md:px-6 text-stone-600 text-xs md:text-sm">{category.slug}</td>
-                                            <td className="py-3 px-3 md:py-4 md:px-6 text-stone-600 text-[11px] md:text-[13px]">{category.description}</td>
-                                            <td className="py-3 px-3 md:py-4 md:px-6 relative overflow-visible">
+                                            <td className="py-4 px-4 md:px-6 font-medium text-stone-900 text-xs md:text-sm">{category.name}</td>
+                                            <td className="py-4 px-4 md:px-6 text-stone-500 font-mono text-[11px]">{category.slug}</td>
+                                            <td className="py-4 px-4 md:px-6 text-stone-500 text-xs hidden md:table-cell max-w-xs truncate">{category.description || '—'}</td>
+                                            <td className="py-4 px-4 md:px-6 text-center">
+                                                <div className="w-9 h-9 border border-stone-200 rounded bg-stone-100 mx-auto overflow-hidden shadow-sm">
+                                                    {category.image_path ? (
+                                                        <img src={resolveMediaUrl(category.image_path)} alt={category.name} className="w-full h-full object-cover" />
+                                                    ) : (
+                                                        <div className="w-full h-full flex items-center justify-center text-[9px] text-stone-400 uppercase font-bold">N/A</div>
+                                                    )}
+                                                </div>
+                                            </td>
+                                            <td className="py-4 px-4 md:px-6">
+                                                <span className={`inline-flex px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide rounded ${
+                                                    (category.is_active === 1 || category.is_active === true) ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-stone-100 text-stone-500'
+                                                }`}>
+                                                    {(category.is_active === 1 || category.is_active === true) ? 'En ligne' : 'Masqué'}
+                                                </span>
+                                            </td>
+                                            
+                                            {/* Colon Icon Action Container */}
+                                            <td className="py-4 px-4 md:px-6 text-right relative action-menu-container overflow-visible">
                                                 <button
-                                                    onClick={() => toggleMenu(category.id)}
-                                                    className="text-stone-500 hover:text-stone-800 p-1 rounded transition-colors"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        toggleMenu(category.id);
+                                                    }}
+                                                    className="p-1 text-stone-400 hover:text-black hover:bg-stone-100 rounded-full transition-all inline-flex items-center justify-center"
                                                 >
                                                     <ColonIcon />
                                                 </button>
-                                                {openMenuId === category.id && (
-                                                    <div
-                                                        ref={menuRef}
-                                                        className="absolute right-0 md:right-6 top-full mt-1 w-40 bg-white border border-stone-200 rounded shadow-lg z-50 py-1"
-                                                    >
-                                                        <button
-                                                            onClick={() => handleEdit(category)}
-                                                            className="w-full text-left px-4 py-2 text-[13px] hover:bg-stone-100 transition-colors flex items-center gap-2"
+                                                <AnimatePresence>
+                                                    {openMenuId === category.id && (
+                                                        <motion.div
+                                                            initial={{ opacity: 0, scale: 0.95, y: -5 }}
+                                                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                                                            exit={{ opacity: 0, scale: 0.95, y: -5 }}
+                                                            transition={{ duration: 0.12 }}
+                                                            className="absolute right-4 top-[75%] w-36 bg-white border border-stone-200 rounded shadow-xl z-50 py-1 text-left overflow-hidden"
                                                         >
-                                                            <EditIcon /> Éditer
-                                                        </button>
-                                                        <button
-                                                            onClick={() => requestDelete(category)}
-                                                            className="w-full text-left px-4 py-2 text-[13px] text-red-600 hover:bg-red-50 transition-colors flex items-center gap-2"
-                                                        >
-                                                            <TrashIcon /> Supprimer
-                                                        </button>
-                                                    </div>
-                                                )}
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleEdit(category)}
+                                                                className="w-full text-left px-3.5 py-2 text-xs hover:bg-stone-50 transition-colors flex items-center gap-2 text-stone-700 hover:text-black font-medium"
+                                                            >
+                                                                <EditIcon /> Éditer
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    setConfirmDelete({ show: true, id: category.id, name: category.name });
+                                                                    setOpenMenuId(null);
+                                                                }}
+                                                                className="w-full text-left px-3.5 py-2 text-xs text-red-600 hover:bg-red-50 transition-colors flex items-center gap-2 font-medium border-t border-stone-50"
+                                                            >
+                                                                <TrashIcon /> Supprimer
+                                                            </button>
+                                                        </motion.div>
+                                                    )}
+                                                </AnimatePresence>
                                             </td>
                                         </motion.tr>
                                     ))
@@ -399,13 +555,13 @@ export default function CategoriesPage() {
                     </div>
                 </motion.div>
 
-                {/* Confirmation de suppression */}
+                {/* Modale de confirmation de suppression */}
                 <ConfirmDialog
                     open={confirmDelete.show}
-                    title="Confirmer la suppression"
+                    title="Demande de suppression"
                     message={
                         <>
-                            Voulez-vous vraiment supprimer la catégorie <span className="font-semibold text-black">"{confirmDelete.name}"</span> ? Cette action est irréversible.
+                            Êtes-vous certain de vouloir supprimer la catégorie <span className="font-bold text-black">"{confirmDelete.name}"</span> ? Tous les produits associés perdront leur liaison d'arborescence.
                         </>
                     }
                     onConfirm={handleDelete}

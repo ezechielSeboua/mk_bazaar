@@ -44,7 +44,11 @@ export const fetchAPI = async (endpoint, options = {}) => {
         console.log('🔐 Token found:', !!token, token);
         // console.log('📤 Request to:', url);
         // console.log('🔑 Auth header:', token ? `Bearer ${token.substring(0, 20)}...` : 'NO TOKEN');
-
+        
+        if (options.body && !isFormData && typeof options.body === 'object') {
+            options.body = JSON.stringify(options.body);
+        }
+        
         const response = await fetch(url, {
             ...options,
             headers: {

@@ -5,80 +5,78 @@ import { resolveMediaUrl, DEFAULT_PLACEHOLDER_IMAGE } from '../config/env';
 
 export default function CategoryShowcase() {
     const { categories, isLoading } = useCatalogData();
-    const showcaseCategories = categories.slice(0, 4);
-    const showInitialLoad = isLoading && categories.length === 0;
+    
+    const showcaseCategories = categories?.slice(0, 4) || [];
+    const showInitialLoad = isLoading && showcaseCategories.length === 0;
 
-    if (showInitialLoad) {
-        return (
-            <section className="w-full py-6 md:py-16 flex flex-col justify-center items-center px-4">
-                <div className="max-w-7xl w-full text-center mb-6 md:mb-10">
-                    <span className="text-[10px] uppercase tracking-[0.3em] text-stone-400 font-bold">
+    // Si le chargement est fini et qu'il n'y a aucune catégorie, on n'affiche rien (évite une section vide)
+    if (!showInitialLoad && showcaseCategories.length === 0) return null;
+
+    return (
+        <section className="w-full bg-[#FAFAFA] border-t border-stone-200/80 py-12 sm:py-16 px-4 sm:px-6">
+            <div className="max-w-7xl mx-auto">
+                
+                {/* En-tête unique — Évite la duplication de code structurel */}
+                <div className="text-center mb-8 sm:mb-12">
+                    <span className="text-[10px] uppercase tracking-[0.3em] text-stone-400 font-bold block mb-2">
                         Nos univers
                     </span>
-                    <h2 className="text-xl sm:text-2xl md:text-3xl font-light uppercase tracking-tight mt-2">
+                    <h2 className="text-2xl md:text-3xl font-light uppercase tracking-tight text-stone-950">
                         Explorez par <span className="font-normal">catégorie</span>
                     </h2>
                 </div>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 md:gap-6 max-w-5xl mx-auto w-full">
-                    {[...Array(4)].map((_, idx) => (
-                        <div key={idx} className="animate-pulse">
-                            <div className="aspect-square rounded-2xl bg-stone-200" />
-                            <div className="h-3 bg-stone-200 rounded w-1/2 mx-auto mt-2" />
-                        </div>
-                    ))}
+
+                {/* Grille d'affichage */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 max-w-5xl mx-auto w-full">
+                    {showInitialLoad ? (
+                        
+                        /* Squelettes d'attente (Skeletons) alignés sur le rendu final */
+                        [...Array(4)].map((_, idx) => (
+                            <div key={idx} className="animate-pulse flex flex-col items-center">
+                                <div className="aspect-square w-full rounded-xl bg-stone-200" />
+                                <div className="h-3 bg-stone-200 rounded w-1/2 mt-3" />
+                            </div>
+                        ))
+                    ) : (
+                        
+                        /* Rendu des catégories réelles */
+                        showcaseCategories.map((cat, idx) => {
+                            const imageUrl = cat.image_path
+                                ? resolveMediaUrl(cat.image_path)
+                                : cat.image || DEFAULT_PLACEHOLDER_IMAGE;
+
+                            const slug = cat.slug || cat.id || cat.name?.toLowerCase().replace(/\s+/g, '-') || '';
+                            const name = cat.name || "Catégorie";
+
+                            return (
+                                <motion.div
+                                    key={cat.id || idx}
+                                    initial={{ opacity: 0, y: 15 }}
+                                    whileInView={{ opacity: 1, y: 0 }}
+                                    viewport={{ once: true }}
+                                    transition={{ duration: 0.4, delay: idx * 0.05 }}
+                                    whileHover={{ y: -4 }}
+                                >
+                                    <Link to={`/products?category=${slug}`} className="group block text-center">
+                                        {/* Conteneur Image avec bordure subtile */}
+                                        <div className="aspect-square rounded-xl overflow-hidden bg-stone-100 border border-stone-200/60 relative shadow-sm group-hover:border-stone-400 transition-colors duration-300">
+                                            <img
+                                                src={imageUrl}
+                                                alt={name}
+                                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
+                                                loading="lazy"
+                                            />
+                                        </div>
+                                        {/* Libellé Haute Lisibilité */}
+                                        <p className="mt-3 text-xs sm:text-sm font-bold uppercase tracking-wider text-stone-950 group-hover:text-stone-600 transition-colors duration-200">
+                                            {name}
+                                        </p>
+                                    </Link>
+                                </motion.div>
+                            );
+                        })
+                    )}
                 </div>
-            </section>
-        );
-    }
-
-    if (showcaseCategories.length === 0) return null;
-
-    return (
-        <section className="w-full py-6 md:py-16 flex flex-col justify-center items-center px-4">
-            <div className="max-w-7xl w-full text-center mb-6 md:mb-10">
-                <span className="text-[10px] uppercase tracking-[0.3em] text-stone-400 font-bold">
-                    Nos univers
-                </span>
-                <h2 className="text-xl sm:text-2xl md:text-3xl font-light uppercase tracking-tight mt-2">
-                    Explorez par <span className="font-normal">catégorie</span>
-                </h2>
-            </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 md:gap-6 max-w-5xl mx-auto w-full">
-                {showcaseCategories.map((cat, idx) => {
-                    const imageUrl = cat.image_path?.[0]
-                        ? resolveMediaUrl(cat.image_path[0])
-                        : cat.image || DEFAULT_PLACEHOLDER_IMAGE;
-
-                    const slug = cat.slug || cat.id || cat.name.toLowerCase().replace(/\s+/g, '-');
-                    const icon = cat.icon || "🏷️";
-
-                    return (
-                        <motion.div
-                            key={cat.id}
-                            initial={{ opacity: 0, y: 20 }}
-                            whileInView={{ opacity: 1, y: 0 }}
-                            transition={{ delay: idx * 0.1 }}
-                            whileHover={{ y: -5 }}
-                        >
-                            <Link to={`/products?category=${slug}`} className="group block">
-                                <div className="aspect-square rounded-2xl overflow-hidden bg-stone-100 relative">
-                                    <img
-                                        src={imageUrl}
-                                        alt={cat.name}
-                                        className="w-full h-full object-cover group-hover:scale-110 transition duration-500"
-                                        loading="lazy"
-                                    />
-                                    <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition flex items-center justify-center">
-                                        <span className="text-white text-3xl md:text-4xl">{icon}</span>
-                                    </div>
-                                </div>
-                                <p className="text-center mt-2 text-xs sm:text-sm font-medium uppercase tracking-wide">
-                                    {cat.name}
-                                </p>
-                            </Link>
-                        </motion.div>
-                    );
-                })}
             </div>
         </section>
     );

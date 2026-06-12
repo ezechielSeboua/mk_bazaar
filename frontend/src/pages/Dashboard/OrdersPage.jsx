@@ -51,11 +51,12 @@ function FilterIcon() {
   );
 }
 
-const STATUS_OPTIONS = ['Tous', 'pending', 'completed', 'cancelled'];
+const STATUS_OPTIONS = ['Tous', 'pending', 'processing', 'completed', 'cancelled'];
 
 const translateStatus = (status) => {
   switch (status) {
     case 'pending': return 'En attente';
+    case 'processing': return 'En traitement';
     case 'completed': return 'Livrée';
     case 'cancelled': return 'Annulée';
     default: return status;
@@ -141,7 +142,7 @@ export default function OrdersPage() {
   const [selectedCommand, setSelectedCommand] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
-  const [showFilters, setShowFilters] = useState(false); // pour mobile
+  const [showFilters, setShowFilters] = useState(false);
 
   const hasActiveFilters = searchTerm || statusFilter !== 'Tous';
 
@@ -162,13 +163,15 @@ export default function OrdersPage() {
     }
 
     results.sort((a, b) => {
-      const dateA = new Date(a.date);
-      const dateB = new Date(b.date);
+      const dateA = new Date(a.created_at);
+      const dateB = new Date(b.created_at);
       return dateSort === 'desc' ? dateB - dateA : dateA - dateB;
     });
 
     return results;
   }, [orders, searchTerm, statusFilter, dateSort]);
+
+  console.log("Mes commandes:", orders);
 
   const openDetailModal = (cmd) => {
     setSelectedCommand(cmd);
@@ -200,6 +203,7 @@ export default function OrdersPage() {
   const getStatusBadge = (status) => {
     switch (status) {
       case 'pending': return 'bg-amber-100 text-amber-800';
+      case 'processing': return 'bg-blue-100 text-blue-800';
       case 'completed': return 'bg-green-100 text-green-800';
       case 'cancelled': return 'bg-red-100 text-red-800';
       default: return 'bg-stone-100 text-stone-500';
@@ -316,7 +320,7 @@ export default function OrdersPage() {
                         {cmd.order_number}
                       </td>
                       <td className="py-3 md:py-4 px-3 md:px-6 text-stone-600 text-xs md:text-sm">
-                        {new Date(cmd.date).toLocaleDateString('fr-FR', {
+                        {new Date(cmd.created_at).toLocaleDateString('fr-FR', {
                           year: 'numeric', month: 'short', day: 'numeric',
                         })}
                       </td>
@@ -353,7 +357,7 @@ export default function OrdersPage() {
           </div>
         </motion.div>
 
-        {/* Modale détails commande – ajustements mobiles */}
+        {/* Modale détails commande */}
         <AnimatePresence>
           {isModalOpen && selectedCommand && (
             <motion.div
@@ -394,7 +398,7 @@ export default function OrdersPage() {
                   <div>
                     <p className="text-[10px] uppercase tracking-wider font-bold text-stone-500 mb-1">Date</p>
                     <p className="text-sm">
-                      {new Date(selectedCommand.date).toLocaleDateString('fr-FR', {
+                      {new Date(selectedCommand.created_at).toLocaleDateString('fr-FR', {
                         year: 'numeric', month: 'long', day: 'numeric',
                       })}
                     </p>
@@ -408,7 +412,7 @@ export default function OrdersPage() {
                   </span>
                 </div>
 
-                {/* Produits commandés avec images */}
+                {/* Produits commandés */}
                 <div>
                   <p className="text-[10px] uppercase tracking-wider font-bold text-stone-500 mb-2">
                     Produits commandés
@@ -426,19 +430,19 @@ export default function OrdersPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {(selectedCommand.products || []).map((prod, i) => {
-                          const firstImage = prod.image_path;
+                        {(selectedCommand.items || []).map((item, i) => {
+                          const product = item.variant?.product || {};
+                          const firstImage = product.image_path;
                           const imageUrl = Array.isArray(firstImage) ? firstImage[0] : firstImage;
+                          const attributes = item.variant?.attributes || {};
                           return (
-                            <tr key={i} className="border-b border-stone-100 last:border-b-0">
-                              {/* Mon image {prod.image_path?.[0]} */}
+                            <tr key={item.id || i} className="border-b border-stone-100 last:border-b-0">
                               <td className="py-2 px-2 md:px-4">
-
                                 <div className="w-8 h-8 md:w-10 md:h-10 rounded bg-stone-100 border border-stone-200 overflow-hidden flex items-center justify-center">
                                   {imageUrl ? (
                                     <img
                                       src={resolveMediaUrl(imageUrl)}
-                                      alt={prod.name}
+                                      alt={product.name}
                                       className="w-full h-full object-cover"
                                     />
                                   ) : (
@@ -450,11 +454,20 @@ export default function OrdersPage() {
                                   )}
                                 </div>
                               </td>
-                              <td className="py-2 px-2 md:px-4 font-medium">{prod.name}</td>
-                              <td className="py-2 px-2 md:px-4 text-center">{prod.unit_price?.toLocaleString()} FCFA</td>
-                              <td className="py-2 px-2 md:px-4 text-center">{prod.quantity}</td>
+                              <td className="py-2 px-2 md:px-4 font-medium">
+                                <div>{product.name}</div>
+                                {(attributes.taille || attributes.couleur) && (
+                                  <div className="text-[10px] text-stone-500 mt-0.5">
+                                    {attributes.taille && `Taille: ${attributes.taille}`}
+                                    {attributes.taille && attributes.couleur && ' - '}
+                                    {attributes.couleur && `Couleur: ${attributes.couleur}`}
+                                  </div>
+                                )}
+                              </td>
+                              <td className="py-2 px-2 md:px-4 text-center">{item.price?.toLocaleString()} FCFA</td>
+                              <td className="py-2 px-2 md:px-4 text-center">{item.quantity}</td>
                               <td className="py-2 px-2 md:px-4 text-right font-medium">
-                                {(prod.unit_price * prod.quantity).toLocaleString()} FCFA
+                                {(item.price * item.quantity).toLocaleString()} FCFA
                               </td>
                             </tr>
                           );
@@ -466,7 +479,7 @@ export default function OrdersPage() {
                             Total
                           </td>
                           <td className="py-2 px-2 md:px-4 text-right font-bold">
-                            {selectedCommand.total?.toLocaleString()} FCFA
+                            {selectedCommand.total_price?.toLocaleString()} FCFA
                           </td>
                         </tr>
                       </tfoot>

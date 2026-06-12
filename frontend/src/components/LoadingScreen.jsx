@@ -1,6 +1,7 @@
 // components/LoadingScreen.tsx
 import { motion, AnimatePresence } from "framer-motion";
-import CharacterLoader from "./CharacterLoader";
+import BazaarPulse from "./BazaarPulse";
+// import CharacterLoader from "./CharacterLoader";
 
 export default function LoadingScreen({
   isLoading,
@@ -23,10 +24,16 @@ export default function LoadingScreen({
           exit={{ opacity: 0 }}
           transition={{ duration: 0.3 }}
         >
-          <CharacterLoader
+          {/* <CharacterLoader
             message="Marie pardon faut te calmer.... les données là sont entrain de charger."
             emojiType="face_in_clouds" // wink, smile, surprised, tongue
+          /> */}
+
+          <BazaarPulse
+            imageSrc="/mk_bazaar_logo.png"
           />
+
+
         </motion.div>
       ) : (
         <motion.div

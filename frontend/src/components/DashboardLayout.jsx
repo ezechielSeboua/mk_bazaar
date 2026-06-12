@@ -418,7 +418,7 @@ export default function DashboardLayout({ children }) {
                 </span>
               )}
             </div>
-             <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4">
               <span className="text-sm text-stone-600 hidden sm:block">
                 <strong>Bienvenue</strong> , {user?.name || "Admin"}
               </span>

@@ -1,39 +1,60 @@
 import { fetchAPI } from './apiConfig';
 
-// Get all categories
+/**
+ * Récupérer toutes les catégories
+ */
 export const getCategories = async () => {
     return fetchAPI('/categories', {
         method: 'GET'
     });
 };
 
-// Create category
-export const createCategory = async (categoryData) => {
-    console.log("Creating category with data:", categoryData);
+/**
+ * Créer une nouvelle catégorie (Supporte l'envoi d'une image)
+ * @param {FormData} categoryFormData - Doit être une instance de FormData
+ */
+export const createCategory = async (categoryFormData) => {
+    console.log("Creating category with FormData containing image...");
     return fetchAPI('/categories', {
         method: 'POST',
-        body: JSON.stringify(categoryData)
+        // IMPORTANT : Pas de 'Content-Type' ici, le navigateur le gère automatiquement pour FormData
+        body: categoryFormData 
     });
 };
 
-// Update category
-export const updateCategory = async (categoryId, categoryData) => {
-    return fetchAPI(`/categories/${categoryId}`, {
-        method: 'PUT',
-        body: JSON.stringify(categoryData)
+/**
+ * Mettre à jour une catégorie (Supporte l'envoi d'une nouvelle image)
+ * * 💡 ASTUCE LARAVEL CRUCIALE : 
+ * Les requêtes 'PUT' natives de PHP ont du mal à lire le 'multipart/form-data'. 
+ * Pour modifier une image, on utilise une astuce reconnue : on fait un 'POST' 
+ * et on ajoute un champ caché '_method' égal à 'PUT'.
+ */
+export const updateCategory = async (categorySlugOrId, categoryFormData) => {
+    // Si ce n'est pas déjà fait dans ton composant, on s'assure d'injecter la méthode PUT
+    if (categoryFormData instanceof FormData && !categoryFormData.has('_method')) {
+        categoryFormData.append('_method', 'PUT');
+    }
+
+    return fetchAPI(`/categories/${categorySlugOrId}`, {
+        method: 'POST', // On triche avec POST pour que Laravel intercepte correctement le fichier
+        body: categoryFormData
     });
 };
 
-// Delete category
-export const deleteCategory = async (categoryId) => {
-    return fetchAPI(`/categories/${categoryId}`, {
+/**
+ * Supprimer une catégorie
+ */
+export const deleteCategory = async (categorySlugOrId) => {
+    return fetchAPI(`/categories/${categorySlugOrId}`, {
         method: 'DELETE'
     });
 };
 
-// Get category by ID
-export const getCategoryById = async (categoryId) => {
-    return fetchAPI(`/categories/${categoryId}`, {
+/**
+ * Récupérer une catégorie par son slug ou son ID
+ */
+export const getCategoryBySlug = async (categorySlugOrId) => {
+    return fetchAPI(`/categories/${categorySlugOrId}`, {
         method: 'GET'
     });
 };

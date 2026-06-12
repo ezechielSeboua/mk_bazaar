@@ -1,11 +1,12 @@
 import { lazy, Suspense } from 'react'; // <-- 1. Importation des outils de lazy-loading
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 
 // Les Wrappers restent importés normalement car ils gèrent la structure et les contextes vitaux
 import DashboardWrapper from './components/DashboardWrapper';
 import StorefrontWrapper from './components/StorefrontWrapper';
 import LoadingScreen from './components/LoadingScreen'; // <-- 2. Ton écran de chargement global
+import BasketPage from './pages/BasketPage';
 
 /* ---------- Chargement paresseux (Lazy Loading) des pages ---------- */
 // Pages de la Vitrine (Storefront)
@@ -35,9 +36,11 @@ function App() {
         <Routes>
           {/* Vitrine */}
           <Route element={<StorefrontWrapper />}>
-            <Route path="/" element={<Home />} />
-            <Route path="/products" element={<ProductList />} />
+            <Route path="/" element={<Navigate to="/products" replace />} />
+            <Route path="/acceuil" element={<Home />} />
+            <Route index path="/products" element={<ProductList />} />
             <Route path="/products/:slug" element={<ProductPage />} />
+            <Route path="/panier" element={<BasketPage />} />
           </Route>
           
           {/* Hors layout */}
