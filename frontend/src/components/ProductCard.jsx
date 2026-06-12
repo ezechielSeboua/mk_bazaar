@@ -12,7 +12,7 @@ const CategoryIcon = () => (
     viewBox="0 0 24 24"
     strokeWidth={1.5}
     stroke="currentColor"
-    className="w-3.5 h-3.5 mr-1 text-stone-500"
+    className="w-2.5 h-2.5 mr-0.5 text-stone-500"
   >
     <path
       strokeLinecap="round"
@@ -49,7 +49,6 @@ export default function ProductCard({ product, delay = 0 }) {
   const hasStock = product.variants?.some((v) => v.stock > 0) ?? true;
   const isAvailable = product.is_active && hasStock;
 
-  // Ajout rapide au panier (première variante dispo)
   const handleQuickAddToCart = (e) => {
     e.preventDefault();
     if (!isAvailable) return;
@@ -104,16 +103,15 @@ export default function ProductCard({ product, delay = 0 }) {
       transition={{ duration: 0.4, delay }}
       whileHover={{ y: -6 }}
       className="group flex flex-col justify-between bg-[#FAFAFA] rounded-xl border border-stone-200/80 overflow-hidden
-                 h-[300px] sm:h-[400px] md:h-[460px]
+                 h-[220px] sm:h-[400px] md:h-[460px]
                  transition-all duration-300 hover:border-stone-400 hover:shadow-md"
     >
-      {/* Partie haute cliquable → fiche produit */}
       <Link
         to={`/products/${product.slug}`}
         className="flex flex-col flex-grow overflow-hidden"
       >
         {/* Image */}
-        <div className="relative w-full h-[48%] sm:h-[50%] bg-stone-100 overflow-hidden">
+        <div className="relative w-full h-[48%] bg-stone-100 overflow-hidden">
           <img
             src={backgroundImage}
             alt={name}
@@ -122,16 +120,16 @@ export default function ProductCard({ product, delay = 0 }) {
           />
 
           {hasDiscount && (
-            <div className="absolute top-2 left-2 z-10">
-              <span className="inline-flex items-center px-2 py-0.5 text-[10px] font-black uppercase tracking-wider bg-red-600 text-white rounded shadow-sm">
+            <div className="absolute top-1 left-1 z-10">
+              <span className="inline-flex items-center px-1 py-0.5 text-[8px] font-black uppercase tracking-wider bg-red-600 text-white rounded shadow-sm">
                 -{discountPercentage}%
               </span>
             </div>
           )}
 
-          <div className="absolute top-2 right-2 z-10">
+          <div className="absolute top-1 right-1 z-10">
             <span
-              className={`inline-flex items-center px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-md shadow-sm ${
+              className={`inline-flex items-center px-1 py-0.5 text-[8px] font-bold uppercase tracking-wider rounded-md shadow-sm ${
                 isAvailable
                   ? "bg-stone-900 text-white border border-stone-800"
                   : "bg-stone-200 text-stone-600"
@@ -143,47 +141,40 @@ export default function ProductCard({ product, delay = 0 }) {
         </div>
 
         {/* Contenu texte */}
-        <div className="flex flex-col justify-between flex-grow p-3 sm:p-4 bg-white text-stone-900">
+        <div className="flex flex-col justify-between flex-grow p-1.5 sm:p-4 bg-white text-stone-900">
           <div>
-            {/* Catégorie & note */}
-            <div className="flex items-center justify-between text-[11px] text-stone-500 font-medium mb-0.5">
+            <div className="flex items-center justify-between text-[9px] sm:text-[11px] text-stone-500 font-medium mb-0.5">
               <div className="flex items-center truncate max-w-[70%]">
                 <CategoryIcon />
                 <span className="truncate">{categoryName}</span>
               </div>
               <div className="flex items-center gap-0.5 font-bold text-stone-800">
-                <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
-                <span>{rating}</span>
+                <Star className="w-2 h-2 sm:w-3 sm:h-3 fill-amber-400 text-amber-400" />
+                <span className="text-[9px] sm:text-xs">{rating}</span>
               </div>
             </div>
 
-            {/* Nom */}
-            <h2 className="text-xs sm:text-sm font-bold tracking-tight text-stone-950 line-clamp-1 group-hover:text-stone-800 transition-colors">
+            <h2 className="text-[10px] sm:text-sm font-bold tracking-tight text-stone-950 line-clamp-1 group-hover:text-stone-800 transition-colors">
               {name}
             </h2>
 
-            {/* Description */}
             {description && (
-              <p className="text-[10px] sm:text-xs text-stone-500 mt-0.5 leading-relaxed line-clamp-2">
+              <p className="text-[8px] sm:text-xs text-stone-500 mt-0.5 leading-relaxed line-clamp-2">
                 {description}
               </p>
             )}
           </div>
 
-          {/* Prix */}
-          <div className="mt-1 pt-1 sm:mt-2 sm:pt-2 border-t border-stone-100">
-            <span className="text-[9px] sm:text-[10px] text-stone-400 uppercase tracking-widest block font-medium">
+          <div className="mt-0.5 sm:mt-2 pt-0.5 sm:pt-2 border-t border-stone-100">
+            <span className="text-[7px] sm:text-[10px] text-stone-400 uppercase tracking-widest block font-medium">
               {hasDiscount ? "Promo" : "Prix"}
             </span>
-            <div className="flex items-baseline gap-1.5 flex-wrap">
-              <span className="text-sm sm:text-lg font-black tracking-tight text-stone-950">
-                {currentPrice.toLocaleString()}{" "}
-                <span className="text-[10px] sm:text-xs font-normal text-stone-600">
-                  FCFA
-                </span>
+            <div className="flex items-baseline gap-1 flex-wrap">
+              <span className="text-[11px] sm:text-lg font-black tracking-tight text-stone-950">
+                {currentPrice.toLocaleString()} FCFA
               </span>
               {hasDiscount && (
-                <span className="text-[10px] sm:text-sm text-stone-400 line-through font-medium">
+                <span className="text-[8px] sm:text-sm text-stone-400 line-through font-medium">
                   {oldPrice.toLocaleString()} FCFA
                 </span>
               )}
@@ -192,12 +183,12 @@ export default function ProductCard({ product, delay = 0 }) {
         </div>
       </Link>
 
-      {/* Bouton Ajouter au panier – version compacte mobile */}
-      <div className="p-2 sm:p-3 bg-white border-t border-stone-100">
+      {/* Bouton ultra compact */}
+      <div className="p-1 sm:p-3 bg-white border-t border-stone-100">
         <button
           onClick={handleQuickAddToCart}
           disabled={!isAvailable}
-          className={`w-full py-1.5 sm:py-2.5 rounded-lg flex items-center justify-center gap-1 sm:gap-1.5 text-[10px] sm:text-xs font-bold uppercase tracking-wider transition-all duration-300 min-h-[44px] ${
+          className={`w-full py-0.5 sm:py-2.5 rounded flex items-center justify-center gap-0.5 text-[8px] sm:text-xs font-bold uppercase tracking-wider transition-all duration-300 min-h-[44px] ${
             isAvailable
               ? isAdded
                 ? "bg-emerald-600 text-white shadow-sm"
@@ -208,12 +199,12 @@ export default function ProductCard({ product, delay = 0 }) {
           {isAvailable ? (
             isAdded ? (
               <>
-                <Check className="w-3 h-3 sm:w-3.5 sm:h-3.5 stroke-[3px]" />
+                <Check className="w-2 h-2 sm:w-3.5 sm:h-3.5 stroke-[3px]" />
                 Ajouté !
               </>
             ) : (
               <>
-                <ShoppingBag className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                <ShoppingBag className="w-2 h-2 sm:w-3.5 sm:h-3.5" />
                 Ajouter
               </>
             )
