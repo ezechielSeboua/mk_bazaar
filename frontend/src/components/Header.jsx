@@ -140,7 +140,7 @@ export default function Header() {
     : "AD";
 
   const navigationLinks = [
-    { to: "/", label: "Accueil" },
+    { to: "/acceuil", label: "Accueil" },
     { to: "/products", label: "Collections" },
     { to: "/about", label: "A propos" },
     ...(user ? [{ to: "/dashboard", label: "Mon tableau de bord" }] : []),
