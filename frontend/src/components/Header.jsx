@@ -174,7 +174,7 @@ export default function Header() {
 
           {/* Logo centré sur mobile, aligné à gauche sur desktop */}
           <Link
-            to="/home"
+            to="/acceuil"
             className="mx-auto md:mx-0 hover:opacity-80 transition-opacity duration-200"
             aria-label="MK Bazaar – retour à l'accueil"
           >
