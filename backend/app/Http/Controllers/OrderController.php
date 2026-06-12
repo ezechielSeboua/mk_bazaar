@@ -3,98 +3,155 @@
 namespace App\Http\Controllers;
 
 use App\Models\Order;
+use App\Models\ProductVariant;
 use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class OrderController extends Controller
 {
     /**
-     * Afficher le suivi de l'activité (Dashboard / Liste)
+     * Afficher la liste des commandes avec métriques (Dashboard Admin)
      */
-    public function index(Request $request)
+    public function index(Request $request): JsonResponse
     {
-        $query = Order::query();
+        // On charge les lignes de commande (items) et les détails des variantes associées
+        $query = Order::with(['items.variant.product', 'user']);
 
-        if ($request->has('status')) {
+        if ($request->filled('status')) {
             $query->where('status', $request->status);
         }
 
-        $orders = $query->orderBy('date', 'desc')->get();
+        // Tri par date de création (Remplacement de la colonne 'date' supprimée)
+        $orders = $query->latest()->get();
 
-        // Remplacement de 'total' par 'total_price' pour les calculs de revenus
+        // Calculs des revenus basés sur les statuts réels
         $totalRevenue = Order::where('status', 'completed')->sum('total_price');
         $pendingCount = Order::where('status', 'pending')->count();
         $cancelledRevenue = Order::where('status', 'cancelled')->sum('total_price');
 
         return response()->json([
             'metrics' => [
-                'total_revenue_fcfa' => $totalRevenue,
+                'total_revenue_fcfa' => (int) $totalRevenue,
                 'pending_orders_count' => $pendingCount,
-                'lost_revenue_cancelled_fcfa' => $cancelledRevenue,
+                'lost_revenue_cancelled_fcfa' => (int) $cancelledRevenue,
             ],
             'orders' => $orders
         ]);
     }
 
     /**
-     * Enregistrer une nouvelle commande (provenance Front-end)
+     * Enregistrer une nouvelle commande multi-produits et décrémenter les stocks
      */
-    public function store(Request $request)
+    public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'order_number'      => 'required|string|unique:orders,order_number',
-            'date'              => 'required|date',
             'delivery_location' => 'required|string',
-            'delivery_fee'      => 'required|integer',
-            'detailed_address'  => 'nullable|string',
-            'total_price'       => 'required|integer',
-            'status'            => 'required|string|in:pending,completed,cancelled',
+            'delivery_fee'      => 'required|integer|min:0',
+            'detailed_address'  => 'required|string',
+            'total_price'       => 'required|integer|min:0',
             
-            // Validation du tableau de produits imbriqué
-            'products'              => 'required|array|min:1',
-            'products.*.product_id' => 'required|integer',
-            'products.*.name'       => 'required|string',
-            'products.*.quantity'   => 'required|integer|min:1',
-            'products.*.unit_price' => 'required|integer',
-            'products.*.image_path' => 'nullable|string',
+            // Validation des articles du panier
+            'items'                      => 'required|array|min:1',
+            'items.*.product_variant_id' => 'required|integer|exists:product_variants,id',
+            'items.*.quantity'           => 'required|integer|min:1',
         ]);
 
-        // Création directe via les données validées de l'objet
-        $order = Order::create($validated);
+        // Utilisation d'une transaction pour sécuriser l'écriture en base de données
+        try {
+            $order = DB::transaction(function () use ($request, $validated) {
+                
+                // 1. Création de la commande principale
+                $order = Order::create([
+                    'user_id'           => auth('api')->id(), // Récupère l'ID si connecté, sinon null
+                    'order_number'      => 'MK-' . strtoupper(Str::random(4)) . '-' . time(),
+                    'delivery_location' => $validated['delivery_location'],
+                    'delivery_fee'      => $validated['delivery_fee'],
+                    'detailed_address'  => $validated['detailed_address'],
+                    'total_price'       => $validated['total_price'],
+                    'status'            => 'pending', // Commande en attente par défaut
+                ]);
 
-        return response()->json([
-            'message' => 'Order successfully recorded!',
-            'order' => $order
-        ], 201);
+                // 2. Traitement de chaque article du panier
+                foreach ($validated['items'] as $itemData) {
+                    $variant = ProductVariant::lockForUpdate()->find($itemData['product_variant_id']);
+
+                    // Vérification de sécurité pour le stock
+                    if ($variant->stock < $itemData['quantity']) {
+                        throw new \Exception("Stock insuffisant pour la variante ID: {$variant->id}");
+                    }
+
+                    // Décrémentation du stock de la variante
+                    $variant->decrement('stock', $itemData['quantity']);
+
+                    // Création de la ligne de commande (On fige le prix actuel de la variante)
+                    $order->items()->create([
+                        'product_variant_id' => $variant->id,
+                        'quantity'           => $itemData['quantity'],
+                        'price'              => $variant->price ?? $variant->product->price, 
+                    ]);
+                }
+
+                return $order;
+            });
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Commande enregistrée avec succès !',
+                'order'   => $order->load('items.variant.product')
+            ], 201);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la commande : ' . $e->getMessage()
+            ], 400);
+        }
     }
 
     /**
-     * Mettre à jour l'état ou les informations d'une commande
+     * Mettre à jour le statut d'une commande (Admin)
+     * Gère la réintégration des stocks si la commande est annulée
      */
-    public function update(Request $request, Order $order)
+    public function update(Request $request, Order $order): JsonResponse
     {
         $validated = $request->validate([
-            'order_number'      => 'sometimes|required|string|unique:orders,order_number,' . $order->id,
-            'date'              => 'sometimes|required|date',
-            'delivery_location' => 'sometimes|required|string',
-            'delivery_fee'      => 'sometimes|required|integer',
-            'detailed_address'  => 'nullable|string',
-            'total_price'       => 'sometimes|required|integer',
-            'status'            => 'sometimes|required|string|in:pending,completed,cancelled',
-            
-            'products'              => 'sometimes|required|array|min:1',
-            'products.*.product_id' => 'required|integer',
-            'products.*.name'       => 'required|string',
-            'products.*.quantity'   => 'required|integer|min:1',
-            'products.*.unit_price' => 'required|integer',
-            'products.*.image_path' => 'nullable|string',
+            'status' => 'required|string|in:pending,processing,completed,cancelled',
         ]);
 
-        // Mise à jour de l'instance avec les attributs modifiés reçus
-        $order->update($validated);
+        try {
+            DB::transaction(function () use ($order, $validated) {
+                // Si la commande passe à "annulée" alors qu'elle ne l'était pas, on rend les stocks
+                if ($validated['status'] === 'cancelled' && $order->status !== 'cancelled') {
+                    foreach ($order->items as $item) {
+                        $item->variant()->increment('stock', $item->quantity);
+                    }
+                }
+                // Si une commande annulée est réactivée par l'admin, on retire à nouveau les stocks
+                elseif ($validated['status'] !== 'cancelled' && $order->status === 'cancelled') {
+                    foreach ($order->items as $item) {
+                        if ($item->variant->stock < $item->quantity) {
+                            throw new \Exception("Impossible de restaurer la commande. Stock insuffisant.");
+                        }
+                        $item->variant()->decrement('stock', $item->quantity);
+                    }
+                }
 
-        return response()->json([
-            'message' => 'Order successfully updated!',
-            'order' => $order
-        ]);
+                $order->update(['status' => $validated['status']]);
+            });
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Statut de la commande mis à jour.',
+                'order'   => $order->load('items.variant.product')
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 400);
+        }
     }
 }

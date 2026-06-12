@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Order;
+use App\Models\OrderItem;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
@@ -14,7 +15,7 @@ class OrderReportController extends Controller
      */
     public function getAdvancedStats(Request $request)
     {
-        // Période par défaut : 30 derniers jours
+        // Période personnalisable via le Front (30 jours par défaut)
         $days = $request->get('days', 30);
         $startDate = Carbon::now()->subDays($days);
 
@@ -23,14 +24,15 @@ class OrderReportController extends Controller
         $pendingCount = Order::where('status', 'pending')->count();
         $completedCount = Order::where('status', 'completed')->count();
         
-        // Panier moyen sur les commandes livrées
+        // Panier moyen sur les commandes complétées
         $averageOrderValue = $completedCount > 0 ? round($totalRevenue / $completedCount) : 0;
 
-        // 2. Évolution des ventes (Pour afficher un graphique Line/Bar dans ton Front)
+
+        // 2. Évolution des ventes (Correction appliquée sur 'created_at')
         $salesEvolution = Order::where('status', 'completed')
-            ->where('date', '>=', $startDate)
+            ->where('created_at', '>=', $startDate)
             ->select(
-                DB::raw("DATE_FORMAT(date, '%Y-%m-%d') as date_formatted"),
+                DB::raw("DATE_FORMAT(created_at, '%Y-%m-%d') as date_formatted"),
                 DB::raw('SUM(total_price) as daily_revenue'),
                 DB::raw('COUNT(id) as daily_orders_count')
             )
@@ -38,7 +40,8 @@ class OrderReportController extends Controller
             ->orderBy('date_formatted', 'asc')
             ->get();
 
-        // 3. Top Communes / Zones de livraison (Pour savoir où cibler ton marketing)
+
+        // 3. Top Communes / Zones de livraison
         $topLocations = Order::select(
                 'delivery_location',
                 DB::raw('COUNT(id) as orders_count'),
@@ -50,6 +53,26 @@ class OrderReportController extends Controller
             ->take(5)
             ->get();
 
+
+        // 4. NOUVEAUTÉ : Le Top 5 des produits les plus vendus (Grâce à order_items)
+        $topProducts = OrderItem::select(
+                'products.name as product_name',
+                DB::raw('SUM(order_items.quantity) as total_qty_sold'),
+                DB::raw('SUM(order_items.quantity * order_items.price) as total_revenue_generated')
+            )
+            // On joint les items à la commande pour ne compter que les ventes validées
+            ->join('orders', 'order_items.order_id', '=', 'orders.id')
+            // On joint les items à la variante puis au produit parent pour récupérer le nom réel
+            ->join('product_variants', 'order_items.product_variant_id', '=', 'product_variants.id')
+            ->join('products', 'product_variants.product_id', '=', 'products.id')
+            ->where('orders.status', 'completed')
+            ->groupBy('products.id', 'products.name')
+            ->orderBy('total_qty_sold', 'desc')
+            ->take(5)
+            ->get();
+
+
+        // Réponse JSON ultra-structurée pour Recharts / Chart.js côté React
         return response()->json([
             'overview' => [
                 'total_revenue_fcfa'   => $totalRevenue,
@@ -61,7 +84,8 @@ class OrderReportController extends Controller
                 'sales_evolution' => $salesEvolution,
             ],
             'insights' => [
-                'top_zones' => $topLocations
+                'top_zones'    => $topLocations,
+                'top_products' => $topProducts // Injecté directement pour ton composant de stats
             ]
         ]);
     }

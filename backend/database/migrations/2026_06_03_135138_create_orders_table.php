@@ -13,18 +13,23 @@ return new class extends Migration
     {
         Schema::create('orders', function (Blueprint $table) {
             $table->id();
-            $table->string('order_number')->unique(); // Ex: 'CMD-004'
-            $table->date('date');
+            // Clé étrangère vers la table users (nullable si tu acceptes les commandes d'invités)
+            $table->foreignId('user_id')->nullable()->constrained()->onDelete('set null');
             
-            // Nouveaux champs alignés avec le Front (Exit total et address)
-            $table->string('delivery_location')->nullable(); // Correspond à selectedCommune.commune
-            $table->integer('delivery_fee')->default(0);      // Correspond à deliveryPrice
-            $table->text('detailed_address')->nullable();     // Correspond à addressDetail
-            $table->integer('total_price')->default(0);       // Correspond à totalAmount
+            $table->string('order_number')->unique(); // Ex: 'MK-A4E2-171822454'
             
-            $table->string('status')->default('pending');     // 'pending', 'cancelled', 'completed'
-            $table->json('products');                         // Tableau d'objets produits avec image_path
-            $table->timestamps();
+            // Localisation et livraison
+            $table->string('delivery_location'); // Ex: 'Abidjan, Cocody'
+            $table->integer('delivery_fee')->default(0); // Prix en centimes
+            $table->text('detailed_address'); // Précisions adresse et téléphone
+            
+            // Prix total de la commande
+            $table->integer('total_price')->default(0); // En centimes
+            
+            // Statut de la commande
+            $table->string('status')->default('pending'); // 'pending', 'processing', 'completed', 'cancelled'
+            
+            $table->timestamps(); // Gère automatiquement created_at (qui remplace ta colonne date) et updated_at
         });
     }
 

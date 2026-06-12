@@ -14,14 +14,16 @@ return new class extends Migration
             $table->string('slug')->unique();
             $table->text('description');
             $table->integer('price');
+            $table->integer('old_price')->nullable();
             $table->foreignId('category_id')->constrained()->cascadeOnDelete();
             $table->json('image_path')->nullable();
-            $table->boolean('in_stock')->default(true);
+            // $table->integer('stock')->default(0);
+            $table->boolean('is_active')->default(true);
             $table->boolean('featured')->default(false);
             $table->timestamps();
 
             $table->index('category_id');
-            $table->index('in_stock');
+            // $table->index('in_stock');
             $table->index('featured');
         });
     }

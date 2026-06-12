@@ -13,7 +13,8 @@ return new class extends Migration
             $table->string('name')->unique();
             $table->string('slug')->unique();
             $table->text('description')->nullable();
-            $table->string('icon')->nullable();
+            $table->string('image_path')->nullable();
+            $table->boolean('is_active')->default(true);
             $table->timestamps();
         });
     }

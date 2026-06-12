@@ -4,25 +4,40 @@ namespace App\Http\Controllers;
 
 use App\Models\Product;
 use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\DB; // AJOUTÉ : Pour la sécurité des transactions
 
 class ProductController extends Controller
 {
-    public function index(Request $request)
+    /**
+     * Récupérer les produits (Filtres, tri et pagination)
+     */
+    public function index(Request $request): JsonResponse
     {
-        $query = Product::with(['category']);
+        // On charge la catégorie ET les variantes associées
+        $query = Product::where('is_active', true)->with(['category', 'variants']);
 
+        // Filtrage par catégorie (Slug ou ID)
         if ($request->filled('category_slug')) {
             $query->whereHas('category', fn($q) => $q->where('slug', $request->category_slug));
         } elseif ($request->filled('category_id')) {
             $query->where('category_id', $request->category_id);
         }
 
+        // Nouveau filtre de stock basé sur la table des variantes
         if ($request->has('in_stock')) {
-            $query->where('in_stock', $request->boolean('in_stock'));
+            if ($request->boolean('in_stock')) {
+                // En stock : le produit possède au moins une variante dont le stock > 0
+                $query->whereHas('variants', fn($q) => $q->where('stock', '>', 0));
+            } else {
+                // Rupture : toutes les variantes ont un stock à 0
+                $query->whereDoesntHave('variants', fn($q) => $q->where('stock', '>', 0));
+            }
         }
 
+        // Recherche textuelle
         if ($request->filled('search')) {
             $query->where(function ($q) use ($request) {
                 $q->where('name', 'like', '%' . $request->search . '%')
@@ -30,6 +45,7 @@ class ProductController extends Controller
             });
         }
 
+        // Tri des données
         if ($request->filled('sort')) {
             match ($request->sort) {
                 'newest'     => $query->latest(),
@@ -44,131 +60,196 @@ class ProductController extends Controller
         return response()->json($query->paginate($perPage));
     }
 
-    public function show($slug)
+    /**
+     * Afficher un seul produit complet (via ID ou Slug)
+     */
+    public function show($idOrSlug): JsonResponse
     {
-        $product = Product::with('category')
-            ->where('slug', $slug)
+        $product = Product::where('id', $idOrSlug)
+            ->orWhere('slug', $idOrSlug)
             ->firstOrFail();
 
-        return response()->json($product);
+        return response()->json($product->load(['category', 'variants']));
     }
 
-    public function featured()
+    /**
+     * Récupérer les produits mis en avant pour la Home
+     */
+    public function featured(): JsonResponse
     {
         return response()->json(
-            Product::where('featured', true)->with('category')->limit(8)->get()
+            Product::where('featured', true)
+                ->where('is_active', true)
+                ->with(['category', 'variants'])
+                ->limit(8)
+                ->get()
         );
     }
 
-    public function store(Request $request)
+    /**
+     * Créer un nouveau produit et ses variantes optionnelles (Admin)
+     */
+    public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'name'          => 'required|string|max:255',
-            'slug'          => 'nullable|string|max:255',
-            'description'   => 'required|string',
-            'price'         => 'required|numeric|min:0',
-            'category_id'   => 'required|exists:categories,id',
-            'featured'      => 'boolean',
-            'in_stock'      => 'boolean',
-            'image_path.*'  => 'image|mimes:jpeg,jpg,png,webp|max:4096',
+            'name'                  => 'required|string|max:255',
+            'slug'                  => 'nullable|string|max:255|unique:products,slug',
+            'description'           => 'required|string',
+            'price'                 => 'required|integer|min:0', 
+            'old_price'             => 'nullable|integer|min:0',
+            'category_id'           => 'required|exists:categories,id',
+            'is_active'             => 'sometimes|boolean',
+            'featured'              => 'sometimes|boolean',
+            'image_path.*'          => 'image|mimes:jpeg,jpg,png,webp|max:4096',
+            
+            // Validation des variantes envoyées en même temps que le produit
+            'variants'              => 'sometimes|array',
+            'variants.*.attributes' => 'required|array',
+            'variants.*.price'      => 'nullable|integer|min:0',
+            'variants.*.old_price'  => 'nullable|integer|min:0',
+            'variants.*.stock'      => 'required|integer|min:0',
         ]);
 
         $validated['slug'] = $validated['slug'] ?? Str::slug($validated['name']);
 
+        // Gestion des images
         $paths = [];
-
         if ($request->hasFile('image_path')) {
             $files = $request->file('image_path');
-
-            if (!is_array($files)) {
-                $files = [$files];
-            }
+            $files = is_array($files) ? $files : [$files];
 
             foreach ($files as $file) {
-                if (!$file->isValid()) continue;
-
-                $path = $file->store('products', 'public');
-                $paths[] = Storage::url($path);
+                if ($file->isValid()) {
+                    $path = $file->store('products', 'public');
+                    $paths[] = Storage::url($path);
+                }
             }
         }
-
         $validated['image_path'] = $paths;
 
+        // 1. Création du produit principal
         $product = Product::create($validated);
 
-        return response()->json($product->load('category'), 201);
+        // 2. Création des variantes associées si présentes
+        if (!empty($validated['variants'])) {
+            $product->variants()->createMany($validated['variants']);
+        }
+
+        return response()->json($product->load(['category', 'variants']), 201);
     }
 
-    public function update(Request $request, Product $product)
+    /**
+     * Mettre à jour un produit et ses variantes via ID ou Slug (Admin)
+     */
+    public function update(Request $request, $idOrSlug): JsonResponse
     {
+        $product = Product::where('id', $idOrSlug)
+            ->orWhere('slug', $idOrSlug)
+            ->firstOrFail();
+
         $validated = $request->validate([
-            'name' => 'sometimes|string|max:255',
-            'slug' => 'sometimes|string|max:255',
-            'description' => 'sometimes|string',
-            'price' => 'sometimes|numeric|min:0',
-            'category_id' => 'sometimes|exists:categories,id',
-            'featured' => 'sometimes|boolean',
-            'in_stock' => 'sometimes|boolean',
-            'image_path.*' => 'image|mimes:jpeg,jpg,png,webp|max:4096',
+            'name'                  => 'sometimes|string|max:255',
+            'slug'                  => 'sometimes|string|max:255|unique:products,slug,' . $product->id,
+            'description'           => 'sometimes|string',
+            'price'                 => 'sometimes|integer|min:0',
+            'old_price'             => 'nullable|integer|min:0',
+            'category_id'           => 'sometimes|exists:categories,id',
+            'is_active'             => 'sometimes|boolean',
+            'featured'              => 'sometimes|boolean',
+            'image_path.*'          => 'image|mimes:jpeg,jpg,png,webp|max:4096',
+
+            // MODIFICATION : Validation poussée pour la mise à jour des variantes
+            'variants'              => 'sometimes|array',
+            'variants.*.id'         => 'nullable|integer|exists:product_variants,id', // 'nullable' car les nouvelles variantes n'ont pas d'ID
+            'variants.*.attributes' => 'required_with:variants|array',
+            'variants.*.price'      => 'nullable|integer|min:0',
+            'variants.*.old_price'  => 'nullable|integer|min:0',
+            'variants.*.stock'      => 'required_with:variants|integer|min:0',
         ]);
 
         if (isset($validated['name']) && empty($validated['slug'])) {
             $validated['slug'] = Str::slug($validated['name']);
         }
 
+        // Gestion du remplacement de la galerie d'images
         if ($request->hasFile('image_path')) {
             foreach (($product->image_path ?? []) as $imageUrl) {
                 $relativePath = str_replace('/storage/', '', $imageUrl);
-
                 if (Storage::disk('public')->exists($relativePath)) {
                     Storage::disk('public')->delete($relativePath);
                 }
             }
 
             $files = $request->file('image_path');
-
-            if (!is_array($files)) {
-                $files = [$files];
-            }
+            $files = is_array($files) ? $files : [$files];
 
             $newImages = [];
-
             foreach ($files as $file) {
-                if (!$file->isValid()) {
-                    continue;
+                if ($file->isValid()) {
+                    $path = $file->store('products', 'public');
+                    $newImages[] = Storage::url($path);
                 }
-
-                $path = $file->store('products', 'public');
-                $newImages[] = Storage::url($path);
             }
-
             $validated['image_path'] = $newImages;
         }
 
-        $product->update($validated);
+        // MODIFICATION : On encapsule les modifications en base de données dans une Transaction
+        DB::transaction(function () use ($product, $validated, $request) {
+            
+            // 1. Mise à jour du produit principal
+            $product->update($validated);
 
-        return response()->json($product->load('category'));
+            // 2. Gestion et synchronisation des variantes
+            if ($request->has('variants')) {
+                $activeVariantIds = [];
+
+                foreach ($validated['variants'] as $variantData) {
+                    if (!empty($variantData['id'])) {
+                        // Variante existante : On la met à jour via la relation pour isoler la recherche au produit
+                        $variant = $product->variants()->findOrFail($variantData['id']);
+                        $variant->update($variantData);
+                        $activeVariantIds[] = $variant->id;
+                    } else {
+                        // Nouvelle variante : On la crée
+                        $newVariant = $product->variants()->create($variantData);
+                        $activeVariantIds[] = $newVariant->id;
+                    }
+                }
+
+                // Suppression des variantes qui ne sont plus présentes dans le tableau envoyé par React
+                $product->variants()->whereNotIn('id', $activeVariantIds)->delete();
+            }
+        });
+
+        return response()->json($product->load(['category', 'variants']));
     }
 
-    public function destroy(Product $product)
+    /**
+     * Supprimer un produit via ID ou Slug (Admin)
+     */
+    public function destroy($idOrSlug): JsonResponse
     {
+        $product = Product::where('id', $idOrSlug)
+            ->orWhere('slug', $idOrSlug)
+            ->firstOrFail();
+
         foreach (($product->image_path ?? []) as $imageUrl) {
             $relativePath = str_replace('/storage/', '', $imageUrl);
-
             if (Storage::disk('public')->exists($relativePath)) {
                 Storage::disk('public')->delete($relativePath);
             }
         }
 
+        $product->variants()->delete(); 
         $product->delete();
 
-        return response()->json(['message' => 'Product deleted successfully']);
+        return response()->json(['message' => 'Produit et ses variantes supprimés avec succès.']);
     }
 
     /**
-     * Suppression groupée de produits.
+     * Suppression groupée de produits (Admin)
      */
-    public function bulkDelete(Request $request)
+    public function bulkDelete(Request $request): JsonResponse
     {
         $validated = $request->validate([
             'ids'   => 'required|array',
@@ -178,13 +259,13 @@ class ProductController extends Controller
         $products = Product::whereIn('id', $validated['ids'])->get();
 
         foreach ($products as $product) {
-            // Supprime les images associées
             foreach (($product->image_path ?? []) as $imageUrl) {
                 $relativePath = str_replace('/storage/', '', $imageUrl);
                 if (Storage::disk('public')->exists($relativePath)) {
                     Storage::disk('public')->delete($relativePath);
                 }
             }
+            $product->variants()->delete();
             $product->delete();
         }
 
