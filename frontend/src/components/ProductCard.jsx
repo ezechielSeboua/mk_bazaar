@@ -65,14 +65,14 @@ export default function ProductCard({ product, delay = 0 }) {
     const maxAvailableStock = targetVariant ? targetVariant.stock : 99;
 
     const existingItemIndex = currentCart.findIndex(
-      (item) => item.id === product.id && item.variant_id === variantId
+      (item) => item.id === product.id && item.variant_id === variantId,
     );
 
     if (existingItemIndex > -1) {
       const targetQty = currentCart[existingItemIndex].quantity + 1;
       currentCart[existingItemIndex].quantity = Math.min(
         targetQty,
-        maxAvailableStock
+        maxAvailableStock,
       );
     } else {
       currentCart.push({
@@ -184,7 +184,7 @@ export default function ProductCard({ product, delay = 0 }) {
       </Link>
 
       {/* Bouton ultra compact */}
-      <div className="p-1 sm:p-3 bg-white border-t border-stone-100">
+      {/* <div className="p-1 sm:p-3 bg-white border-t border-stone-100">
         <button
           onClick={handleQuickAddToCart}
           disabled={!isAvailable}
@@ -206,6 +206,38 @@ export default function ProductCard({ product, delay = 0 }) {
               <>
                 <ShoppingBag className="w-2 h-2 sm:w-3.5 sm:h-3.5" />
                 Ajouter
+              </>
+            )
+          ) : (
+            "Épuisé"
+          )}
+        </button>
+      </div> */}
+
+      {/* Bouton modifié pour mobile */}
+      <div className="p-1 sm:p-3 bg-white border-t border-stone-100 flex justify-center">
+        <button
+          onClick={handleQuickAddToCart}
+          disabled={!isAvailable}
+          className={`px-4 py-2 sm:w-full rounded flex items-center justify-center gap-1.5 text-[10px] sm:text-xs font-bold uppercase tracking-wider transition-all duration-300 ${
+            isAvailable
+              ? isAdded
+                ? "bg-emerald-600 text-white shadow-sm"
+                : "bg-stone-950 text-white hover:bg-stone-900 active:bg-black shadow-sm"
+              : "bg-stone-100 text-stone-400 cursor-not-allowed"
+          }`}
+        >
+          {isAvailable ? (
+            isAdded ? (
+              <>
+                <Check className="w-3 h-3 stroke-[3px]" />
+                Ajouté !
+              </>
+            ) : (
+              <>
+                <ShoppingBag className="w-3 h-3" />
+                <span className="hidden sm:inline">Ajouter au panier</span>
+                <span className="sm:hidden">Ajouter</span>
               </>
             )
           ) : (
