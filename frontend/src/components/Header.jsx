@@ -68,15 +68,12 @@ export default function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-  
-  // ÉTAT DU PANIER EN TEMPS RÉEL
   const [cartCount, setCartCount] = useState(0);
 
   const { user, handleLogout: logoutFromContext } = useAuth();
   const { pathname } = useLocation();
   const navigate = useNavigate();
 
-  // Fonction de calcul de la quantité totale d'éléments du panier
   const calculateCartCount = () => {
     try {
       const savedCart = localStorage.getItem("mk_bazaar_cart");
@@ -93,22 +90,16 @@ export default function Header() {
     }
   };
 
-  // Effet de synchronisation en temps réel
   useEffect(() => {
-    // 1. Calcul au montage initial et à chaque changement de page
     calculateCartCount();
-
-    // 2. Écouteur pour les événements inter-onglets et les dispatches manuels
     const handleStorageChange = () => calculateCartCount();
-
     window.addEventListener("storage", handleStorageChange);
     window.addEventListener("cart-updated", handleStorageChange);
-
     return () => {
       window.removeEventListener("storage", handleStorageChange);
       window.removeEventListener("cart-updated", handleStorageChange);
     };
-  }, [pathname]); // Se re-déclenche dès qu'on change de vue (ex: retour du panier)
+  }, [pathname]);
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 10);
@@ -119,7 +110,6 @@ export default function Header() {
   const handleLogout = async () => {
     setMobileMenuOpen(false);
     setIsLoggingOut(true);
-
     try {
       await logoutFromContext();
       await new Promise((resolve) => setTimeout(resolve, 400));
@@ -152,7 +142,6 @@ export default function Header() {
 
   return (
     <>
-      {/* ÉCRAN DE CHARGEMENT DE DÉCONNEXION */}
       <AnimatePresence>
         {isLoggingOut && (
           <motion.div
@@ -173,31 +162,30 @@ export default function Header() {
             : "bg-[#F9F9F7]/80 backdrop-blur-md py-3"
         } border-b border-stone-200/60 px-4 sm:px-8 md:px-12`}
       >
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          {/* 1. BLOC GAUCHE : hamburger + logo */}
-          <div className="flex items-center gap-2 sm:gap-3">
-            <button
-              className="md:hidden p-2 -ml-2 text-black hover:bg-stone-200/50 rounded-full transition-colors"
-              onClick={() => setMobileMenuOpen(true)}
-              aria-label="Ouvrir le menu"
-            >
-              <HamburgerIcon />
-            </button>
+        <div className="max-w-7xl mx-auto flex items-center justify-between relative">
+          {/* Bouton hamburger – visible uniquement sur mobile, positionné à gauche */}
+          <button
+            className="md:hidden absolute left-0 top-1/2 -translate-y-1/2 z-10 p-2 text-black hover:bg-stone-200/50 rounded-full transition-colors"
+            onClick={() => setMobileMenuOpen(true)}
+            aria-label="Ouvrir le menu"
+          >
+            <HamburgerIcon />
+          </button>
 
-            <Link
-              to="/"
-              className="inline-block hover:opacity-80 transition-opacity duration-200"
-              aria-label="MK Bazaar – retour à l'accueil"
-            >
-              <img
-                src="/mk_bazaar_logo.png"
-                alt="MK Bazaar"
-                className={`${logoHeight} w-auto object-contain transition-all duration-300`}
-              />
-            </Link>
-          </div>
+          {/* Logo centré sur mobile, aligné à gauche sur desktop */}
+          <Link
+            to="/"
+            className="mx-auto md:mx-0 hover:opacity-80 transition-opacity duration-200"
+            aria-label="MK Bazaar – retour à l'accueil"
+          >
+            <img
+              src="/mk_bazaar_logo.png"
+              alt="MK Bazaar"
+              className={`${logoHeight} w-auto object-contain transition-all duration-300`}
+            />
+          </Link>
 
-          {/* 2. NAVIGATION CENTRÉE (desktop) */}
+          {/* Navigation desktop centrée */}
           <nav className="hidden md:flex flex-1 justify-center items-center gap-6 lg:gap-8 text-xs uppercase tracking-widest font-semibold">
             {navigationLinks.map((link) => {
               const isActive = pathname === link.to;
@@ -221,10 +209,9 @@ export default function Header() {
             })}
           </nav>
 
-          {/* 3. BLOC DROITE : actions utilisateur + Panier */}
+          {/* Bloc d'actions (droite) */}
           <div className="flex items-center gap-2 sm:gap-4">
-            
-            {/* BOUTON PANIER DESKTOP */}
+            {/* Panier toujours visible */}
             <Link
               to="/panier"
               className={`relative p-2 rounded-full transition-all duration-200 ${
@@ -236,8 +223,6 @@ export default function Header() {
               title="Mon panier"
             >
               <CartIcon className="w-5 h-5 md:w-6 md:h-6" />
-              
-              {/* Badge réactif animé au changement de valeur */}
               <AnimatePresence>
                 {cartCount > 0 && (
                   <motion.span
@@ -253,20 +238,20 @@ export default function Header() {
               </AnimatePresence>
             </Link>
 
-            <div className="h-4 w-[1px] bg-stone-300/80 mx-0.5" />
+            {/* Séparateur (desktop seulement) */}
+            <div className="hidden md:block h-4 w-[1px] bg-stone-300/80 mx-0.5" />
 
+            {/* Actions utilisateur */}
             {user ? (
-              <div className="flex items-center gap-2 sm:gap-3">
+              /* Sur desktop : infos + logout ; sur mobile : rien (logout déjà dans le menu) */
+              <div className="hidden md:flex items-center gap-2 sm:gap-3">
                 <span className="hidden lg:inline text-xs uppercase tracking-wider text-stone-500 font-medium">
                   Bonjour, {user.name?.split(" ")[0] || "vous"}
                 </span>
-
                 <div className="w-8 h-8 md:w-9 md:h-9 rounded-full bg-black text-white flex items-center justify-center text-xs font-bold uppercase tracking-wider shadow-sm select-none">
                   {userInitials}
                 </div>
-
                 <div className="hidden sm:block h-4 w-[1px] bg-stone-300 mx-0.5" />
-
                 <button
                   onClick={handleLogout}
                   className="group relative p-2 text-stone-400 hover:text-red-600 hover:bg-red-50 sm:hover:bg-stone-200/50 rounded-full transition-all duration-200"
@@ -359,7 +344,7 @@ export default function Header() {
                     );
                   })}
 
-                  {/* LIEN PANIER MOBILE AVEC COMPTEUR */}
+                  {/* Panier dans le menu mobile */}
                   <MotionLink
                     to="/panier"
                     variants={navItemVariants}
