@@ -192,12 +192,12 @@ export default function ProductCard({ product, delay = 0 }) {
         </div>
       </Link>
 
-      {/* Bouton Ajouter au panier */}
-      <div className="p-2.5 sm:p-3 bg-white border-t border-stone-100">
+      {/* Bouton Ajouter au panier – version compacte mobile */}
+      <div className="p-2 sm:p-3 bg-white border-t border-stone-100">
         <button
           onClick={handleQuickAddToCart}
           disabled={!isAvailable}
-          className={`w-full py-2 sm:py-2.5 rounded-lg flex items-center justify-center gap-1.5 text-[11px] sm:text-xs font-bold uppercase tracking-wider transition-all duration-300 min-h-[44px] ${
+          className={`w-full py-1.5 sm:py-2.5 rounded-lg flex items-center justify-center gap-1 sm:gap-1.5 text-[10px] sm:text-xs font-bold uppercase tracking-wider transition-all duration-300 min-h-[44px] ${
             isAvailable
               ? isAdded
                 ? "bg-emerald-600 text-white shadow-sm"
@@ -208,13 +208,13 @@ export default function ProductCard({ product, delay = 0 }) {
           {isAvailable ? (
             isAdded ? (
               <>
-                <Check className="w-3.5 h-3.5 stroke-[3px]" />
+                <Check className="w-3 h-3 sm:w-3.5 sm:h-3.5 stroke-[3px]" />
                 Ajouté !
               </>
             ) : (
               <>
-                <ShoppingBag className="w-3.5 h-3.5" />
-                Ajouter au panier
+                <ShoppingBag className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                Ajouter
               </>
             )
           ) : (
