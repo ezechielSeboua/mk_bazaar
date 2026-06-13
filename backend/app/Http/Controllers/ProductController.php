@@ -41,7 +41,7 @@ class ProductController extends Controller
         if ($request->filled('search')) {
             $query->where(function ($q) use ($request) {
                 $q->where('name', 'like', '%' . $request->search . '%')
-                  ->orWhere('description', 'like', '%' . $request->search . '%');
+                    ->orWhere('description', 'like', '%' . $request->search . '%');
             });
         }
 
@@ -63,12 +63,18 @@ class ProductController extends Controller
     /**
      * Afficher un seul produit complet (via ID ou Slug)
      */
-    public function show($idOrSlug): JsonResponse
-    {
-        $product = Product::where('id', $idOrSlug)
-            ->orWhere('slug', $idOrSlug)
-            ->firstOrFail();
+    // public function show($idOrSlug): JsonResponse
+    // {
+    //     $product = Product::where('id', $idOrSlug)
+    //         ->orWhere('slug', $idOrSlug)
+    //         ->firstOrFail();
 
+    //     return response()->json($product->load(['category', 'variants']));
+    // }
+
+
+    public function show(Product $product): JsonResponse
+    {
         return response()->json($product->load(['category', 'variants']));
     }
 
@@ -95,13 +101,13 @@ class ProductController extends Controller
             'name'                  => 'required|string|max:255',
             'slug'                  => 'nullable|string|max:255|unique:products,slug',
             'description'           => 'required|string',
-            'price'                 => 'required|integer|min:0', 
+            'price'                 => 'required|integer|min:0',
             'old_price'             => 'nullable|integer|min:0',
             'category_id'           => 'required|exists:categories,id',
             'is_active'             => 'sometimes|boolean',
             'featured'              => 'sometimes|boolean',
             'image_path.*'          => 'image|mimes:jpeg,jpg,png,webp|max:4096',
-            
+
             // Validation des variantes envoyées en même temps que le produit
             'variants'              => 'sometimes|array',
             'variants.*.attributes' => 'required|array',
@@ -195,7 +201,7 @@ class ProductController extends Controller
 
         // MODIFICATION : On encapsule les modifications en base de données dans une Transaction
         DB::transaction(function () use ($product, $validated, $request) {
-            
+
             // 1. Mise à jour du produit principal
             $product->update($validated);
 
@@ -240,7 +246,7 @@ class ProductController extends Controller
             }
         }
 
-        $product->variants()->delete(); 
+        $product->variants()->delete();
         $product->delete();
 
         return response()->json(['message' => 'Produit et ses variantes supprimés avec succès.']);
