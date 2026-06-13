@@ -31,10 +31,11 @@ RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cac
 RUN echo '#!/bin/sh' > /usr/local/bin/docker-entrypoint.sh && \
     echo 'echo "Nettoyage des caches Laravel..."' >> /usr/local/bin/docker-entrypoint.sh && \
     echo 'php /var/www/html/artisan optimize:clear' >> /usr/local/bin/docker-entrypoint.sh && \
-    echo 'echo "Configuration du lien de stockage..."' >> /usr/local/bin/docker-entrypoint.sh && \
-    echo 'php /var/www/html/artisan storage:link --force' >> /usr/local/bin/docker-entrypoint.sh && \
-    echo 'echo "Lancement des migrations et seeders..."' >> /usr/local/bin/docker-entrypoint.sh && \
-    echo 'php /var/www/html/artisan migrate:fresh --seed --force' >> /usr/local/bin/docker-entrypoint.sh && \
+    # echo 'echo "Configuration du lien de stockage..."' >> /usr/local/bin/docker-entrypoint.sh && \
+    # echo 'php /var/www/html/artisan storage:link --force' >> /usr/local/bin/docker-entrypoint.sh && \
+    # echo 'echo "Lancement des migrations et seeders..."' >> /usr/local/bin/docker-entrypoint.sh && \
+    # echo 'php /var/www/html/artisan migrate:fresh --seed --force' >> /usr/local/bin/docker-entrypoint.sh && \
+    # echo 'php /var/www/html/artisan migrate' >> /usr/local/bin/docker-entrypoint.sh && \
     echo 'apache2-foreground' >> /usr/local/bin/docker-entrypoint.sh && \
     chmod +x /usr/local/bin/docker-entrypoint.sh
 
