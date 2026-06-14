@@ -215,11 +215,11 @@ export default function ProductCard({ product, delay = 0 }) {
       </div> */}
 
       {/* Bouton modifié pour mobile */}
-      <div className="p-1 sm:p-3 bg-white border-t border-stone-100 flex justify-center">
+      <div className="p-1 w-full sm:p-3 bg-white border-t border-stone-100 flex justify-center">
         <button
           onClick={handleQuickAddToCart}
           disabled={!isAvailable}
-          className={`px-4 py-2 sm:w-full rounded flex items-center justify-center gap-1.5 text-[10px] sm:text-xs font-bold uppercase tracking-wider transition-all duration-300 ${
+          className={`px-4 py-2 w-full sm:w-full rounded flex items-center justify-center gap-1.5 text-[10px] sm:text-xs font-bold uppercase tracking-wider transition-all duration-300 ${
             isAvailable
               ? isAdded
                 ? "bg-emerald-600 text-white shadow-sm"
