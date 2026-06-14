@@ -123,9 +123,9 @@ export default function BasketPage() {
         detailed_address: addressDetail.trim(),
         total_price: totalAmount,
         status: "pending",
-        products: cartItems.map(item => ({
+        items: cartItems.map(item => ({
           product_id: item.id,
-          variant_id: item.variant_id,
+          product_variant_id: item.variant_id,
           name: item.name,
           quantity: item.quantity,
           unit_price: item.price,

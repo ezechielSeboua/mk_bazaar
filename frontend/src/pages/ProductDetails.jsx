@@ -182,13 +182,13 @@ export default function ProductDetails() {
         detailed_address: addressDetail.trim(),
         total_price: totalAmount,
         status: "pending",
-        products: [
+        items: [
           {
             product_id: product.id,
-            variant_id: selectedVariant?.id || null,
+            product_variant_id: selectedVariant?.id || null,
             name: product.name,
             quantity: quantity,
-            unit_price: currentPrice,
+            price: currentPrice,
             image_path: product.image_path?.[0] || null,
           },
         ],
