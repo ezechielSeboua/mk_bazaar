@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import DashboardLayout from '../../components/DashboardLayout';
 import ConfirmDialog from '../../components/ConfirmDialog';
@@ -10,7 +11,7 @@ import {
 import { useDashboardData } from '../../contexts/DashboardDataContext';
 import { resolveMediaUrl } from '../../config/env';
 
-/* ---------- Icônes SVG ---------- */
+/* ---------- Icônes SVG (inchangé) ---------- */
 function ColonIcon() {
     return (
         <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
@@ -92,20 +93,30 @@ export default function CategoriesPage() {
 
     const [errors, setErrors] = useState({});
     const [openMenuId, setOpenMenuId] = useState(null);
+    const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 }); // pour le portail
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [apiError, setApiError] = useState(null);
     const [successMessage, setSuccessMessage] = useState(null);
     
     const fileInputRef = useRef(null);
     const formRef = useRef(null);
+    const menuButtonRef = useRef(null);
     const [confirmDelete, setConfirmDelete] = useState({ show: false, id: null, name: "" });
     const [deletingId, setDeletingId] = useState(null);
 
-    // Fermeture du menu d'actions lors d'un clic à l'extérieur
+    // Fermeture du menu contextuel (clic extérieur)
     useEffect(() => {
         const handleClickOutside = (event) => {
-            if (!event.target.closest('.action-menu-container')) {
-                setOpenMenuId(null);
+            if (
+                menuButtonRef.current &&
+                !menuButtonRef.current.contains(event.target)
+            ) {
+                const portal = document.getElementById('menu-portal-cat');
+                if (portal && !portal.contains(event.target)) {
+                    setOpenMenuId(null);
+                } else if (!portal) {
+                    setOpenMenuId(null);
+                }
             }
         };
         document.addEventListener('mousedown', handleClickOutside);
@@ -277,8 +288,24 @@ export default function CategoriesPage() {
         }
     };
 
-    const toggleMenu = (id) => {
-        setOpenMenuId(openMenuId === id ? null : id);
+    // Gestion du menu contextuel avec portail
+    const handleMenuToggle = (categoryId, event) => {
+        event.stopPropagation();
+        if (openMenuId === categoryId) {
+            setOpenMenuId(null);
+        } else {
+            const rect = event.currentTarget.getBoundingClientRect();
+            setMenuPosition({
+                top: rect.bottom + 4,
+                left: rect.right - 160, // largeur w-36 = 144px ≈ 160 pour marge
+            });
+            setOpenMenuId(categoryId);
+        }
+    };
+
+    const requestDelete = (category) => {
+        setConfirmDelete({ show: true, id: category.id, name: category.name });
+        setOpenMenuId(null);
     };
 
     return (
@@ -347,6 +374,7 @@ export default function CategoriesPage() {
                             transition={{ duration: 0.25, ease: "easeOut" }}
                             className="bg-white border border-stone-200 shadow-sm rounded-lg p-5 md:p-6"
                         >
+                            {/* … le reste du formulaire, inchangé … */}
                             <h2 className="text-xs font-bold uppercase tracking-widest text-stone-400 mb-6">
                                 {editingId ? 'Modification de la fiche' : 'Création de fiche'}
                             </h2>
@@ -450,7 +478,6 @@ export default function CategoriesPage() {
                     animate={{ opacity: 1 }}
                     transition={{ duration: 0.3, delay: 0.1 }}
                 >
-                    {/* Le div parent garde l'overflow, mais chaque cellule d'action reste isolée et visible grâce au z-index */}
                     <div className="overflow-x-auto min-h-[300px]">
                         <table className="w-full text-left border-collapse">
                             <thead>
@@ -502,50 +529,19 @@ export default function CategoriesPage() {
                                                 <span className={`inline-flex px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide rounded ${
                                                     (category.is_active === 1 || category.is_active === true) ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-stone-100 text-stone-500'
                                                 }`}>
-                                                    {(category.is_active === 1 || category.is_active === true) ? 'En ligne' : 'Masqué'}
+                                                    {(category.is_active === 1 || category.is_active === true) ? 'Activé' : 'Masqué'}
                                                 </span>
                                             </td>
                                             
-                                            {/* Colon Icon Action Container */}
-                                            <td className="py-4 px-4 md:px-6 text-right relative action-menu-container overflow-visible">
+                                            {/* Bouton d'action sans menu imbriqué */}
+                                            <td className="py-4 px-4 md:px-6 text-right relative">
                                                 <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        toggleMenu(category.id);
-                                                    }}
+                                                    ref={openMenuId === category.id ? menuButtonRef : null}
+                                                    onClick={(e) => handleMenuToggle(category.id, e)}
                                                     className="p-1 text-stone-400 hover:text-black hover:bg-stone-100 rounded-full transition-all inline-flex items-center justify-center"
                                                 >
                                                     <ColonIcon />
                                                 </button>
-                                                <AnimatePresence>
-                                                    {openMenuId === category.id && (
-                                                        <motion.div
-                                                            initial={{ opacity: 0, scale: 0.95, y: -5 }}
-                                                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                                                            exit={{ opacity: 0, scale: 0.95, y: -5 }}
-                                                            transition={{ duration: 0.12 }}
-                                                            className="absolute right-4 top-[75%] w-36 bg-white border border-stone-200 rounded shadow-xl z-50 py-1 text-left overflow-hidden"
-                                                        >
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => handleEdit(category)}
-                                                                className="w-full text-left px-3.5 py-2 text-xs hover:bg-stone-50 transition-colors flex items-center gap-2 text-stone-700 hover:text-black font-medium"
-                                                            >
-                                                                <EditIcon /> Éditer
-                                                            </button>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => {
-                                                                    setConfirmDelete({ show: true, id: category.id, name: category.name });
-                                                                    setOpenMenuId(null);
-                                                                }}
-                                                                className="w-full text-left px-3.5 py-2 text-xs text-red-600 hover:bg-red-50 transition-colors flex items-center gap-2 font-medium border-t border-stone-50"
-                                                            >
-                                                                <TrashIcon /> Supprimer
-                                                            </button>
-                                                        </motion.div>
-                                                    )}
-                                                </AnimatePresence>
                                             </td>
                                         </motion.tr>
                                     ))
@@ -554,6 +550,43 @@ export default function CategoriesPage() {
                         </table>
                     </div>
                 </motion.div>
+
+                {/* Menu contextuel via Portail */}
+                {openMenuId &&
+                    createPortal(
+                        <motion.div
+                            id="menu-portal-cat"
+                            initial={{ opacity: 0, scale: 0.95, y: -5 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95, y: -5 }}
+                            transition={{ duration: 0.12 }}
+                            className="fixed z-[100] w-36 bg-white border border-stone-200 rounded shadow-xl py-1 text-left overflow-hidden"
+                            style={{ top: menuPosition.top, left: menuPosition.left }}
+                        >
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    const category = categories.find(c => c.id === openMenuId);
+                                    if (category) handleEdit(category);
+                                }}
+                                className="w-full text-left px-3.5 py-2 text-xs hover:bg-stone-50 transition-colors flex items-center gap-2 text-stone-700 hover:text-black font-medium"
+                            >
+                                <EditIcon /> Éditer
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    const category = categories.find(c => c.id === openMenuId);
+                                    if (category) requestDelete(category);
+                                }}
+                                className="w-full text-left px-3.5 py-2 text-xs text-red-600 hover:bg-red-50 transition-colors flex items-center gap-2 font-medium border-t border-stone-50"
+                            >
+                                <TrashIcon /> Supprimer
+                            </button>
+                        </motion.div>,
+                        document.body
+                    )
+                }
 
                 {/* Modale de confirmation de suppression */}
                 <ConfirmDialog

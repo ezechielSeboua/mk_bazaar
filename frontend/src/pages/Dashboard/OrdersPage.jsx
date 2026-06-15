@@ -63,7 +63,7 @@ const translateStatus = (status) => {
   }
 };
 
-/* ---------- Bloc de filtres réutilisable ---------- */
+/* ---------- Bloc de filtres réutilisable (avec filtre par date) ---------- */
 function FiltersBlock({
   searchTerm,
   setSearchTerm,
@@ -71,6 +71,10 @@ function FiltersBlock({
   setStatusFilter,
   dateSort,
   setDateSort,
+  dateFrom,
+  setDateFrom,
+  dateTo,
+  setDateTo,
 }) {
   return (
     <div className="bg-white border border-stone-200 rounded-xl p-5 shadow-sm">
@@ -128,6 +132,41 @@ function FiltersBlock({
           </button>
         </div>
       </div>
+
+      {/* Filtre par plage de dates */}
+      <div className="mt-4 flex flex-col sm:flex-row sm:items-end gap-3">
+        <div className="flex-1">
+          <label className="text-[10px] uppercase tracking-wider font-bold text-stone-500 block mb-2">
+            Date début
+          </label>
+          <input
+            type="date"
+            value={dateFrom}
+            onChange={(e) => setDateFrom(e.target.value)}
+            className="w-full px-4 py-2.5 border border-stone-200 rounded-lg text-sm bg-stone-50 focus:bg-white focus:border-stone-400 focus:ring-1 focus:ring-stone-400 transition-all outline-none"
+          />
+        </div>
+        <div className="flex-1">
+          <label className="text-[10px] uppercase tracking-wider font-bold text-stone-500 block mb-2">
+            Date fin
+          </label>
+          <input
+            type="date"
+            value={dateTo}
+            onChange={(e) => setDateTo(e.target.value)}
+            className="w-full px-4 py-2.5 border border-stone-200 rounded-lg text-sm bg-stone-50 focus:bg-white focus:border-stone-400 focus:ring-1 focus:ring-stone-400 transition-all outline-none"
+          />
+        </div>
+        {/* Bouton de réinitialisation des dates */}
+        {(dateFrom || dateTo) && (
+          <button
+            onClick={() => { setDateFrom(''); setDateTo(''); }}
+            className="text-xs text-stone-500 hover:text-stone-800 underline self-center sm:self-end"
+          >
+            Réinitialiser les dates
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -139,12 +178,14 @@ export default function OrdersPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('Tous');
   const [dateSort, setDateSort] = useState('desc');
+  const [dateFrom, setDateFrom] = useState(''); // nouvelle
+  const [dateTo, setDateTo] = useState('');     // nouvelle
   const [selectedCommand, setSelectedCommand] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
 
-  const hasActiveFilters = searchTerm || statusFilter !== 'Tous';
+  const hasActiveFilters = searchTerm || statusFilter !== 'Tous' || dateFrom || dateTo;
 
   const filteredCommands = useMemo(() => {
     let results = [...orders];
@@ -162,6 +203,18 @@ export default function OrdersPage() {
       );
     }
 
+    // Filtre par plage de dates
+    if (dateFrom) {
+      const fromDate = new Date(dateFrom);
+      fromDate.setHours(0, 0, 0, 0); // début de journée
+      results = results.filter(cmd => new Date(cmd.created_at) >= fromDate);
+    }
+    if (dateTo) {
+      const toDate = new Date(dateTo);
+      toDate.setHours(23, 59, 59, 999); // fin de journée
+      results = results.filter(cmd => new Date(cmd.created_at) <= toDate);
+    }
+
     results.sort((a, b) => {
       const dateA = new Date(a.created_at);
       const dateB = new Date(b.created_at);
@@ -169,7 +222,7 @@ export default function OrdersPage() {
     });
 
     return results;
-  }, [orders, searchTerm, statusFilter, dateSort]);
+  }, [orders, searchTerm, statusFilter, dateSort, dateFrom, dateTo]);
 
   console.log("Mes commandes:", orders);
 
@@ -241,6 +294,10 @@ export default function OrdersPage() {
             setStatusFilter={setStatusFilter}
             dateSort={dateSort}
             setDateSort={setDateSort}
+            dateFrom={dateFrom}
+            setDateFrom={setDateFrom}
+            dateTo={dateTo}
+            setDateTo={setDateTo}
           />
         </div>
 
@@ -273,6 +330,10 @@ export default function OrdersPage() {
                   setStatusFilter={setStatusFilter}
                   dateSort={dateSort}
                   setDateSort={setDateSort}
+                  dateFrom={dateFrom}
+                  setDateFrom={setDateFrom}
+                  dateTo={dateTo}
+                  setDateTo={setDateTo}
                 />
               </motion.div>
             )}

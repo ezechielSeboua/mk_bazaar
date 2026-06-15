@@ -44,7 +44,7 @@ export default function ProductList() {
   const sortBy = searchParams.get("sort") || "nouveautes";
   const searchTerm = searchParams.get("search") || "";
   const currentPage = parseInt(searchParams.get("page") || "1", 10);
-  const showOutOfStock = searchParams.get("rupture") === "true";
+  // const showOutOfStock = searchParams.get("rupture") === "true"; // ⬅️ commenté
 
   const selectedCategoryName = useMemo(() => {
     if (!selectedCategorySlug) return "Tous";
@@ -64,8 +64,8 @@ export default function ProductList() {
     if (
       updates.sort !== undefined ||
       updates.search !== undefined ||
-      updates.category !== undefined ||
-      updates.rupture !== undefined
+      updates.category !== undefined
+      // updates.rupture !== undefined // ⬅️ commenté
     ) {
       params.set("page", "1");
     }
@@ -84,8 +84,10 @@ export default function ProductList() {
   const handleSortChange = (newSort) =>
     updateParams({ sort: newSort === "nouveautes" ? null : newSort });
   const handleSearchChange = (term) => updateParams({ search: term || null });
-  const handleOutOfStockChange = (checked) =>
-    updateParams({ rupture: checked ? "true" : null });
+
+  // const handleOutOfStockChange = (checked) =>
+  //   updateParams({ rupture: checked ? "true" : null }); // ⬅️ commenté
+
   const handlePageChange = (page) => {
     if (page >= 1 && page <= totalPages)
       setSearchParams((prev) => {
@@ -100,12 +102,23 @@ export default function ProductList() {
       categorySlug: selectedCategorySlug,
       sort: sortBy,
       search: searchTerm,
-      inStock: showOutOfStock ? false : null,
+      // inStock: showOutOfStock ? false : null, // ⬅️ commenté
     });
 
   const showInitialLoad = isLoading && products.length === 0;
   const displayLoader =
     (isLoading || isRefreshing || catalogRefreshing) && !showInitialLoad;
+
+  // Props communes pour le FilterBar (les props Rupture sont commentées)
+  const filterBarProps = {
+    selectedCategory: selectedCategoryName,
+    setSelectedCategory: handleCategoryChange,
+    sortBy: sortBy,
+    setSortBy: handleSortChange,
+    // showOutOfStock: showOutOfStock, // ⬅️ commenté
+    // setShowOutOfStock: handleOutOfStockChange, // ⬅️ commenté
+    categories,
+  };
 
   return (
     <div className="min-h-screen flex flex-col bg-[#F9F9F7] text-black antialiased">
@@ -124,7 +137,7 @@ export default function ProductList() {
           <ProductHeader />
         </motion.div>
 
-        {/* Filtres : bouton d'affichage sur mobile, toujours visible sur desktop */}
+        {/* ---- Bouton d'affichage des filtres sur mobile ---- */}
         <div className="lg:hidden mb-4">
           <button
             onClick={() => setShowFilters(!showFilters)}
@@ -135,27 +148,27 @@ export default function ProductList() {
           </button>
         </div>
 
-        <AnimatePresence>
-          {(showFilters || window.innerWidth >= 1024) && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.3 }}
-              className="overflow-hidden"
-            >
-              <FilterBar
-                selectedCategory={selectedCategoryName}
-                setSelectedCategory={handleCategoryChange}
-                sortBy={sortBy}
-                setSortBy={handleSortChange}
-                showOutOfStock={showOutOfStock}
-                setShowOutOfStock={handleOutOfStockChange}
-                categories={categories}
-              />
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {/* ---- Filtre mobile : avec animation et overflow-hidden ---- */}
+        <div className="lg:hidden">
+          <AnimatePresence>
+            {showFilters && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.3 }}
+                className="overflow-hidden"
+              >
+                <FilterBar {...filterBarProps} />
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        {/* ---- Filtre desktop : toujours visible, sans overflow-hidden ---- */}
+        <div className="hidden lg:block mb-6">
+          <FilterBar {...filterBarProps} />
+        </div>
 
         {/* Barre de recherche */}
         <motion.div className="mb-6 md:mb-8 max-w-md mx-auto md:mx-0 relative">

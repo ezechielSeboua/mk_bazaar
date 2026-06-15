@@ -138,7 +138,7 @@ export default function DashboardHome() {
                 >
                     <div className="flex items-center justify-between mb-5">
                         <h2 className="text-xs font-bold uppercase tracking-widest text-stone-400">
-                            Dernières ajouts produits
+                            Derniers ajouts produits
                         </h2>
                         {!showInitialLoad && products.length > 0 && (
                             <a 

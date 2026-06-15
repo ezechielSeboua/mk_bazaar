@@ -200,6 +200,9 @@ export default function ConfigurationsPage() {
     );
   }
 
+  console.log("shippingZones:", shippingZones);
+  
+
   return (
     <DashboardLayout>
       <div className="space-y-4 sm:space-y-6">

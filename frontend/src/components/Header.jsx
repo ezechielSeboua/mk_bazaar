@@ -7,48 +7,114 @@ import LogoutFip from "./LogoutFip";
 /* ---------- Icônes SVG ---------- */
 function HamburgerIcon() {
   return (
-    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      viewBox="0 0 24 24"
+      strokeWidth={1.5}
+      stroke="currentColor"
+      className="w-6 h-6"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"
+      />
     </svg>
   );
 }
 
 function UsersIcon() {
   return (
-    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      viewBox="0 0 24 24"
+      strokeWidth={1.5}
+      stroke="currentColor"
+      className="w-5 h-5"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z"
+      />
     </svg>
   );
 }
 
 function CloseIcon() {
   return (
-    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      viewBox="0 0 24 24"
+      strokeWidth={1.5}
+      stroke="currentColor"
+      className="w-6 h-6"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M6 18 18 6M6 6l12 12"
+      />
     </svg>
   );
 }
 
 function ArrowRightIcon({ className = "w-4 h-4" }) {
   return (
-    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      viewBox="0 0 24 24"
+      strokeWidth={1.5}
+      stroke="currentColor"
+      className={className}
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3"
+      />
     </svg>
   );
 }
 
 function LogoutIcon({ className = "w-4 h-4" }) {
   return (
-    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15M12 9l-3 3m0 0 3 3m-3-3h12.75" />
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      viewBox="0 0 24 24"
+      strokeWidth={1.5}
+      stroke="currentColor"
+      className={className}
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15M12 9l-3 3m0 0 3 3m-3-3h12.75"
+      />
     </svg>
   );
 }
 
 function CartIcon({ className = "w-5 h-5" }) {
   return (
-    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5V6a3.75 3.75 0 1 0-7.5 0v4.5m11.356-1.993 1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 0 1-1.12-1.243l1.264-12A1.125 1.125 0 0 1 5.513 7.5h12.974c.576 0 1.059.435 1.119 1.007ZM8.625 10.5a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm7.5 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      viewBox="0 0 24 24"
+      strokeWidth={1.5}
+      stroke="currentColor"
+      className={className}
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M15.75 10.5V6a3.75 3.75 0 1 0-7.5 0v4.5m11.356-1.993 1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 0 1-1.12-1.243l1.264-12A1.125 1.125 0 0 1 5.513 7.5h12.974c.576 0 1.059.435 1.119 1.007ZM8.625 10.5a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm7.5 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z"
+      />
     </svg>
   );
 }
@@ -79,7 +145,10 @@ export default function Header() {
       const savedCart = localStorage.getItem("mk_bazaar_cart");
       if (savedCart) {
         const items = JSON.parse(savedCart);
-        const total = items.reduce((sum, item) => sum + (item.quantity || 0), 0);
+        const total = items.reduce(
+          (sum, item) => sum + (item.quantity || 0),
+          0,
+        );
         setCartCount(total);
       } else {
         setCartCount(0);
@@ -136,9 +205,7 @@ export default function Header() {
     ...(user ? [{ to: "/dashboard", label: "Mon tableau de bord" }] : []),
   ];
 
-  const logoHeight = scrolled
-    ? "h-8 sm:h-10 md:h-12"
-    : "h-10 sm:h-12 md:h-14";
+  const logoHeight = scrolled ? "h-10 sm:h-14 md:h-16" : "h-11 sm:h-16 md:h-20";
 
   return (
     <>
@@ -162,118 +229,122 @@ export default function Header() {
             : "bg-[#F9F9F7]/80 backdrop-blur-md py-3"
         } border-b border-stone-200/60 px-4 sm:px-8 md:px-12`}
       >
-        <div className="max-w-7xl mx-auto flex items-center justify-between relative">
-          {/* Bouton hamburger – visible uniquement sur mobile, positionné à gauche */}
-          <button
-            className="md:hidden absolute left-0 top-1/2 -translate-y-1/2 z-10 p-2 text-black hover:bg-stone-200/50 rounded-full transition-colors"
-            onClick={() => setMobileMenuOpen(true)}
-            aria-label="Ouvrir le menu"
-          >
-            <HamburgerIcon />
-          </button>
-
-          {/* Logo centré sur mobile, aligné à gauche sur desktop */}
-          <Link
-            to="/acceuil"
-            className="mx-auto md:mx-0 hover:opacity-80 transition-opacity duration-200"
-            aria-label="MK Bazaar – retour à l'accueil"
-          >
-            <img
-              src="/mk_bazaar_logo.png"
-              alt="MK Bazaar"
-              className={`${logoHeight} w-auto object-contain transition-all duration-300`}
-            />
-          </Link>
-
-          {/* Navigation desktop centrée */}
-          <nav className="hidden md:flex flex-1 justify-center items-center gap-6 lg:gap-8 text-xs uppercase tracking-widest font-semibold">
-            {navigationLinks.map((link) => {
-              const isActive = pathname === link.to;
-              return (
-                <Link
-                  key={link.to}
-                  to={link.to}
-                  className={`relative inline-block py-1 transition-colors duration-300 ${
-                    isActive
-                      ? "text-black"
-                      : "text-stone-500 hover:text-black"
-                  } after:absolute after:bottom-0 after:left-0 after:w-full after:h-[1.5px] after:bg-black after:transition-transform after:duration-300 ${
-                    isActive
-                      ? "after:scale-x-100"
-                      : "after:scale-x-0 hover:after:scale-x-100"
-                  } after:origin-left`}
-                >
-                  {link.label}
-                </Link>
-              );
-            })}
-          </nav>
-
-          {/* Bloc d'actions (droite) */}
-          <div className="flex items-center gap-2 sm:gap-4">
-            {/* Panier toujours visible */}
-            <Link
-              to="/panier"
-              className={`relative p-2 rounded-full transition-all duration-200 ${
-                pathname === "/panier"
-                  ? "text-black bg-stone-200/50"
-                  : "text-stone-600 hover:text-black hover:bg-stone-200/50"
-              }`}
-              aria-label="Voir le panier"
-              title="Mon panier"
-            >
-              <CartIcon className="w-5 h-5 md:w-6 md:h-6" />
-              <AnimatePresence>
-                {cartCount > 0 && (
-                  <motion.span
-                    key={cartCount}
-                    initial={{ scale: 0.6, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    exit={{ scale: 0.6, opacity: 0 }}
-                    className="absolute -top-0.5 -right-0.5 bg-black text-[#F9F9F7] text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center border border-[#F9F9F7]"
-                  >
-                    {cartCount}
-                  </motion.span>
-                )}
-              </AnimatePresence>
-            </Link>
-
-            {/* Séparateur (desktop seulement) */}
-            <div className="hidden md:block h-4 w-[1px] bg-stone-300/80 mx-0.5" />
-
-            {/* Actions utilisateur */}
-            {user ? (
-              /* Sur desktop : infos + logout ; sur mobile : rien (logout déjà dans le menu) */
-              <div className="hidden md:flex items-center gap-2 sm:gap-3">
-                <span className="hidden lg:inline text-xs uppercase tracking-wider text-stone-500 font-medium">
-                  Bonjour, {user.name?.split(" ")[0] || "vous"}
-                </span>
-                <div className="w-8 h-8 md:w-9 md:h-9 rounded-full bg-black text-white flex items-center justify-center text-xs font-bold uppercase tracking-wider shadow-sm select-none">
-                  {userInitials}
-                </div>
-                <div className="hidden sm:block h-4 w-[1px] bg-stone-300 mx-0.5" />
-                <button
-                  onClick={handleLogout}
-                  className="group relative p-2 text-stone-400 hover:text-red-600 hover:bg-red-50 sm:hover:bg-stone-200/50 rounded-full transition-all duration-200"
-                  aria-label="Se déconnecter"
-                  title="Se déconnecter"
-                >
-                  <LogoutIcon className="w-4 h-4 md:w-[18px] md:h-[18px] transition-transform group-hover:translate-x-0.5" />
-                </button>
-              </div>
-            ) : (
-              <Link
-                to="/login"
-                className={`group flex items-center justify-center w-9 h-9 md:w-10 md:h-10 rounded-full transition-all duration-300 ${
-                  pathname === "/login"
-                    ? "bg-black text-white"
-                    : "bg-transparent text-black hover:bg-black hover:text-white"
-                }`}
-                aria-label="Connexion"
+        <div className="max-w-7xl mx-auto">
+          {/* Grille responsive */}
+          <div className="grid grid-cols-[auto_1fr_auto] md:flex md:items-center md:justify-between">
+            {/* Hamburger mobile */}
+            <div className="flex items-center md:hidden">
+              <button
+                className="p-2 -ml-2 text-black hover:bg-stone-200/50 rounded-full transition-colors"
+                onClick={() => setMobileMenuOpen(true)}
+                aria-label="Ouvrir le menu"
               >
-                <UsersIcon />
+                <HamburgerIcon />
+              </button>
+            </div>
+
+            {/* Logo centré */}
+            <div className="flex items-center justify-center md:justify-start">
+              <Link
+                to="/acceuil"
+                className="hover:opacity-80 transition-opacity duration-200 inline-flex"
+                aria-label="MK Bazaar – retour à l'accueil"
+              >
+                <img
+                  src="/mk_bazaar_logo.png"
+                  alt="MK Bazaar"
+                  className={`${logoHeight} w-auto object-contain transition-all duration-300`}
+                />
               </Link>
-            )}
+            </div>
+
+            {/* Navigation desktop */}
+            <nav className="hidden md:flex flex-1 justify-center items-center gap-6 lg:gap-8 text-xs uppercase tracking-widest font-semibold">
+              {navigationLinks.map((link) => {
+                const isActive = pathname === link.to;
+                return (
+                  <Link
+                    key={link.to}
+                    to={link.to}
+                    className={`relative inline-block py-1 transition-colors duration-300 ${
+                      isActive
+                        ? "text-black"
+                        : "text-stone-500 hover:text-black"
+                    } after:absolute after:bottom-0 after:left-0 after:w-full after:h-[1.5px] after:bg-black after:transition-transform after:duration-300 ${
+                      isActive
+                        ? "after:scale-x-100"
+                        : "after:scale-x-0 hover:after:scale-x-100"
+                    } after:origin-left`}
+                  >
+                    {link.label}
+                  </Link>
+                );
+              })}
+            </nav>
+
+            {/* Actions (droite) */}
+            <div className="flex items-center justify-end gap-1 sm:gap-3">
+              {/* Panier en marron/or */}
+              <Link
+                to="/panier"
+                className={`relative p-2 rounded-full transition-all duration-200 ${
+                  pathname === "/panier"
+                    ? "text-[#c07b5a] bg-[#c07b5a]/10" // actif : texte marron, fond léger marron
+                    : "text-[#c07b5a] hover:text-[#a0523d] hover:bg-[#c07b5a]/10" // normal : marron, hover plus foncé
+                }`}
+                aria-label="Voir le panier"
+                title="Mon panier"
+              >
+                <CartIcon className="w-5 h-5 md:w-6 md:h-6" />
+                <AnimatePresence>
+                  {cartCount > 0 && (
+                    <motion.span
+                      key={cartCount}
+                      initial={{ scale: 0.6, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      exit={{ scale: 0.6, opacity: 0 }}
+                      className="absolute -top-0.5 -right-0.5 bg-[#c07b5a] text-white text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center border border-[#F9F9F7]"
+                    >
+                      {cartCount}
+                    </motion.span>
+                  )}
+                </AnimatePresence>
+              </Link>
+
+              <div className="hidden md:block h-4 w-[1px] bg-stone-300/80 mx-0.5" />
+
+              {user ? (
+                <div className="hidden md:flex items-center gap-2 sm:gap-3">
+                  <span className="hidden lg:inline text-xs uppercase tracking-wider text-stone-500 font-medium">
+                    Bonjour, {user.name?.split(" ")[0] || "vous"}
+                  </span>
+                  <div className="w-8 h-8 md:w-9 md:h-9 rounded-full bg-black text-white flex items-center justify-center text-xs font-bold uppercase tracking-wider shadow-sm select-none">
+                    {userInitials}
+                  </div>
+                  <div className="hidden sm:block h-4 w-[1px] bg-stone-300 mx-0.5" />
+                  <button
+                    onClick={handleLogout}
+                    className="group relative p-2 text-stone-400 hover:text-red-600 hover:bg-red-50 sm:hover:bg-stone-200/50 rounded-full transition-all duration-200"
+                    aria-label="Se déconnecter"
+                    title="Se déconnecter"
+                  >
+                    <LogoutIcon className="w-4 h-4 md:w-[18px] md:h-[18px] transition-transform group-hover:translate-x-0.5" />
+                  </button>
+                </div>
+              ) : (
+                <Link
+                  to="/login"
+                  className={`group flex items-center justify-center w-9 h-9 md:w-10 md:h-10 rounded-full transition-all duration-300 ${
+                    pathname === "/login"
+                      ? "bg-black text-white"
+                      : "bg-transparent text-black hover:bg-black hover:text-white"
+                  }`}
+                  aria-label="Connexion"
+                >
+                  <UsersIcon />
+                </Link>
+              )}
+            </div>
           </div>
         </div>
 
@@ -344,21 +415,21 @@ export default function Header() {
                     );
                   })}
 
-                  {/* Panier dans le menu mobile */}
+                  {/* Panier dans le menu mobile (marron/or) */}
                   <MotionLink
                     to="/panier"
                     variants={navItemVariants}
                     onClick={() => setMobileMenuOpen(false)}
                     className={`flex items-center justify-between py-3.5 px-4 rounded-xl transition-all duration-200 ${
                       pathname === "/panier"
-                        ? "bg-stone-900 text-white pl-6"
+                        ? "bg-[#c07b5a]/20 text-[#c07b5a] pl-6"
                         : "text-stone-600 hover:bg-stone-100 hover:text-black"
                     }`}
                   >
                     <div className="flex items-center gap-2">
                       <span>Mon Panier</span>
                       {cartCount > 0 && (
-                        <span className="bg-black text-white text-[10px] font-bold px-2 py-0.5 rounded-full border border-stone-200">
+                        <span className="bg-[#c07b5a] text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
                           {cartCount}
                         </span>
                       )}

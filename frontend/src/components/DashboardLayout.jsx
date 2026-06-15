@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { useDashboardData } from "../contexts/DashboardDataContext";
@@ -247,6 +247,21 @@ export default function DashboardLayout({ children }) {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [logoutLoading, setLogoutLoading] = useState(false);
 
+  const [isAuthCheckComplete, setIsAuthCheckComplete] = useState(false); // 3. Nouvel état
+
+  useEffect(() => {
+    if (!user) {
+      // L'utilisateur n'est pas authentifié, redirection immédiate
+      navigate("/login", { replace: true });
+    } else {
+      setIsAuthCheckComplete(true);
+    }
+  }, [user, navigate]);
+
+  if (!isAuthCheckComplete) {
+    return <LoadingScreen isLoading={true} />;
+  }
+
   const performLogout = async () => {
     setLogoutLoading(true);
     await handleLogout();
@@ -424,10 +439,11 @@ export default function DashboardLayout({ children }) {
               </span>
               <div className="w-12 h-12 rounded-full flex items-center justify-cente text-stone-700 font-bold">
                 {/* {user?.name?.charAt(0)?.toUpperCase() || "A"} */}
-                <img 
-                className="flex mt-2"
-                src="/mk_bazaar_logo.png" 
-                alt="Logo" />
+                <img
+                  className="flex mt-2"
+                  src="/mk_bazaar_logo.png"
+                  alt="Logo"
+                />
               </div>
             </div>
           </div>

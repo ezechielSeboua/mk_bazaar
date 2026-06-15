@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { MoreVertical, Pencil, Trash2 } from "lucide-react";
 import DashboardLayout from "../../components/DashboardLayout";
 import ConfirmDialog from "../../components/ConfirmDialog";
@@ -61,13 +62,20 @@ export default function UsersPage() {
 
   // Menu contextuel
   const [openMenuId, setOpenMenuId] = useState(null);
-  const menuContainerRef = useRef(null);
+  const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
+  const menuButtonRef = useRef(null);
 
   /* ── Fermeture menu au clic extérieur ── */
   useEffect(() => {
     const handleClickOutside = (e) => {
-      if (menuContainerRef.current && !menuContainerRef.current.contains(e.target)) {
-        setOpenMenuId(null);
+      if (menuButtonRef.current && !menuButtonRef.current.contains(e.target)) {
+        // Vérifie aussi le menu portail
+        const portalMenu = document.getElementById("menu-portal-container");
+        if (portalMenu && !portalMenu.contains(e.target)) {
+          setOpenMenuId(null);
+        } else if (!portalMenu) {
+          setOpenMenuId(null);
+        }
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -81,7 +89,6 @@ export default function UsersPage() {
     successTimerRef.current = setTimeout(() => setSuccessMessage(null), 3000);
   }, []);
 
-  // Nettoyage du timer
   useEffect(() => {
     return () => clearTimeout(successTimerRef.current);
   }, []);
@@ -201,10 +208,28 @@ export default function UsersPage() {
     }
   }, [confirmDelete, setUsers, showSuccess]);
 
+  /* ── Gestion du menu contextuel avec portail ── */
+  const handleMenuToggle = useCallback(
+    (userId, event) => {
+      event.stopPropagation();
+      if (openMenuId === userId) {
+        setOpenMenuId(null);
+      } else {
+        const rect = event.currentTarget.getBoundingClientRect();
+        // Positionne le menu juste en dessous du bouton, aligné à droite
+        setMenuPosition({
+          top: rect.bottom + 4,
+          left: rect.right - 160, // largeur approximative du menu w-40 = 160px
+        });
+        setOpenMenuId(userId);
+      }
+    },
+    [openMenuId]
+  );
+
   /* ─── Rendu ─────────────────────────────────────────────────────── */
   return (
     <DashboardLayout>
-      {/* Keyframes CSS */}
       <style>{`
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes slideDown { from { opacity: 0; transform: translateY(-12px); } to { opacity: 1; transform: translateY(0); } }
@@ -352,35 +377,17 @@ export default function UsersPage() {
                           {user.created_at ? DATE_FMT.format(new Date(user.created_at)) : "—"}
                         </td>
 
-                        {/* Menu contextuel */}
-                        <td className="py-3 px-2 md:py-4 md:px-4 relative overflow-visible"
-                          ref={openMenuId === user.id ? menuContainerRef : null}
-                        >
+                        {/* Bouton d'action */}
+                        <td className="py-3 px-2 md:py-4 md:px-4 relative">
                           <button
-                            onClick={() => setOpenMenuId((id) => id === user.id ? null : user.id)}
+                            ref={openMenuId === user.id ? menuButtonRef : null}
+                            onClick={(e) => handleMenuToggle(user.id, e)}
                             className={`p-1 rounded transition-all duration-150 ${
                               openMenuId === user.id ? "bg-stone-100 text-stone-900" : "text-stone-400 hover:text-stone-700 hover:bg-stone-50"
                             }`}
                           >
                             <MoreVertical className="w-4 h-4" />
                           </button>
-                          
-                          {openMenuId === user.id && (
-                            <div className="absolute right-0 md:right-4 top-full mt-1 w-40 bg-white border border-stone-200 rounded shadow-xl z-50 py-1 origin-top-right animate-[scaleIn_0.15s_cubic-bezier(0.16,1,0.3,1)]">
-                              <button onClick={() => handleEdit(user)}
-                                className="w-full text-left px-4 py-2 text-[13px] text-stone-700 hover:bg-stone-50 transition-colors flex items-center gap-2"
-                              >
-                                <Pencil className="w-3.5 h-3.5 text-stone-400" /> Éditer
-                              </button>
-                              {!isSelf && (
-                                <button onClick={() => requestDelete(user)}
-                                  className="w-full text-left px-4 py-2 text-[13px] text-red-600 hover:bg-red-50/60 transition-colors flex items-center gap-2"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5 text-red-400" /> Supprimer
-                                </button>
-                              )}
-                            </div>
-                          )}
                         </td>
                       </tr>
                     );
@@ -390,6 +397,39 @@ export default function UsersPage() {
             </table>
           </div>
         </div>
+
+        {/* Portail du menu contextuel */}
+        {openMenuId &&
+          createPortal(
+            <div
+              id="menu-portal-container"
+              className="fixed z-[100] w-40 bg-white border border-stone-200 rounded shadow-xl py-1 animate-[scaleIn_0.15s_cubic-bezier(0.16,1,0.3,1)]"
+              style={{ top: menuPosition.top, left: menuPosition.left }}
+            >
+              <button
+                onClick={() => {
+                  const user = users.find((u) => u.id === openMenuId);
+                  if (user) handleEdit(user);
+                }}
+                className="w-full text-left px-4 py-2 text-[13px] text-stone-700 hover:bg-stone-50 transition-colors flex items-center gap-2"
+              >
+                <Pencil className="w-3.5 h-3.5 text-stone-400" /> Éditer
+              </button>
+              {!users.find((u) => u.id === openMenuId)?.is_admin && (
+                <button
+                  onClick={() => {
+                    const user = users.find((u) => u.id === openMenuId);
+                    if (user) requestDelete(user);
+                  }}
+                  className="w-full text-left px-4 py-2 text-[13px] text-red-600 hover:bg-red-50/60 transition-colors flex items-center gap-2"
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-red-400" /> Supprimer
+                </button>
+              )}
+            </div>,
+            document.body
+          )
+        }
 
         {/* Confirmation suppression */}
         <ConfirmDialog

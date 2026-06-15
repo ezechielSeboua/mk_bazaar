@@ -5,8 +5,8 @@ export default function FilterBar({
     setSelectedCategory,
     sortBy,
     setSortBy,
-    showOutOfStock,
-    setShowOutOfStock,
+    // showOutOfStock,        // commenté
+    // setShowOutOfStock,     // commenté
     categories = [],
 }) {
     return (
@@ -63,7 +63,7 @@ export default function FilterBar({
 
             {/* Tri + Filtres (commun aux deux versions) */}
             <div className="flex items-center gap-2 sm:gap-3">
-                {/* Tri */}
+                {/* Tri – sélecteur avec flèche intégrée */}
                 <div className="flex items-center gap-2 sm:gap-3 bg-stone-50 border border-stone-200 rounded-full px-3 sm:px-4 py-2 sm:py-2.5 text-stone-600">
                     <FiSliders className="text-sm text-[#c07b5a] shrink-0" />
                     <label className="text-[10px] uppercase tracking-[0.2em] font-bold hidden sm:inline">
@@ -72,18 +72,23 @@ export default function FilterBar({
                     <select
                         value={sortBy}
                         onChange={(e) => setSortBy(e.target.value)}
-                        className="appearance-none bg-transparent border-none p-0 text-[10px] sm:text-[11px] uppercase tracking-[0.15em] font-medium cursor-pointer focus:ring-0 text-stone-800 pr-2"
+                        className="appearance-none bg-transparent border-none p-0 text-[10px] sm:text-[11px] uppercase tracking-[0.15em] font-medium cursor-pointer focus:ring-0 text-stone-800 pr-6"
+                        style={{
+                            backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23999999' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E")`,
+                            backgroundRepeat: 'no-repeat',
+                            backgroundPosition: 'right center',
+                            paddingRight: '1.5rem',
+                        }}
                     >
                         <option value="nouveautes">Nouveautés</option>
                         <option value="prix-croissant">Prix croissant</option>
                         <option value="prix-decroissant">Prix décroissant</option>
                     </select>
-                    <svg className="w-3.5 h-3.5 text-stone-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-                    </svg>
+                    {/* SVG externe supprimé */}
                 </div>
 
-                {/* Filtre Rupture */}
+                {/* Filtre Rupture – commenté */}
+                {/*
                 <label className="flex items-center gap-2 sm:gap-2.5 bg-stone-50 border border-stone-200 rounded-full px-3 sm:px-4 py-2 sm:py-2.5 cursor-pointer hover:border-[#c07b5a] transition-colors">
                     <input
                         type="checkbox"
@@ -95,6 +100,7 @@ export default function FilterBar({
                         Rupture
                     </span>
                 </label>
+                */}
             </div>
         </div>
     );

@@ -1,10 +1,10 @@
 const stripTrailingSlash = (value) => value.replace(/\/$/, '');
 
 export const getSiteUrl = () =>
-    stripTrailingSlash(import.meta.env.VITE_SITE_URL);
+    stripTrailingSlash(import.meta.env.VITE_SITE_URL || 'http://localhost:5173');
 
 export const getApiUrl = () =>
-    stripTrailingSlash(import.meta.env.VITE_API_URL);
+    stripTrailingSlash(import.meta.env.VITE_API_URL || 'http://localhost:8000/api');
 
 export const getApiOrigin = () =>
     getApiUrl().replace(/\/api\/?$/, '');
@@ -13,7 +13,7 @@ export const getApiOrigin = () =>
 export const API_URL = getApiUrl();
 
 export const getWhatsAppNumber = () =>
-    String(import.meta.env.VITE_WHATSAPP_NUMBER || '2250141649464').replace(/\D/g, '');
+    String(import.meta.env.VITE_WHATSAPP_NUMBER || '2250585649760').replace(/\D/g, '');
 
 export const getWhatsAppLink = (message) => {
     const base = `https://wa.me/${getWhatsAppNumber()}`;

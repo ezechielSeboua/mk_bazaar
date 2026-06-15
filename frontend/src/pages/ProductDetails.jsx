@@ -1,17 +1,21 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronLeft, Info, ShoppingBag, Check } from "lucide-react";
+import { ChevronLeft, ShoppingBag, Check, X } from "lucide-react";
 import Header from "../components/Header";
 import ProductGallery from "../components/ProductGallery";
 import { getProductBySlug } from "../services/product";
 import { createOrder } from "../services/order";
 import Seo from "../components/Seo";
 import { absoluteImageUrl } from "../config/seo";
-import { buildProductJsonLd, buildBreadcrumbJsonLd } from "../utils/seoStructuredData";
+import {
+  buildProductJsonLd,
+  buildBreadcrumbJsonLd,
+} from "../utils/seoStructuredData";
 import { useCatalogData } from "../contexts/CatalogContext";
 import { getWhatsAppLink } from "../config/env";
 
+/* ----- Icônes réutilisables ----- */
 function HeartIcon() {
   return (
     <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -37,42 +41,35 @@ export default function ProductDetails() {
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  
-  // États de configuration de commande
+
+  // Configuration produit
   const [selectedVariant, setSelectedVariant] = useState(null);
   const [quantity, setQuantity] = useState(1);
-  const [selectedZone, setSelectedZone] = useState(null);
-  const [addressDetail, setAddressDetail] = useState("");
+  const [selectedZone, setSelectedZone] = useState(null); // conservé pour pré-remplissage éventuel
+  const [addressDetail, setAddressDetail] = useState("");   // idem
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isAddedToCart, setIsAddedToCart] = useState(false);
-  
-  // Gestion des erreurs de formulaire (uniquement pour l'achat instantané WhatsApp)
-  const [validationErrors, setValidationErrors] = useState({ zone: false, address: false });
+  const [showCartNotification, setShowCartNotification] = useState(false); // toast
 
-  useEffect(() => {
-    setAddressDetail("");
-    setValidationErrors(prev => ({ ...prev, address: false }));
-  }, [selectedZone]);
+  // Modale WhatsApp (contient maintenant les champs de livraison)
+  const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
+  const [modalZone, setModalZone] = useState(null);
+  const [modalAddress, setModalAddress] = useState("");
+  const [modalErrors, setModalErrors] = useState({ zone: false, address: false });
 
-  useEffect(() => {
-    setSelectedZone(null);
-  }, [shippingZones]);
-
+  // Récupération produit
   useEffect(() => {
     if (!slug) return;
     let cancelled = false;
-
     const fetchProduct = async () => {
       setLoading(true);
       setError(null);
       try {
         const result = await getProductBySlug(slug);
         if (cancelled) return;
-
         if (result.success && result.data) {
           const dataProduct = result.data.data || result.data;
           setProduct(dataProduct);
-          
           if (dataProduct.variants && dataProduct.variants.length > 0) {
             setSelectedVariant(dataProduct.variants[0]);
           }
@@ -85,50 +82,40 @@ export default function ProductDetails() {
         if (!cancelled) setLoading(false);
       }
     };
-
     fetchProduct();
     return () => { cancelled = true; };
   }, [slug]);
 
-  const currentPrice = selectedVariant ? selectedVariant.price : (product?.price || 0);
-  const currentOldPrice = selectedVariant ? selectedVariant.old_price : (product?.old_price || null);
-  
+  // Calculs prix
+  const currentPrice = selectedVariant ? selectedVariant.price : product?.price || 0;
+  const currentOldPrice = selectedVariant ? selectedVariant.old_price : product?.old_price || null;
   const hasVariants = product?.variants && product.variants.length > 0;
-  const isAvailable = hasVariants 
-    ? (selectedVariant ? selectedVariant.stock > 0 : false)
-    : (product ? product.is_active && product.in_stock : false);
-
+  const isAvailable = hasVariants
+    ? selectedVariant ? selectedVariant.stock > 0 : false
+    : product ? product.is_active && product.in_stock : false;
   const maxAvailableStock = hasVariants && selectedVariant ? selectedVariant.stock : 99;
-
   const productSubtotal = currentPrice * quantity;
-  const deliveryPrice = selectedZone ? selectedZone.price : 0;
+  // Pour la modale, on utilise modalZone
+  const deliveryPrice = modalZone ? modalZone.price : 0;
   const totalAmount = productSubtotal + deliveryPrice;
+  const discountPercentage =
+    currentOldPrice && currentOldPrice > currentPrice
+      ? Math.round(((currentOldPrice - currentPrice) / currentOldPrice) * 100)
+      : null;
 
-  const discountPercentage = currentOldPrice && currentOldPrice > currentPrice
-    ? Math.round(((currentOldPrice - currentPrice) / currentOldPrice) * 100)
-    : null;
-
-  // FONCTION : Gestion de l'ajout au panier LocalStorage
+  /* ----- AJOUT PANIER ----- */
   const handleAddToCart = () => {
     if (!product) return;
-
-    // Récupération ou initialisation du panier local
     const localCartRaw = localStorage.getItem("mk_bazaar_cart");
     let currentCart = localCartRaw ? JSON.parse(localCartRaw) : [];
-
     const variantId = selectedVariant?.id || null;
-
-    // Recherche d'un doublon exact (même ID produit ET même ID variante)
     const existingItemIndex = currentCart.findIndex(
       (item) => item.id === product.id && item.variant_id === variantId
     );
-
     if (existingItemIndex > -1) {
-      // Ajustement de la quantité sans dépasser les limites physiques de stock
       const targetQty = currentCart[existingItemIndex].quantity + quantity;
       currentCart[existingItemIndex].quantity = Math.min(targetQty, maxAvailableStock);
     } else {
-      // Insertion d'une ligne d'item propre
       currentCart.push({
         id: product.id,
         variant_id: variantId,
@@ -138,48 +125,53 @@ export default function ProductDetails() {
         quantity: quantity,
         attributes: selectedVariant?.attributes || null,
         image: product.image_path?.[0] || null,
-        category: product.category?.name || "Collection"
+        category: product.category?.name || "Collection",
       });
     }
-
     localStorage.setItem("mk_bazaar_cart", JSON.stringify(currentCart));
 
-    // Animation du bouton de validation de l'action
     setIsAddedToCart(true);
+    setShowCartNotification(true);
     setTimeout(() => setIsAddedToCart(false), 2200);
+    setTimeout(() => setShowCartNotification(false), 2600);
 
-    // Notification globale vers l'en-tête (Header.jsx) pour Refresh d'état immédiat
     window.dispatchEvent(new Event("cart-updated"));
   };
 
-  // FONCTION : Achat Instantané Direct via WhatsApp (Tunnel bypass sans passer par le panier)
-  const handleWhatsAppOrder = async () => {
-    if (!product) return;
+  /* ----- OUVERTURE MODALE WHATSAPP (sans validation) ----- */
+  const openWhatsAppModal = () => {
+    setModalZone(selectedZone);        // pré-remplit avec la dernière zone utilisée
+    setModalAddress(addressDetail);    // idem adresse
+    setModalErrors({ zone: false, address: false });
+    setShowWhatsAppModal(true);
+  };
 
-    const hasZoneError = !selectedZone;
-    const hasAddressError = selectedZone && addressDetail.trim() === "";
-
+  /* ----- CONFIRMATION DEPUIS LA MODALE ----- */
+  const confirmWhatsAppOrder = async () => {
+    const hasZoneError = !modalZone;
+    const hasAddressError = modalZone && modalAddress.trim() === "";
     if (hasZoneError || hasAddressError) {
-      setValidationErrors({ zone: hasZoneError, address: hasAddressError });
+      setModalErrors({ zone: hasZoneError, address: hasAddressError });
       return;
     }
 
+    setShowWhatsAppModal(false);
     setIsSubmitting(true);
-
     try {
       const clientOrderNumber = `MK-${Date.now().toString().slice(-6)}`;
       const today = new Date().toISOString().split("T")[0];
-
-      const variantLabel = selectedVariant 
-        ? Object.entries(selectedVariant.attributes).map(([key, val]) => `${key.toUpperCase()}: ${val}`).join(", ")
+      const variantLabel = selectedVariant
+        ? Object.entries(selectedVariant.attributes)
+            .map(([key, val]) => `${key.toUpperCase()}: ${val}`)
+            .join(", ")
         : "Standard";
 
       const orderData = {
         order_number: clientOrderNumber,
         date: today,
-        delivery_location: selectedZone.name,
-        delivery_fee: deliveryPrice,
-        detailed_address: addressDetail.trim(),
+        delivery_location: modalZone.name,
+        delivery_fee: modalZone.price,
+        detailed_address: modalAddress.trim(),
         total_price: totalAmount,
         status: "pending",
         items: [
@@ -194,14 +186,19 @@ export default function ProductDetails() {
         ],
       };
 
+      console.log("Commande envoyée :", orderData);
+
       const response = await createOrder(orderData);
       if (response.success) {
-        const orderReference = response.data.reference || response.data.order_number || clientOrderNumber;
+        const orderReference =
+          response.data.reference || response.data.order_number || clientOrderNumber;
 
+        // Mise à jour des états persistants
+        setSelectedZone(modalZone);
+        setAddressDetail(modalAddress);
         setQuantity(1);
-        setSelectedZone(null);
-        setAddressDetail("");
-        setValidationErrors({ zone: false, address: false });
+        setModalZone(null);
+        setModalAddress("");
 
         const message =
           `🛍️ *ACHAT INSTANTANÉ — MK BAZAAR*\n\n` +
@@ -212,9 +209,9 @@ export default function ProductDetails() {
           `✨ *Option / Taille :* ${variantLabel}\n` +
           `💰 *Prix unitaire :* ${currentPrice.toLocaleString()} FCFA\n` +
           `🔢 *Quantité :* ${quantity}\n\n` +
-          `🚚 *Livraison :* ${selectedZone.name}\n` +
-          `💵 *Frais de livraison :* ${deliveryPrice.toLocaleString()} FCFA\n` +
-          `📍 *Adresse :* ${addressDetail.trim()}\n` +
+          `🚚 *Livraison :* ${modalZone.name}\n` +
+          `💵 *Frais de livraison :* ${modalZone.price.toLocaleString()} FCFA\n` +
+          `📍 *Adresse :* ${modalAddress.trim()}\n` +
           `💰 *Montant total :* ${totalAmount.toLocaleString()} FCFA\n\n` +
           `Merci de me valider la disponibilité.`;
 
@@ -229,16 +226,17 @@ export default function ProductDetails() {
     }
   };
 
+  // Animations
   const fadeInUp = {
     hidden: { opacity: 0, y: 15 },
     visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: "easeOut" } },
   };
-
   const staggerContainer = {
     hidden: { opacity: 0 },
     visible: { opacity: 1, transition: { staggerChildren: 0.05 } },
   };
 
+  // États de chargement / erreur
   if (loading) {
     return (
       <div className="min-h-screen flex flex-col bg-[#F9F9F7]">
@@ -247,7 +245,9 @@ export default function ProductDetails() {
         <main className="flex-1 max-w-7xl mx-auto px-6 py-12 md:py-16 w-full flex items-center justify-center">
           <div className="flex flex-col items-center gap-3">
             <SpinnerIcon />
-            <span className="text-[10px] uppercase tracking-widest text-stone-400 font-mono">Chargement des détails...</span>
+            <span className="text-[10px] uppercase tracking-widest text-stone-400 font-mono">
+              Chargement des détails...
+            </span>
           </div>
         </main>
       </div>
@@ -260,7 +260,9 @@ export default function ProductDetails() {
         <Seo title="Produit introuvable" path={`/products/${slug}`} noindex />
         <Header />
         <main className="flex-1 max-w-7xl mx-auto px-6 py-24 text-center w-full flex flex-col items-center justify-center">
-          <p className="text-stone-400 uppercase tracking-widest text-xs mb-6">{error || "Produit introuvable"}</p>
+          <p className="text-stone-400 uppercase tracking-widest text-xs mb-6">
+            {error || "Produit introuvable"}
+          </p>
           <button
             onClick={() => navigate("/products")}
             className="text-[10px] uppercase tracking-wider font-bold border border-stone-900 rounded-xl px-8 py-3.5 hover:bg-black hover:text-[#F9F9F7] transition-all duration-300"
@@ -284,30 +286,189 @@ export default function ProductDetails() {
         path={productPath}
         image={mainImage}
         type="product"
-        jsonLd={[buildProductJsonLd(product), buildBreadcrumbJsonLd([{ name: 'Accueil', path: '/' }, { name: 'Collections', path: '/products' }, { name: product.name, path: productPath }])].filter(Boolean)}
+        jsonLd={[
+          buildProductJsonLd(product),
+          buildBreadcrumbJsonLd([
+            { name: "Accueil", path: "/" },
+            { name: "Collections", path: "/products" },
+            { name: product.name, path: productPath },
+          ]),
+        ].filter(Boolean)}
       />
       <Header />
-      
+
+      {/* --------------- TOAST AJOUT PANIER --------------- */}
+      <AnimatePresence>
+        {showCartNotification && (
+          <motion.div
+            initial={{ opacity: 0, y: -30, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -20, scale: 0.95 }}
+            transition={{ duration: 0.25 }}
+            className="fixed top-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 bg-emerald-600 text-white px-5 py-3 rounded-full shadow-lg pointer-events-none"
+          >
+            <Check className="w-4 h-4 stroke-[3px]" />
+            <span className="text-xs font-bold uppercase tracking-wider">
+              Ajouté au panier
+            </span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* --------------- MODALE WHATSAPP (avec livraison) --------------- */}
+      <AnimatePresence>
+        {showWhatsAppModal && (
+          <motion.div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setShowWhatsAppModal(false)}
+          >
+            <motion.div
+              className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 space-y-5 max-h-[90vh] overflow-y-auto"
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              transition={{ duration: 0.25 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold uppercase tracking-widest text-stone-800">
+                  Commande rapide
+                </h3>
+                <button
+                  onClick={() => setShowWhatsAppModal(false)}
+                  className="text-stone-400 hover:text-stone-800 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Choix livraison */}
+              <div className="space-y-4">
+                <div>
+                  <label className="text-[10px] uppercase tracking-wider font-bold text-stone-600 mb-1 block">
+                    Lieu de livraison
+                  </label>
+                  <select
+                    value={modalZone?.name || ""}
+                    onChange={(e) => {
+                      const zone = shippingZones.find((z) => z.name === e.target.value);
+                      setModalZone(zone || null);
+                      setModalErrors((prev) => ({ ...prev, zone: false }));
+                    }}
+                    className={`w-full px-4 py-3 rounded-xl border bg-white text-xs text-stone-900 focus:outline-none focus:border-stone-950 transition-all cursor-pointer ${
+                      modalErrors.zone ? "border-rose-500 bg-rose-50/20" : "border-stone-200"
+                    }`}
+                  >
+                    <option value="" disabled>Choisir une zone...</option>
+                    {shippingZones.map(({ id, name, price }) => (
+                      <option key={id} value={name}>
+                        {name} (+{price.toLocaleString()} FCFA)
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <AnimatePresence>
+                  {modalZone && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -5 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -5 }}
+                    >
+                      <label className="text-[10px] uppercase tracking-wider font-bold text-stone-600 mb-1 block">
+                        Adresse précise
+                      </label>
+                      <input
+                        type="text"
+                        value={modalAddress}
+                        onChange={(e) => {
+                          setModalAddress(e.target.value);
+                          setModalErrors((prev) => ({ ...prev, address: false }));
+                        }}
+                        placeholder="Repères ou adresse complète..."
+                        className={`w-full px-4 py-3 rounded-xl border bg-white text-xs text-stone-950 placeholder-stone-400 focus:outline-none focus:border-stone-950 transition-all ${
+                          modalErrors.address ? "border-rose-500 bg-rose-50/20" : "border-stone-200"
+                        }`}
+                      />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* Récapitulatif */}
+                {modalZone && (
+                  <div className="p-3 bg-stone-50 border border-stone-200 rounded-lg text-[11px] text-stone-600 space-y-1 font-mono">
+                    <div className="flex justify-between">
+                      <span>Sous-total ({quantity}x)</span>
+                      <span>{productSubtotal.toLocaleString()} F</span>
+                    </div>
+                    <div className="flex justify-between pb-1 border-b border-stone-100">
+                      <span>Livraison</span>
+                      <span>+{deliveryPrice.toLocaleString()} F</span>
+                    </div>
+                    <div className="flex justify-between font-bold text-stone-950 pt-1 text-xs">
+                      <span>Total</span>
+                      <span>{totalAmount.toLocaleString()} FCFA</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => setShowWhatsAppModal(false)}
+                  className="flex-1 py-3 rounded-xl border border-stone-200 text-xs uppercase tracking-wider font-bold text-stone-700 hover:bg-stone-100 transition-colors"
+                >
+                  Annuler
+                </button>
+                <button
+                  onClick={confirmWhatsAppOrder}
+                  disabled={isSubmitting}
+                  className="flex-1 py-3 rounded-xl bg-stone-950 text-white text-xs uppercase tracking-wider font-bold hover:bg-black transition-colors flex items-center justify-center gap-2"
+                >
+                  {isSubmitting ? (
+                    <SpinnerIcon />
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+                      </svg>
+                      Confirmer & WhatsApp
+                    </>
+                  )}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <main className="flex-1 max-w-7xl mx-auto px-6 py-8 md:py-12 w-full">
+        {/* Bouton retour */}
         <motion.button
           initial={{ opacity: 0, x: -10 }}
           animate={{ opacity: 1, x: 0 }}
           onClick={() => navigate("/products")}
-          className="group flex items-center gap-1.5 text-[10px] uppercase tracking-[0.2em] text-stone-400 hover:text-stone-950 transition-colors mb-8"
+          className="group flex items-center gap-1.5 text-[10px] uppercase tracking-[0.2em] text-stone-700 hover:text-stone-950 bg-white/80 backdrop-blur px-3.5 py-2 rounded-full border border-stone-200 shadow-sm transition-colors mb-8"
         >
           <ChevronLeft className="w-3.5 h-3.5 transition-transform group-hover:-translate-x-0.5" />
-          Retour au catalogue
+          <strong>Retour au catalogue</strong>
         </motion.button>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-10 lg:gap-16 items-start">
-          {/* Galerie Photo — Gauche */}
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
+          {/* Galerie */}
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+          >
             <ProductGallery images={images} />
           </motion.div>
 
-          {/* Formulaire & Informations de vente — Droite */}
+          {/* Infos produit */}
           <motion.div className="flex flex-col" variants={staggerContainer} initial="hidden" animate="visible">
-            
             {/* Header Produit */}
             <motion.div className="mb-6 space-y-2.5" variants={fadeInUp}>
               <span className="text-[9px] uppercase tracking-[0.3em] text-stone-400 font-bold block">
@@ -316,7 +477,6 @@ export default function ProductDetails() {
               <h1 className="text-2xl md:text-3xl font-light uppercase tracking-tight leading-none text-stone-950">
                 {product.name}
               </h1>
-              
               <div className="flex items-center gap-3 pt-1">
                 <p className="text-xl font-medium text-stone-950">
                   {currentPrice.toLocaleString()} <span className="text-xs font-light">FCFA</span>
@@ -334,11 +494,13 @@ export default function ProductDetails() {
               </div>
             </motion.div>
 
-            {/* État de Disponibilité */}
+            {/* Disponibilité */}
             <motion.div className="mb-6" variants={fadeInUp}>
-              <span className={`inline-flex items-center gap-1.5 text-[9px] uppercase tracking-[0.2em] font-bold px-2.5 py-1 rounded-full ${
-                isAvailable ? "bg-emerald-50 text-emerald-800" : "bg-rose-50 text-rose-800"
-              }`}>
+              <span
+                className={`inline-flex items-center gap-1.5 text-[9px] uppercase tracking-[0.2em] font-bold px-2.5 py-1 rounded-full ${
+                  isAvailable ? "bg-emerald-50 text-emerald-800" : "bg-rose-50 text-rose-800"
+                }`}
+              >
                 <span className={`w-1 h-1 rounded-full ${isAvailable ? "bg-emerald-500" : "bg-rose-500"}`} />
                 {isAvailable ? "Disponible" : "Épuisé"}
               </span>
@@ -354,10 +516,9 @@ export default function ProductDetails() {
               {product.description}
             </motion.p>
 
-            {/* Paramétrages de la configuration produit */}
+            {/* Configuration produit */}
             <motion.div className="space-y-6 mb-6 pb-6 border-b border-stone-200/80" variants={staggerContainer}>
-              
-              {/* Sélecteur de Variantes */}
+              {/* Variants avec badge promo */}
               {hasVariants && (
                 <motion.div variants={fadeInUp} className="space-y-2.5">
                   <label className="text-[10px] uppercase tracking-[0.2em] font-bold block text-stone-800">
@@ -368,17 +529,17 @@ export default function ProductDetails() {
                       const isSelected = selectedVariant?.id === v.id;
                       const attributesText = Object.values(v.attributes).join(" - ");
                       const isOutOfStock = v.stock === 0;
-
+                      const variantDiscount =
+                        v.old_price && v.old_price > v.price
+                          ? Math.round(((v.old_price - v.price) / v.old_price) * 100)
+                          : null;
                       return (
                         <button
                           key={v.id}
                           type="button"
                           disabled={isOutOfStock}
-                          onClick={() => {
-                            setSelectedVariant(v);
-                            setQuantity(1);
-                          }}
-                          className={`px-4 py-3 rounded-xl text-xs font-medium tracking-wider border transition-all duration-300 min-w-[55px] text-center ${
+                          onClick={() => { setSelectedVariant(v); setQuantity(1); }}
+                          className={`relative px-4 py-3 rounded-xl text-xs font-medium tracking-wider border transition-all duration-300 min-w-[55px] text-center ${
                             isSelected
                               ? "border-stone-950 bg-stone-950 text-white shadow-sm scale-[1.02]"
                               : isOutOfStock
@@ -387,6 +548,15 @@ export default function ProductDetails() {
                           }`}
                         >
                           {attributesText}
+                          {variantDiscount && !isOutOfStock && (
+                            <span
+                              className={`absolute -top-1.5 -right-1.5 text-[8px] font-mono font-bold px-1 py-0.5 rounded ${
+                                isSelected ? "bg-white text-stone-950" : "bg-rose-600 text-white"
+                              }`}
+                            >
+                              -{variantDiscount}%
+                            </span>
+                          )}
                         </button>
                       );
                     })}
@@ -422,142 +592,66 @@ export default function ProductDetails() {
               </motion.div>
             </motion.div>
 
-            {/* BLOC TRANSACTIONNEL : PANIER & OPTIONS WHATSAPP */}
-            <motion.div className="space-y-4" variants={staggerContainer}>
-              
-              {/* BOUTON PRINCIPAL : AJOUT PANIER (LOCALSTORAGE) */}
-              <motion.button
-                whileHover={isAvailable ? { scale: 1.005 } : {}}
-                whileTap={isAvailable ? { scale: 0.995 } : {}}
-                onClick={handleAddToCart}
-                disabled={!isAvailable}
-                className={`w-full py-4 px-6 rounded-xl text-[11px] uppercase tracking-wider font-bold transition-all duration-300 flex items-center justify-center gap-2.5 ${
-                  isAvailable
-                    ? isAddedToCart 
+            {/* BLOC TRANSACTIONNEL */}
+            {isAvailable ? (
+              <motion.div className="flex gap-3" variants={fadeInUp}>
+                {/* Bouton Ajouter au panier */}
+                <motion.button
+                  whileHover={{ scale: 1.01 }}
+                  whileTap={{ scale: 0.99 }}
+                  onClick={handleAddToCart}
+                  className={`flex-1 py-4 px-4 rounded-xl text-[10px] uppercase tracking-wider font-bold transition-all duration-300 flex items-center justify-center gap-2 ${
+                    isAddedToCart
                       ? "bg-emerald-600 text-white shadow-md"
                       : "bg-stone-950 text-white hover:bg-stone-900 active:bg-black shadow-md"
-                    : "bg-stone-200 text-stone-400 cursor-not-allowed"
-                }`}
-              >
-                {isAddedToCart ? (
-                  <>
-                    <Check className="w-4 h-4 shrink-0 stroke-[3px]" />
-                    Ajouté au panier !
-                  </>
-                ) : (
-                  <>
-                    <ShoppingBag className="w-4 h-4 shrink-0" />
-                    {isAvailable ? "Ajouter au panier" : "Pièce Épuisée"}
-                  </>
-                )}
-              </motion.button>
+                  }`}
+                >
+                  {isAddedToCart ? (
+                    <>
+                      <Check className="w-4 h-4 stroke-[3px]" />
+                      Ajouté !
+                    </>
+                  ) : (
+                    <>
+                      <ShoppingBag className="w-4 h-4 shrink-0" />
+                      Panier
+                    </>
+                  )}
+                </motion.button>
 
-              {/* SÉPARATEUR ÉLÉGANT MINIMALISTE */}
-              {isAvailable && (
-                <div className="relative flex py-2 items-center">
-                  <div className="flex-grow border-t border-stone-200"></div>
-                  <span className="flex-shrink mx-4 text-[9px] uppercase tracking-[0.25em] text-stone-400 font-mono">ou</span>
-                  <div className="flex-grow border-t border-stone-200"></div>
-                </div>
-              )}
-
-              {/* ZONE ROUTAGE DIRECT WHATSAPP (Achat immédiat mono-produit) */}
-              {isAvailable && (
-                <motion.div className="p-4 bg-stone-100/60 border border-stone-200/60 rounded-xl space-y-4" variants={fadeInUp}>
-                  <p className="text-[10px] text-stone-500 uppercase tracking-wider font-medium text-center">
-                  Commande Rapide Sans Panier
-                  </p>
-                  
-                  <div className="space-y-3">
-                    <div>
-                      <select
-                        value={selectedZone?.name || ""}
-                        onChange={(e) => {
-                          const zone = shippingZones.find((z) => z.name === e.target.value);
-                          setSelectedZone(zone || null);
-                          setValidationErrors(prev => ({ ...prev, zone: false }));
-                        }}
-                        className={`w-full px-4 py-3 rounded-xl border bg-white text-xs text-stone-900 focus:outline-none focus:border-stone-950 transition-all cursor-pointer ${
-                          validationErrors.zone ? "border-rose-500 bg-rose-50/20" : "border-stone-200"
-                        }`}
-                      >
-                        <option value="" disabled>Lieu de livraison...</option>
-                        {shippingZones.map(({ id, name, price }) => (
-                          <option key={id} value={name}>{name} (+{price.toLocaleString()} FCFA)</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <AnimatePresence>
-                      {selectedZone && (
-                        <motion.div initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -5 }}>
-                          <input
-                            type="text"
-                            value={addressDetail}
-                            onChange={(e) => {
-                              setAddressDetail(e.target.value);
-                              setValidationErrors(prev => ({ ...prev, address: false }));
-                            }}
-                            placeholder="Repères ou adresse précise..."
-                            className={`w-full px-4 py-3 rounded-xl border bg-white text-xs text-stone-950 placeholder-stone-400 focus:outline-none focus:border-stone-950 transition-all ${
-                              validationErrors.address ? "border-rose-500 bg-rose-50/20" : "border-stone-200"
-                            }`}
-                          />
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-
-                    {/* Ticket d'Achat Instantané Direct */}
-                    {selectedZone && (
-                      <div className="p-3 bg-white border border-stone-200 rounded-lg text-[11px] text-stone-600 space-y-1 font-mono">
-                        <div className="flex justify-between">
-                          <span>Sous-total ({quantity}x)</span>
-                          <span>{productSubtotal.toLocaleString()} F</span>
-                        </div>
-                        <div className="flex justify-between pb-1 border-b border-stone-100">
-                          <span>Livraison</span>
-                          <span>+{deliveryPrice.toLocaleString()} F</span>
-                        </div>
-                        <div className="flex justify-between font-bold text-stone-950 pt-1 text-xs">
-                          <span>Total Direct</span>
-                          <span>{totalAmount.toLocaleString()} FCFA</span>
-                        </div>
-                      </div>
-                    )}
-
-                    <button
-                      type="button"
-                      onClick={handleWhatsAppOrder}
-                      disabled={isSubmitting}
-                      className="w-full py-3 px-4 border border-stone-950 rounded-xl text-[10px] uppercase tracking-wider font-bold bg-transparent text-stone-950 hover:bg-stone-950 hover:text-white transition-all duration-300 flex items-center justify-center gap-2"
-                    >
-                      {isSubmitting ? (
-                        <>
-                          <SpinnerIcon />
-                          Génération du lien...
-                        </>
-                      ) : (
-                        <>
-                          <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
-                          </svg>
-                          Achat Instantané WhatsApp
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </motion.div>
-              )}
-
-              {/* Bouton secondaire Liste de souhaits */}
-              <button
+                {/* Bouton Commander (WhatsApp) */}
+                <motion.button
+                  whileHover={{ scale: 1.01 }}
+                  whileTap={{ scale: 0.99 }}
+                  onClick={openWhatsAppModal}
+                  className="flex-1 py-4 px-4 rounded-xl text-[10px] uppercase tracking-wider font-bold border border-stone-950 text-stone-950 bg-transparent hover:bg-stone-950 hover:text-white transition-all duration-300 flex items-center justify-center gap-2"
+                >
+                  <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+                  </svg>
+                  Commander
+                </motion.button>
+              </motion.div>
+            ) : (
+              /* Bouton désactivé si épuisé */
+              <motion.button
                 disabled
-                className="w-full py-3 px-6 rounded-xl text-[10px] uppercase tracking-wider font-bold border border-stone-200 text-stone-400 bg-stone-50 cursor-not-allowed transition-all flex items-center justify-center gap-1"
+                className="w-full py-4 px-6 rounded-xl text-[11px] uppercase tracking-wider font-bold bg-stone-200 text-stone-400 cursor-not-allowed flex items-center justify-center gap-2.5"
+                variants={fadeInUp}
               >
-                <HeartIcon />
-                Ajouter à la liste de souhaits
-              </button>
-            </motion.div>
+                <ShoppingBag className="w-4 h-4 shrink-0" />
+                Pièce Épuisée
+              </motion.button>
+            )}
+
+            {/* Bouton liste de souhaits (toujours présent) */}
+            <button
+              disabled
+              className="w-full mt-3 py-3 px-6 rounded-xl text-[10px] uppercase tracking-wider font-bold border border-stone-200 text-stone-400 bg-stone-50 cursor-not-allowed transition-all flex items-center justify-center gap-1"
+            >
+              <HeartIcon />
+              Ajouter à la liste de souhaits
+            </button>
           </motion.div>
         </div>
 
@@ -572,7 +666,9 @@ export default function ProductDetails() {
             Politique de Retour &amp; Engagement
           </h2>
           <p className="text-xs md:text-sm text-stone-600 leading-relaxed max-w-3xl font-light">
-            Chaque pièce MK BAZAAR est minutieusement inspectée. Vous disposez d'un droit de rétractation de 14 jours à compter de la réception de votre colis pour demander un échange ou un retour complet. Toutes nos créations sont couvertes par une garantie d'un an contre tout défaut lié à la fabrication.
+            Chaque pièce MK BAZAAR est minutieusement inspectée. Vous disposez d'un droit de rétractation de 14 jours à compter
+            de la réception de votre colis pour demander un échange ou un retour complet. Toutes nos créations sont couvertes
+            par une garantie d'un an contre tout défaut lié à la fabrication.
           </p>
         </motion.div>
       </main>

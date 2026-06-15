@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Search,
@@ -79,19 +80,9 @@ function SkeletonRow() {
       animate={{ opacity: [0.6, 1, 0.6] }}
       transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
     >
-      {[
-        "w-8",
-        "w-24",
-        "w-20",
-        "w-14",
-        "w-8",
-        "w-10",
-        "w-10",
-        "w-10",
-        "w-10",
-      ].map((wClass, i) => (
+      {Array.from({ length: 9 }).map((_, i) => (
         <td key={i} className="py-3 px-2 md:py-4 md:px-4">
-          <div className={`h-4 ${wClass} bg-stone-200 rounded`} />
+          <div className="h-4 w-8 bg-stone-200 rounded" />
         </td>
       ))}
     </motion.tr>
@@ -145,6 +136,163 @@ function Pagination({ currentPage, totalPages, onPageChange }) {
   );
 }
 
+/* ─── Utilitaires d'affichage ──────────────────────────────────── */
+
+function FilterLabel({ children }) {
+  return (
+    <label className="text-[10px] uppercase tracking-wider font-bold text-stone-500 block mb-2">
+      {children}
+    </label>
+  );
+}
+
+function FilterSelect({ label, icon, value, onChange, className, children }) {
+  const chevron = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23999999' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E")`;
+  return (
+    <div className={className}>
+      <FilterLabel>
+        <span className="inline-flex items-center gap-1.5">
+          {icon}
+          {label}
+        </span>
+      </FilterLabel>
+      <select
+        value={value}
+        onChange={onChange}
+        className="w-full pl-4 pr-8 py-2.5 border border-stone-200 rounded-lg text-sm bg-stone-50 focus:bg-white focus:border-stone-400 focus:ring-1 focus:ring-stone-400 transition-all outline-none appearance-none bg-no-repeat"
+        style={{
+          backgroundImage: chevron,
+          backgroundPosition: "right 0.75rem center",
+        }}
+      >
+        {children}
+      </select>
+    </div>
+  );
+}
+
+function Field({ label, error, children }) {
+  return (
+    <div>
+      <label className="text-[10px] uppercase tracking-wider font-bold block mb-2">
+        {label}
+      </label>
+      {children}
+      {error && <p className="text-red-600 text-[10px] mt-1">{error}</p>}
+    </div>
+  );
+}
+
+const inputCls = (hasError) =>
+  `w-full px-3 py-2 border text-sm ${hasError ? "border-red-400" : "border-stone-300"}`;
+
+function Badge({ on, onLabel, offLabel, onCls, offCls }) {
+  return (
+    <span
+      className={`px-2 py-0.5 md:px-3 md:py-1 rounded text-[10px] font-bold ${on ? onCls : offCls}`}
+    >
+      {on ? onLabel : offLabel}
+    </span>
+  );
+}
+
+function EmptyRow({ colSpan, message, children }) {
+  return (
+    <tr>
+      <td
+        colSpan={colSpan}
+        className="py-12 text-center text-stone-400 text-sm"
+      >
+        {message}
+        {children}
+      </td>
+    </tr>
+  );
+}
+
+function FiltersBlock({
+  searchQuery,
+  setSearchQuery,
+  categoryFilter,
+  setCategoryFilter,
+  activeFilter,
+  setActiveFilter,
+  featuredFilter,
+  setFeaturedFilter,
+  categories,
+  hasActiveFilters,
+  resetFilters,
+}) {
+  return (
+    <div className="bg-white border border-stone-200 rounded-xl p-4 sm:p-5 shadow-sm">
+      <div className="flex flex-col lg:flex-row lg:items-end gap-4">
+        <div className="flex-1 min-w-0">
+          <FilterLabel>Rechercher</FilterLabel>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Nom ou slug..."
+              className="w-full pl-10 pr-4 py-2.5 border border-stone-200 rounded-lg text-sm bg-stone-50 focus:bg-white focus:border-stone-400 focus:ring-1 focus:ring-stone-400 transition-all outline-none"
+            />
+          </div>
+        </div>
+
+        <FilterSelect
+          label="Catégorie"
+          icon={<Tag className="w-4 h-4 text-stone-400" />}
+          value={categoryFilter}
+          onChange={(e) => setCategoryFilter(e.target.value)}
+          className="w-full lg:w-48"
+        >
+          <option value="">Toutes</option>
+          {categories.map((c) => (
+            <option key={c.id} value={String(c.id)}>
+              {c.name}
+            </option>
+          ))}
+        </FilterSelect>
+
+        <FilterSelect
+          label="Actif"
+          icon={<Package className="w-4 h-4 text-stone-400" />}
+          value={activeFilter}
+          onChange={(e) => setActiveFilter(e.target.value)}
+          className="w-full lg:w-36"
+        >
+          <option value="">Tous</option>
+          <option value="yes">Oui</option>
+          <option value="no">Non</option>
+        </FilterSelect>
+
+        <FilterSelect
+          label="Mis en avant"
+          icon={<Star className="w-4 h-4 text-stone-400" />}
+          value={featuredFilter}
+          onChange={(e) => setFeaturedFilter(e.target.value)}
+          className="w-full lg:w-40"
+        >
+          <option value="">Tous</option>
+          <option value="yes">Oui</option>
+          <option value="no">Non</option>
+        </FilterSelect>
+
+        {hasActiveFilters && (
+          <button
+            type="button"
+            onClick={resetFilters}
+            className="w-full lg:w-auto flex items-center gap-1.5 border border-red-200 bg-red-50 text-red-700 px-4 py-2.5 text-[11px] uppercase tracking-wider font-medium rounded-lg hover:bg-red-100 hover:border-red-300 transition-colors whitespace-nowrap"
+          >
+            <RotateCcw className="w-3.5 h-3.5" /> Réinitialiser
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /* ─── Page principale ───────────────────────────────────────────── */
 
 export default function ProductsPage() {
@@ -175,9 +323,10 @@ export default function ProductsPage() {
 
   const nameInputRef = useRef(null);
 
-  // Menu contextuel
+  // Menu contextuel (portail)
   const [openMenuId, setOpenMenuId] = useState(null);
-  const menuContainerRef = useRef(null);
+  const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
+  const menuButtonRef = useRef(null);
 
   // Suppression individuelle
   const [confirmDelete, setConfirmDelete] = useState({
@@ -230,14 +379,19 @@ export default function ProductsPage() {
     }
   }, [showForm]);
 
-  /* ── Fermeture du menu au clic extérieur ── */
+  /* ── Fermeture du menu portail au clic extérieur ── */
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (
-        menuContainerRef.current &&
-        !menuContainerRef.current.contains(e.target)
+        menuButtonRef.current &&
+        !menuButtonRef.current.contains(e.target)
       ) {
-        setOpenMenuId(null);
+        const portal = document.getElementById("products-menu-portal");
+        if (portal && !portal.contains(e.target)) {
+          setOpenMenuId(null);
+        } else if (!portal) {
+          setOpenMenuId(null);
+        }
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -272,7 +426,7 @@ export default function ProductsPage() {
   }, [filteredProducts]);
 
   const totalPages = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE) || 1;
-  const safePage = Math.min(currentPage, totalPages);
+  const safePage = Math.min(currentPage, totalPages) || 1;
   const paginatedProducts = useMemo(() => {
     const start = (safePage - 1) * ITEMS_PER_PAGE;
     return filteredProducts.slice(start, start + ITEMS_PER_PAGE);
@@ -365,7 +519,6 @@ export default function ProductsPage() {
     if (!editingId && selectedFiles.length === 0)
       e.images = "Au moins une image requise";
 
-    // Validation des variantes
     if (variants.length === 0) {
       e.variants = "Au moins une variante requise";
     } else {
@@ -382,7 +535,8 @@ export default function ProductsPage() {
         );
       });
       if (invalid) {
-        e.variants = "Prix et stock doivent être des nombres valides (entiers positifs)";
+        e.variants =
+          "Prix et stock doivent être des nombres valides (entiers positifs)";
       }
     }
     return e;
@@ -416,7 +570,6 @@ export default function ProductsPage() {
 
       try {
         const fd = new FormData();
-        // Champs de base
         Object.entries({
           name: formData.name,
           slug: formData.slug,
@@ -430,22 +583,23 @@ export default function ProductsPage() {
           if (v !== "") fd.append(k, v);
         });
 
-        // Images
         selectedFiles.forEach((f) => fd.append("image_path[]", f));
         if (editingId) {
           existingImages.forEach((img) =>
-            fd.append("existing_images[]", img.url),
+            fd.append("existing_images[]", img.url)
           );
         }
 
-        // Variantes : conversion explicite en entiers
         variants.forEach((v, index) => {
           if (v.id) fd.append(`variants[${index}][id]`, v.id);
           fd.append(`variants[${index}][price]`, parseInt(v.price, 10));
-          if (v.old_price) fd.append(`variants[${index}][old_price]`, parseInt(v.old_price, 10));
+          if (v.old_price)
+            fd.append(`variants[${index}][old_price]`, parseInt(v.old_price, 10));
           fd.append(`variants[${index}][stock]`, parseInt(v.stock, 10));
-          if (v.taille) fd.append(`variants[${index}][attributes][taille]`, v.taille);
-          if (v.couleur) fd.append(`variants[${index}][attributes][couleur]`, v.couleur);
+          if (v.taille)
+            fd.append(`variants[${index}][attributes][taille]`, v.taille);
+          if (v.couleur)
+            fd.append(`variants[${index}][attributes][couleur]`, v.couleur);
         });
 
         const result = editingId
@@ -456,7 +610,7 @@ export default function ProductsPage() {
           setProducts((prev) =>
             editingId
               ? prev.map((p) => (p.id === editingId ? result.data : p))
-              : [...prev, result.data],
+              : [...prev, result.data]
           );
           showSuccess(editingId ? "Produit mis à jour" : "Produit créé");
           resetForm();
@@ -479,7 +633,7 @@ export default function ProductsPage() {
       resetForm,
       setProducts,
       showSuccess,
-    ],
+    ]
   );
 
   /* ── Actions tableau ── */
@@ -495,7 +649,7 @@ export default function ProductsPage() {
       featured: product.featured ?? false,
     });
     setExistingImages(
-      (product.image_path || []).map((url, id) => ({ id, url })),
+      (product.image_path || []).map((url, id) => ({ id, url }))
     );
     setPreviewUrls((prev) => {
       prev.forEach(URL.revokeObjectURL);
@@ -573,6 +727,24 @@ export default function ProductsPage() {
   const handleDeleteImage = useCallback((imageId) => {
     setExistingImages((prev) => prev.filter((img) => img.id !== imageId));
   }, []);
+
+  /* ── Menu contextuel (portail) ── */
+  const handleMenuToggle = useCallback(
+    (productId, event) => {
+      event.stopPropagation();
+      if (openMenuId === productId) {
+        setOpenMenuId(null);
+      } else {
+        const rect = event.currentTarget.getBoundingClientRect();
+        setMenuPosition({
+          top: rect.bottom + 4,
+          left: rect.right - 160, // largeur environ w-40
+        });
+        setOpenMenuId(productId);
+      }
+    },
+    [openMenuId]
+  );
 
   /* ─── Rendu ─────────────────────────────────────────────────── */
   return (
@@ -668,7 +840,7 @@ export default function ProductsPage() {
           </div>
         )}
 
-        {/* Filtres (desktop toujours visibles, mobile conditionnel) */}
+        {/* Filtres desktop */}
         {!showForm && (
           <div className="hidden lg:block">
             <FiltersBlock
@@ -687,6 +859,7 @@ export default function ProductsPage() {
           </div>
         )}
 
+        {/* Filtres mobile */}
         <AnimatePresence>
           {!showForm && showFilters && (
             <motion.div
@@ -737,6 +910,7 @@ export default function ProductsPage() {
                   </button>
                 </div>
                 <form onSubmit={handleSubmit} className="space-y-6 max-w-3xl">
+                  {/* champs identiques à la version précédente */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <Field label="Nom *" error={errors.name}>
                       <input
@@ -817,7 +991,6 @@ export default function ProductsPage() {
                         type="button"
                         onClick={addVariant}
                         className="text-xs flex items-center gap-1 text-stone-600 hover:text-black border border-stone-300 rounded px-2 py-1"
-                        title="Ajouter une déclinaison (taille/couleur)"
                       >
                         <Plus className="w-3 h-3" /> Ajouter une variante
                       </button>
@@ -846,11 +1019,7 @@ export default function ProductsPage() {
                               type="number"
                               value={v.price}
                               onChange={(e) =>
-                                handleVariantChange(
-                                  idx,
-                                  "price",
-                                  e.target.value,
-                                )
+                                handleVariantChange(idx, "price", e.target.value)
                               }
                               className="w-full px-2 py-1 border border-stone-300 text-xs"
                               min="0"
@@ -864,11 +1033,7 @@ export default function ProductsPage() {
                               type="number"
                               value={v.old_price}
                               onChange={(e) =>
-                                handleVariantChange(
-                                  idx,
-                                  "old_price",
-                                  e.target.value,
-                                )
+                                handleVariantChange(idx, "old_price", e.target.value)
                               }
                               className="w-full px-2 py-1 border border-stone-300 text-xs"
                               min="0"
@@ -883,11 +1048,7 @@ export default function ProductsPage() {
                               type="number"
                               value={v.stock}
                               onChange={(e) =>
-                                handleVariantChange(
-                                  idx,
-                                  "stock",
-                                  e.target.value,
-                                )
+                                handleVariantChange(idx, "stock", e.target.value)
                               }
                               className="w-full px-2 py-1 border border-stone-300 text-xs"
                               min="0"
@@ -901,11 +1062,7 @@ export default function ProductsPage() {
                               type="text"
                               value={v.taille}
                               onChange={(e) =>
-                                handleVariantChange(
-                                  idx,
-                                  "taille",
-                                  e.target.value,
-                                )
+                                handleVariantChange(idx, "taille", e.target.value)
                               }
                               className="w-full px-2 py-1 border border-stone-300 text-xs"
                               placeholder="S, M, L..."
@@ -919,11 +1076,7 @@ export default function ProductsPage() {
                               type="text"
                               value={v.couleur}
                               onChange={(e) =>
-                                handleVariantChange(
-                                  idx,
-                                  "couleur",
-                                  e.target.value,
-                                )
+                                handleVariantChange(idx, "couleur", e.target.value)
                               }
                               className="w-full px-2 py-1 border border-stone-300 text-xs"
                               placeholder="Rouge..."
@@ -1135,11 +1288,6 @@ export default function ProductsPage() {
                         <button
                           onClick={() => toggleSelect(product.id)}
                           className="text-stone-500 hover:text-black"
-                          title={
-                            selectedIds.has(product.id)
-                              ? "Désélectionner"
-                              : "Sélectionner"
-                          }
                         >
                           {selectedIds.has(product.id) ? (
                             <CheckSquare className="w-4 h-4" />
@@ -1201,36 +1349,15 @@ export default function ProductsPage() {
                           offCls="bg-stone-100 text-stone-500"
                         />
                       </td>
-                      <td className="py-3 px-2 md:px-4 relative overflow-visible">
+                      <td className="py-3 px-2 md:px-4 text-right relative">
                         <button
-                          onClick={() =>
-                            setOpenMenuId((id) =>
-                              id === product.id ? null : product.id,
-                            )
-                          }
+                          ref={openMenuId === product.id ? menuButtonRef : null}
+                          onClick={(e) => handleMenuToggle(product.id, e)}
                           className="text-stone-500 hover:text-stone-800 p-1 rounded transition-colors"
                           title="Plus d'actions"
                         >
                           <MoreVertical className="w-4 h-4 md:w-5 md:h-5" />
                         </button>
-                        {openMenuId === product.id && (
-                          <div className="absolute right-0 md:right-4 top-full mt-1 w-40 bg-white border border-stone-200 rounded shadow-lg z-50 py-1">
-                            <button
-                              onClick={() => handleEdit(product)}
-                              className="w-full text-left px-4 py-2 text-[13px] hover:bg-stone-100 transition-colors flex items-center gap-2"
-                              title="Modifier ce produit"
-                            >
-                              <Pencil className="w-4 h-4" /> Éditer
-                            </button>
-                            <button
-                              onClick={() => requestDelete(product)}
-                              className="w-full text-left px-4 py-2 text-[13px] text-red-600 hover:bg-red-50 transition-colors flex items-center gap-2"
-                              title="Supprimer ce produit"
-                            >
-                              <Trash2 className="w-4 h-4" /> Supprimer
-                            </button>
-                          </div>
-                        )}
                       </td>
                     </motion.tr>
                   ))
@@ -1239,7 +1366,7 @@ export default function ProductsPage() {
             </table>
           </div>
 
-          {/* Pagination enrichie */}
+          {/* Pagination */}
           {!isLoading && filteredProducts.length > 0 && totalPages > 1 && (
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-4 sm:px-6 py-3 sm:py-4 border-t border-stone-200 bg-stone-50/50">
               <span className="text-xs text-stone-500">
@@ -1254,6 +1381,40 @@ export default function ProductsPage() {
             </div>
           )}
         </motion.div>
+
+        {/* Menu contextuel (portail) */}
+        {openMenuId &&
+          createPortal(
+            <motion.div
+              id="products-menu-portal"
+              initial={{ opacity: 0, scale: 0.95, y: -5 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: -5 }}
+              transition={{ duration: 0.12 }}
+              className="fixed z-[100] w-40 bg-white border border-stone-200 rounded shadow-xl py-1"
+              style={{ top: menuPosition.top, left: menuPosition.left }}
+            >
+              <button
+                onClick={() => {
+                  const product = products.find((p) => p.id === openMenuId);
+                  if (product) handleEdit(product);
+                }}
+                className="w-full text-left px-4 py-2 text-[13px] hover:bg-stone-100 transition-colors flex items-center gap-2"
+              >
+                <Pencil className="w-4 h-4" /> Éditer
+              </button>
+              <button
+                onClick={() => {
+                  const product = products.find((p) => p.id === openMenuId);
+                  if (product) requestDelete(product);
+                }}
+                className="w-full text-left px-4 py-2 text-[13px] text-red-600 hover:bg-red-50 transition-colors flex items-center gap-2"
+              >
+                <Trash2 className="w-4 h-4" /> Supprimer
+              </button>
+            </motion.div>,
+            document.body
+          )}
 
         {/* Confirmation individuelle */}
         <ConfirmDialog
@@ -1292,162 +1453,5 @@ export default function ProductsPage() {
         />
       </div>
     </DashboardLayout>
-  );
-}
-
-/* ─── Sous-composants utilitaires ──────────────────────────────── */
-
-function FiltersBlock({
-  searchQuery,
-  setSearchQuery,
-  categoryFilter,
-  setCategoryFilter,
-  activeFilter,
-  setActiveFilter,
-  featuredFilter,
-  setFeaturedFilter,
-  categories,
-  hasActiveFilters,
-  resetFilters,
-}) {
-  return (
-    <div className="bg-white border border-stone-200 rounded-xl p-4 sm:p-5 shadow-sm">
-      <div className="flex flex-col lg:flex-row lg:items-end gap-4">
-        <div className="flex-1 min-w-0">
-          <FilterLabel>Rechercher</FilterLabel>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Nom ou slug..."
-              className="w-full pl-10 pr-4 py-2.5 border border-stone-200 rounded-lg text-sm bg-stone-50 focus:bg-white focus:border-stone-400 focus:ring-1 focus:ring-stone-400 transition-all outline-none"
-            />
-          </div>
-        </div>
-
-        <FilterSelect
-          label="Catégorie"
-          icon={<Tag className="w-4 h-4 text-stone-400" />}
-          value={categoryFilter}
-          onChange={(e) => setCategoryFilter(e.target.value)}
-          className="w-full lg:w-48"
-        >
-          <option value="">Toutes</option>
-          {categories.map((c) => (
-            <option key={c.id} value={String(c.id)}>
-              {c.name}
-            </option>
-          ))}
-        </FilterSelect>
-
-        <FilterSelect
-          label="Actif"
-          icon={<Package className="w-4 h-4 text-stone-400" />}
-          value={activeFilter}
-          onChange={(e) => setActiveFilter(e.target.value)}
-          className="w-full lg:w-36"
-        >
-          <option value="">Tous</option>
-          <option value="yes">Oui</option>
-          <option value="no">Non</option>
-        </FilterSelect>
-
-        <FilterSelect
-          label="Mis en avant"
-          icon={<Star className="w-4 h-4 text-stone-400" />}
-          value={featuredFilter}
-          onChange={(e) => setFeaturedFilter(e.target.value)}
-          className="w-full lg:w-40"
-        >
-          <option value="">Tous</option>
-          <option value="yes">Oui</option>
-          <option value="no">Non</option>
-        </FilterSelect>
-
-        {hasActiveFilters && (
-          <button
-            type="button"
-            onClick={resetFilters}
-            className="w-full lg:w-auto flex items-center gap-1.5 border border-red-200 bg-red-50 text-red-700 px-4 py-2.5 text-[11px] uppercase tracking-wider font-medium rounded-lg hover:bg-red-100 hover:border-red-300 transition-colors whitespace-nowrap"
-          >
-            <RotateCcw className="w-3.5 h-3.5" /> Réinitialiser
-          </button>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function FilterLabel({ children }) {
-  return (
-    <label className="text-[10px] uppercase tracking-wider font-bold text-stone-500 block mb-2">
-      {children}
-    </label>
-  );
-}
-
-function FilterSelect({ label, icon, value, onChange, className, children }) {
-  const chevron = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23999999' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E")`;
-  return (
-    <div className={className}>
-      <FilterLabel>
-        <span className="inline-flex items-center gap-1.5">
-          {icon}
-          {label}
-        </span>
-      </FilterLabel>
-      <select
-        value={value}
-        onChange={onChange}
-        className="w-full pl-4 pr-8 py-2.5 border border-stone-200 rounded-lg text-sm bg-stone-50 focus:bg-white focus:border-stone-400 focus:ring-1 focus:ring-stone-400 transition-all outline-none appearance-none bg-no-repeat"
-        style={{
-          backgroundImage: chevron,
-          backgroundPosition: "right 0.75rem center",
-        }}
-      >
-        {children}
-      </select>
-    </div>
-  );
-}
-
-function Field({ label, error, children }) {
-  return (
-    <div>
-      <label className="text-[10px] uppercase tracking-wider font-bold block mb-2">
-        {label}
-      </label>
-      {children}
-      {error && <p className="text-red-600 text-[10px] mt-1">{error}</p>}
-    </div>
-  );
-}
-
-const inputCls = (hasError) =>
-  `w-full px-3 py-2 border text-sm ${hasError ? "border-red-400" : "border-stone-300"}`;
-
-function Badge({ on, onLabel, offLabel, onCls, offCls }) {
-  return (
-    <span
-      className={`px-2 py-0.5 md:px-3 md:py-1 rounded text-[10px] font-bold ${on ? onCls : offCls}`}
-    >
-      {on ? onLabel : offLabel}
-    </span>
-  );
-}
-
-function EmptyRow({ colSpan, message, children }) {
-  return (
-    <tr>
-      <td
-        colSpan={colSpan}
-        className="py-12 text-center text-stone-400 text-sm"
-      >
-        {message}
-        {children}
-      </td>
-    </tr>
   );
 }

@@ -1,13 +1,13 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Trash2, Minus, Plus, ShoppingBag, MapPin, AlertCircle, Eye } from "lucide-react";
+import { MapPin, AlertCircle, Eye, Trash2 } from "lucide-react";
 import Header from "../components/Header";
 import { useCatalogData } from "../contexts/CatalogContext";
 import { getWhatsAppLink, resolveMediaUrl } from "../config/env";
 import { createOrder } from "../services/order";
 
-/* ---------- Icônes SVG Locale ---------- */
+/* ---------- Icône WhatsApp ---------- */
 function WhatsAppIcon() {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24" className="w-5 h-5 mr-2">
@@ -16,7 +16,7 @@ function WhatsAppIcon() {
   );
 }
 
-/* ---------- Sous-Composant Footer ---------- */
+/* ---------- Footer ---------- */
 function Footer() {
   return (
     <footer className="w-full bg-white border-t border-stone-200/80 mt-20">
@@ -48,35 +48,30 @@ function Footer() {
   );
 }
 
-/* ---------- Composant Principal BasketPage ---------- */
+/* ---------- BasketPage ---------- */
 export default function BasketPage() {
   const { shippingZones } = useCatalogData();
 
-  // Chargement initial depuis le localStorage
   const [cartItems, setCartItems] = useState(() => {
     const savedCart = localStorage.getItem("mk_bazaar_cart");
     return savedCart ? JSON.parse(savedCart) : [];
   });
 
-  // États liés à la livraison
   const [selectedZone, setSelectedZone] = useState(null);
   const [addressDetail, setAddressDetail] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [validationErrors, setValidationErrors] = useState({ zone: false, address: false });
 
-  // Synchronisation avec le localStorage + Alerte Header globale
   useEffect(() => {
     localStorage.setItem("mk_bazaar_cart", JSON.stringify(cartItems));
     window.dispatchEvent(new Event("cart-updated"));
   }, [cartItems]);
 
-  // Réinitialiser l'adresse si la zone change
   useEffect(() => {
     setAddressDetail("");
     setValidationErrors(prev => ({ ...prev, address: false }));
   }, [selectedZone]);
 
-  // Actions du panier
   const updateQuantity = (id, variantId, amount) => {
     setCartItems(prev =>
       prev.map(item =>
@@ -98,7 +93,6 @@ export default function BasketPage() {
   const deliveryPrice = selectedZone ? selectedZone.price : 0;
   const totalAmount = calculateSubtotal() + deliveryPrice;
 
-  // Soumission et envoi sur WhatsApp
   const handleWhatsAppCheckout = async () => {
     const hasZoneError = !selectedZone;
     const hasAddressError = selectedZone && addressDetail.trim() === "";
@@ -114,7 +108,6 @@ export default function BasketPage() {
       const clientOrderNumber = `MK-${Date.now().toString().slice(-6)}`;
       const today = new Date().toISOString().split("T")[0];
 
-      // Préparation du payload pour l'API
       const orderData = {
         order_number: clientOrderNumber,
         date: today,
@@ -128,24 +121,23 @@ export default function BasketPage() {
           product_variant_id: item.variant_id,
           name: item.name,
           quantity: item.quantity,
-          unit_price: item.price,
+          price: item.price,
           image_path: item.image,
         })),
       };
 
       const response = await createOrder(orderData);
-      
+
       if (response.success) {
         const orderReference = response.data.reference || response.data.order_number || clientOrderNumber;
 
-        // Construction du message formatté
         let message = `🛍️ *NOUVELLE COMMANDE — MK BAZAAR*\n\n`;
         message += `📌 *Référence Commande :* #${orderReference}\n\n`;
         message += `Bonjour, je souhaite valider mon panier contenant les articles suivants :\n\n`;
 
         cartItems.forEach((item, index) => {
-          const variantText = item.attributes 
-            ? ` (${Object.values(item.attributes).join(" - ")})` 
+          const variantText = item.attributes
+            ? ` (${Object.values(item.attributes).join(" - ")})`
             : "";
           message += `${index + 1}. *${item.name}${variantText}*\n`;
           message += `   Quantité : ${item.quantity}\n`;
@@ -160,7 +152,6 @@ export default function BasketPage() {
         message += `💰 *Montant global à régler :* ${totalAmount.toLocaleString()} FCFA\n\n`;
         message += `Merci de prendre en compte ma commande pour expédition.`;
 
-        // Vider le panier après commande réussie
         setCartItems([]);
         setSelectedZone(null);
         setAddressDetail("");
@@ -180,9 +171,8 @@ export default function BasketPage() {
     <div className="min-h-screen flex flex-col bg-[#F9F9F7] text-black antialiased">
       <Header />
 
-      <main className="flex-1 py-10 px-4 sm:px-8 md:px-12 lg:px-16">
+      <main className="flex-1 py-8 sm:py-10 px-4 sm:px-8 md:px-12 lg:px-16">
         <div className="max-w-6xl mx-auto">
-          
           <h1 className="text-xl md:text-2xl font-light uppercase tracking-widest mb-10 border-b border-stone-200/80 pb-4 text-stone-950">
             Mon Panier
           </h1>
@@ -200,15 +190,15 @@ export default function BasketPage() {
                 </p>
                 <Link
                   to="/products"
-                  className="inline-block bg-black text-white text-xs uppercase tracking-widest font-semibold px-8 py-4 hover:bg-stone-900 transition-colors duration-200 shadow-sm"
+                  className="inline-block bg-black text-white text-xs uppercase tracking-widest font-semibold px-8 py-4 hover:bg-stone-900 transition-colors duration-200 shadow-sm rounded-xl"
                 >
                   Découvrir nos collections
                 </Link>
               </motion.div>
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-10 items-start">
-                
-                {/* LISTE DES ARTICLES (GAUCHE) */}
+
+                {/* Liste des articles */}
                 <div className="lg:col-span-2 space-y-4">
                   <AnimatePresence>
                     {cartItems.map((item) => (
@@ -218,86 +208,78 @@ export default function BasketPage() {
                         initial={{ opacity: 0, x: -20 }}
                         animate={{ opacity: 1, x: 0 }}
                         exit={{ opacity: 0, x: 50, transition: { duration: 0.2 } }}
-                        className="flex items-center gap-4 bg-white p-4 border border-stone-200/60 shadow-sm rounded-sm"
+                        className="flex flex-col sm:flex-row items-start sm:items-center gap-4 bg-white p-4 border border-stone-200/60 shadow-sm hover:shadow-md transition-shadow rounded-xl"
                       >
-                        <img
-                          src={resolveMediaUrl(item.image)}
-                          alt={item.name}
-                          className="w-20 h-24 object-cover bg-stone-100 flex-shrink-0"
-                        />
-
-                        <div className="flex-1 min-w-0">
-                          <span className="text-[9px] uppercase tracking-widest text-stone-400 font-bold block mb-1">
-                            {item.category}
-                          </span>
-                          <h2 className="text-sm font-medium uppercase tracking-wider text-black truncate">
-                            {item.name}
-                          </h2>
-                          {item.attributes && (
-                            <p className="text-[10px] text-stone-400 font-mono mt-0.5">
-                              {Object.entries(item.attributes).map(([k, v]) => `${k.toUpperCase()}: ${v}`).join(", ")}
+                        {/* Image + Infos */}
+                        <div className="flex items-start gap-3 w-full sm:w-auto sm:flex-1">
+                          <img
+                            src={resolveMediaUrl(item.image)}
+                            alt={item.name}
+                            className="w-16 h-20 sm:w-20 sm:h-24 object-cover bg-stone-100 flex-shrink-0 rounded-lg"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <span className="text-[9px] uppercase tracking-widest text-stone-400 font-bold block mb-1">
+                              {item.category}
+                            </span>
+                            <h2 className="text-sm font-medium uppercase tracking-wider text-black line-clamp-2 sm:truncate">
+                              {item.name}
+                            </h2>
+                            {item.attributes && (
+                              <p className="text-[10px] text-stone-400 font-mono mt-0.5">
+                                {Object.entries(item.attributes)
+                                  .map(([k, v]) => `${k.toUpperCase()}: ${v}`)
+                                  .join(", ")}
+                              </p>
+                            )}
+                            <p className="text-xs text-stone-600 mt-1 font-medium font-mono">
+                              {item.price.toLocaleString()} FCFA
                             </p>
-                          )}
-                          <p className="text-xs text-stone-600 mt-1 font-medium font-mono">
-                            {item.price.toLocaleString()} FCFA
-                          </p>
-
-                          {/* Sélecteur quantité Mobile */}
-                          <div className="flex items-center gap-2 mt-3 sm:hidden">
-                            <button
-                              onClick={() => updateQuantity(item.id, item.variant_id, -1)}
-                              className="p-1 border border-stone-200 hover:bg-stone-50 rounded"
-                            >
-                              <Minus className="w-3 h-3" />
-                            </button>
-                            <span className="text-xs font-bold w-6 text-center font-mono">{item.quantity}</span>
-                            <button
-                              onClick={() => updateQuantity(item.id, item.variant_id, 1)}
-                              className="p-1 border border-stone-200 hover:bg-stone-50 rounded"
-                            >
-                              <Plus className="w-3 h-3" />
-                            </button>
                           </div>
                         </div>
 
-                        {/* Sélecteur quantité Desktop */}
-                        <div className="hidden sm:flex items-center border border-stone-200 rounded-xl bg-stone-50 overflow-hidden shadow-inner">
-                          <button
-                            onClick={() => updateQuantity(item.id, item.variant_id, -1)}
-                            className="p-2.5 hover:bg-stone-200/60 text-stone-600 transition-colors"
-                          >
-                            <Minus className="w-3 h-3" />
-                          </button>
-                          <span className="text-xs font-medium px-2 min-w-[2rem] text-center font-mono select-none">
-                            {item.quantity}
-                          </span>
-                          <button
-                            onClick={() => updateQuantity(item.id, item.variant_id, 1)}
-                            className="p-2.5 hover:bg-stone-200/60 text-stone-600 transition-colors"
-                          >
-                            <Plus className="w-3 h-3" />
-                          </button>
-                        </div>
+                        {/* Quantité, prix total et actions */}
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-5 w-full sm:w-auto">
+                          {/* Quantité */}
+                          <div className="flex items-center border border-stone-200 rounded-lg bg-stone-50 overflow-hidden shadow-inner w-fit">
+                            <button
+                              onClick={() => updateQuantity(item.id, item.variant_id, -1)}
+                              className="px-2.5 py-2 text-stone-600 hover:bg-stone-200/60 transition-colors font-bold text-xs"
+                              aria-label="Diminuer la quantité"
+                            >
+                              −
+                            </button>
+                            <span className="text-xs font-medium px-3 min-w-[2.5rem] text-center font-mono select-none bg-white">
+                              {item.quantity}
+                            </span>
+                            <button
+                              onClick={() => updateQuantity(item.id, item.variant_id, 1)}
+                              className="px-2.5 py-2 text-stone-600 hover:bg-stone-200/60 transition-colors font-bold text-xs"
+                              aria-label="Augmenter la quantité"
+                            >
+                              +
+                            </button>
+                          </div>
 
-                        {/* Ligne Prix Ligne & Supprimer & Détails */}
-                        <div className="flex flex-col items-end justify-between h-24 py-1 ml-2">
-                          <span className="text-xs font-semibold tracking-wider text-black font-mono whitespace-nowrap">
-                            {(item.price * item.quantity).toLocaleString()} FCFA
+                          {/* Prix total */}
+                          <span className="text-xs sm:text-sm font-semibold tracking-wider text-black font-mono whitespace-nowrap">
+                            Total : {(item.price * item.quantity).toLocaleString()} FCFA
                           </span>
-                          <div className="flex gap-2">
+
+                          {/* Actions stylées */}
+                          <div className="flex items-center gap-2 sm:ml-auto">
                             <Link
                               to={`/products/${item.slug}`}
-                              title="Voir le produit"
-                              className="p-2 text-stone-400 hover:text-stone-800 hover:bg-stone-100 rounded-full transition-all duration-200"
+                              className="inline-flex items-center gap-1 text-xs font-medium text-stone-600 hover:text-stone-900 hover:bg-stone-100 px-2.5 py-1.5 rounded-lg transition-colors duration-200"
                             >
-                              <Eye className="w-4 h-4" />
+                              <Eye className="w-3.5 h-3.5" />
+                              <span>Voir</span>
                             </Link>
                             <button
                               onClick={() => removeItem(item.id, item.variant_id)}
-                              className="p-2 text-stone-400 hover:text-rose-600 hover:bg-rose-50 rounded-full transition-all duration-200"
-                              title="Supprimer l'article"
+                              className="inline-flex items-center gap-1 text-xs font-medium text-rose-600 hover:text-rose-700 hover:bg-rose-50 px-2.5 py-1.5 rounded-lg transition-colors duration-200"
                             >
-                              <Trash2 className="w-4 h-4" />
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span>Supprimer</span>
                             </button>
                           </div>
                         </div>
@@ -306,11 +288,9 @@ export default function BasketPage() {
                   </AnimatePresence>
                 </div>
 
-                {/* TUNNEL DE RECAPITULATIF & EXPÉDITION (DROITE) */}
+                {/* Résumé commande (inchangé mais avec coins arrondis) */}
                 <div className="space-y-4 sticky top-24">
-                  
-                  {/* Formulaire Informations Livraison */}
-                  <div className="bg-white p-5 border border-stone-200/60 shadow-sm rounded-sm space-y-4">
+                  <div className="bg-white p-5 border border-stone-200/60 shadow-sm rounded-xl space-y-4">
                     <div className="flex items-center gap-2 text-xs uppercase tracking-widest font-bold text-black border-b border-stone-100 pb-2">
                       <MapPin className="w-4 h-4 text-stone-500" />
                       <h2>Détails d'expédition</h2>
@@ -357,8 +337,7 @@ export default function BasketPage() {
                     </div>
                   </div>
 
-                  {/* Résumé Financier Global */}
-                  <div className="bg-white p-6 border border-stone-200/60 shadow-sm rounded-sm">
+                  <div className="bg-white p-6 border border-stone-200/60 shadow-sm rounded-xl">
                     <h2 className="text-xs uppercase tracking-widest font-bold text-black border-b border-stone-200 pb-3 mb-4">
                       Résumé de la commande
                     </h2>
@@ -383,7 +362,6 @@ export default function BasketPage() {
                       </span>
                     </div>
 
-                    {/* Alertes d'erreurs de formulaire */}
                     {(validationErrors.zone || validationErrors.address) && (
                       <div className="mb-4 p-3 bg-rose-50 border border-rose-100 rounded-xl text-[11px] text-rose-800 flex items-start gap-2">
                         <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
@@ -391,7 +369,6 @@ export default function BasketPage() {
                       </div>
                     )}
 
-                    {/* Bouton Principal d'envoi WhatsApp */}
                     <button
                       onClick={handleWhatsAppCheckout}
                       disabled={isSubmitting}
@@ -417,7 +394,6 @@ export default function BasketPage() {
                       Continuer mes achats
                     </Link>
                   </div>
-
                 </div>
 
               </div>
