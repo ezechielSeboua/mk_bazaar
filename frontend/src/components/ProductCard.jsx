@@ -191,9 +191,9 @@ export default function ProductCard({ product, delay = 0 }) {
         </div>
       </Link>
 
-      {/* Boutons : icônes agrandies, texte encore réduit */}
+      {/* Boutons avec le style exact de ProductDetails */}
       <div className="p-1 sm:p-1.5 bg-white border-t border-stone-100 flex flex-col sm:flex-row items-stretch gap-1 sm:gap-1.5">
-        {/* Ajouter au panier */}
+        {/* Ajouter au panier – style marron/or */}
         <button
           onClick={handleQuickAddToCart}
           disabled={!isAvailable}
@@ -201,7 +201,7 @@ export default function ProductCard({ product, delay = 0 }) {
             isAvailable
               ? isAdded
                 ? "bg-emerald-600 text-white shadow-sm"
-                : "bg-stone-950 text-white hover:bg-stone-900 active:bg-black shadow-sm"
+                : "bg-white text-[#c07b5a] border border-[#c07b5a] hover:bg-[#c07b5a] hover:text-white shadow-sm"
               : "bg-stone-100 text-stone-400 cursor-not-allowed"
           }`}
         >
@@ -224,14 +224,14 @@ export default function ProductCard({ product, delay = 0 }) {
           )}
         </button>
 
-        {/* Commander WhatsApp */}
+        {/* Commander directement – style vert WhatsApp */}
         <Link
           to={`/products/${product.slug}`}
-          className="flex-1 px-2 py-1 sm:px-3 sm:py-2 rounded-lg text-[5px] sm:text-[8px] font-bold uppercase tracking-wider border border-[#c07b5a] text-[#c07b5a] hover:bg-[#c07b5a]/10 transition-all duration-300 flex items-center justify-center gap-1"
+          className="flex-1 px-2 py-1 sm:px-3 sm:py-2 rounded-lg text-[5px] sm:text-[8px] font-bold uppercase tracking-wider border border-green-600 text-green-600 bg-transparent hover:bg-green-600 hover:text-white transition-all duration-300 flex items-center justify-center gap-1"
         >
           <WhatsAppIcon />
-          <span className="hidden sm:inline">Commander sur WhatsApp</span>
-          <span className="sm:hidden">Commander sur WhatsApp</span>
+          <span className="hidden sm:inline">Commander directement</span>
+          <span className="sm:hidden">Commander</span>
         </Link>
       </div>
     </motion.div>
