@@ -107,8 +107,8 @@ function CartIcon({ className = "w-5 h-5" }) {
       fill="none"
       viewBox="0 0 24 24"
       strokeWidth={1.5}
-      stroke="currentColor"
-      className={className}
+      stroke="#000"
+      className={`${className}`}  // force l'absence de fond
     >
       <path
         strokeLinecap="round"

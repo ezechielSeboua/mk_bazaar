@@ -2,7 +2,7 @@
 export default function ProductHeader() {
     return (
         <div className="mb-12 md:mb-16 space-y-4">
-            <span className="text-[10px] uppercase tracking-[0.3em] text-stone-400 font-bold block">
+            <span className="text-[13px] uppercase tracking-[0.3em] font-bold text-[#c07b5a] block">
                 Catalogue Permanent
             </span>
             <h1 className="text-3xl md:text-5xl font-extralight uppercase tracking-tight text-black">

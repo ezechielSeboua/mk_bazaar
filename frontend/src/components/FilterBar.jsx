@@ -1,10 +1,8 @@
-import { FiSliders } from 'react-icons/fi';
-
 export default function FilterBar({
     selectedCategory,
     setSelectedCategory,
-    sortBy,
-    setSortBy,
+    // sortBy,
+    // setSortBy,
     // showOutOfStock,        // commenté
     // setShowOutOfStock,     // commenté
     categories = [],
@@ -63,8 +61,7 @@ export default function FilterBar({
 
             {/* Tri + Filtres (commun aux deux versions) */}
             <div className="flex items-center gap-2 sm:gap-3">
-                {/* Tri – sélecteur avec flèche intégrée */}
-                <div className="flex items-center gap-2 sm:gap-3 bg-stone-50 border border-stone-200 rounded-full px-3 sm:px-4 py-2 sm:py-2.5 text-stone-600">
+                {/* <div className="flex items-center gap-2 sm:gap-3 bg-stone-50 border border-stone-200 rounded-full px-3 sm:px-4 py-2 sm:py-2.5 text-stone-600">
                     <FiSliders className="text-sm text-[#c07b5a] shrink-0" />
                     <label className="text-[10px] uppercase tracking-[0.2em] font-bold hidden sm:inline">
                         Trier par
@@ -84,8 +81,8 @@ export default function FilterBar({
                         <option value="prix-croissant">Prix croissant</option>
                         <option value="prix-decroissant">Prix décroissant</option>
                     </select>
-                    {/* SVG externe supprimé */}
-                </div>
+                
+                </div> */}
 
                 {/* Filtre Rupture – commenté */}
                 {/*

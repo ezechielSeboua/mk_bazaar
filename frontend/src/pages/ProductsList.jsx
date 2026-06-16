@@ -1,7 +1,13 @@
 import { useState, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, X, ChevronLeft, ChevronRight, SlidersHorizontal } from "lucide-react";
+import {
+  Search,
+  X,
+  ChevronLeft,
+  ChevronRight,
+  SlidersHorizontal,
+} from "lucide-react";
 import Header from "../components/Header";
 import ProductHeader from "../components/ProductHeader";
 import FilterBar from "../components/FilterBar";
@@ -10,6 +16,7 @@ import Footer from "../components/Footer";
 import CapybaraLoader from "../components/CapybaraLoader";
 import { useCatalogData, useCatalogProducts } from "../contexts/CatalogContext";
 import Seo from "../components/Seo";
+import { FiSliders } from "react-icons/fi";
 
 function SkeletonCard() {
   return (
@@ -170,25 +177,60 @@ export default function ProductList() {
           <FilterBar {...filterBarProps} />
         </div>
 
-        {/* Barre de recherche */}
-        <motion.div className="mb-6 md:mb-8 max-w-md mx-auto md:mx-0 relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
-          <input
-            type="text"
-            placeholder="Rechercher un produit..."
-            value={searchTerm}
-            onChange={(e) => handleSearchChange(e.target.value)}
-            className="w-full pl-10 pr-10 py-2.5 border border-stone-200 rounded-full bg-white text-sm focus:outline-none focus:ring-2 focus:ring-stone-300"
-          />
-          {searchTerm && (
-            <button
-              onClick={() => handleSearchChange("")}
-              className="absolute right-3 top-1/2 -translate-y-1/2"
-            >
-              <X className="w-4 h-4 text-stone-400" />
-            </button>
-          )}
-        </motion.div>
+        {/* Barre de recherche + Tri sur la même ligne */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mb-6 md:mb-8">
+          {/* Recherche */}
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
+            <input
+              type="text"
+              placeholder="Rechercher un produit..."
+              value={searchTerm}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              className="w-full pl-10 pr-10 py-2.5 border border-stone-200 rounded-full bg-white text-sm focus:outline-none focus:ring-2 focus:ring-stone-300"
+            />
+            {searchTerm && (
+              <button
+                onClick={() => handleSearchChange("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2"
+              >
+                <X className="w-4 h-4 text-stone-400" />
+              </button>
+            )}
+          </div>
+
+<div className="relative">
+  <div className="flex items-center gap-2 max-sm:gap-1.5 bg-white border border-stone-200 rounded-2xl max-sm:rounded-xl px-4 py-3 max-sm:px-3 max-sm:py-2 text-stone-600 shadow-sm hover:shadow-md hover:border-stone-300 transition-all duration-300 group flex-1 min-w-0">
+    {/* Icône avec fond */}
+    <div className="bg-stone-50 p-1.5 max-sm:p-1 rounded-lg group-hover:bg-[#c07b5a]/10 transition-colors duration-300">
+      <FiSliders className="text-sm text-[#c07b5a] shrink-0" />
+    </div>
+    
+    {/* Conteneur label + select */}
+    <div className="flex flex-col min-w-0 flex-1">
+      <label
+        htmlFor="sort-select"
+        className="text-[9px] uppercase tracking-[0.2em] font-bold text-stone-400 leading-none max-sm:sr-only"
+      >
+        Trier par
+      </label>
+      <select
+        id="sort-select"
+        value={sortBy}
+        onChange={(e) => handleSortChange(e.target.value)}
+        className="appearance-none bg-transparent border-none p-0 text-[10px] sm:text-xs font-semibold cursor-pointer focus:ring-0 text-stone-800 pr-6 sm:pr-7 hover:text-[#c07b5a] transition-colors duration-300 bg-no-repeat bg-right w-full"
+        style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23c07b5a' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E")`,
+        }}
+      >
+        <option value="nouveautes">Nouveautés</option>
+        <option value="prix-croissant">Prix croissant</option>
+        <option value="prix-decroissant">Prix décroissant</option>
+      </select>
+    </div>
+  </div>
+</div>
+        </div>
 
         {/* Affichage conditionnel */}
         {showInitialLoad ? (
