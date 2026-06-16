@@ -48,7 +48,7 @@ export default function ProductDetails() {
   const [selectedZone, setSelectedZone] = useState(null); // conservé pour pré-remplissage éventuel
   const [addressDetail, setAddressDetail] = useState("");   // idem
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isAddedToCart, setIsAddedToCart] = useState(false);
+  // const [isAddedToCart, setIsAddedToCart] = useState(false);
   const [showCartNotification, setShowCartNotification] = useState(false); // toast
 
   // Modale WhatsApp (contient maintenant les champs de livraison)
@@ -104,39 +104,39 @@ export default function ProductDetails() {
       : null;
 
   /* ----- AJOUT PANIER ----- */
-  const handleAddToCart = () => {
-    if (!product) return;
-    const localCartRaw = localStorage.getItem("mk_bazaar_cart");
-    let currentCart = localCartRaw ? JSON.parse(localCartRaw) : [];
-    const variantId = selectedVariant?.id || null;
-    const existingItemIndex = currentCart.findIndex(
-      (item) => item.id === product.id && item.variant_id === variantId
-    );
-    if (existingItemIndex > -1) {
-      const targetQty = currentCart[existingItemIndex].quantity + quantity;
-      currentCart[existingItemIndex].quantity = Math.min(targetQty, maxAvailableStock);
-    } else {
-      currentCart.push({
-        id: product.id,
-        variant_id: variantId,
-        name: product.name,
-        slug: product.slug || slug,
-        price: currentPrice,
-        quantity: quantity,
-        attributes: selectedVariant?.attributes || null,
-        image: product.image_path?.[0] || null,
-        category: product.category?.name || "Collection",
-      });
-    }
-    localStorage.setItem("mk_bazaar_cart", JSON.stringify(currentCart));
+  // const handleAddToCart = () => {
+  //   if (!product) return;
+  //   const localCartRaw = localStorage.getItem("mk_bazaar_cart");
+  //   let currentCart = localCartRaw ? JSON.parse(localCartRaw) : [];
+  //   const variantId = selectedVariant?.id || null;
+  //   const existingItemIndex = currentCart.findIndex(
+  //     (item) => item.id === product.id && item.variant_id === variantId
+  //   );
+  //   if (existingItemIndex > -1) {
+  //     const targetQty = currentCart[existingItemIndex].quantity + quantity;
+  //     currentCart[existingItemIndex].quantity = Math.min(targetQty, maxAvailableStock);
+  //   } else {
+  //     currentCart.push({
+  //       id: product.id,
+  //       variant_id: variantId,
+  //       name: product.name,
+  //       slug: product.slug || slug,
+  //       price: currentPrice,
+  //       quantity: quantity,
+  //       attributes: selectedVariant?.attributes || null,
+  //       image: product.image_path?.[0] || null,
+  //       category: product.category?.name || "Collection",
+  //     });
+  //   }
+  //   localStorage.setItem("mk_bazaar_cart", JSON.stringify(currentCart));
 
-    setIsAddedToCart(true);
-    setShowCartNotification(true);
-    setTimeout(() => setIsAddedToCart(false), 2200);
-    setTimeout(() => setShowCartNotification(false), 2600);
+  //   setIsAddedToCart(true);
+  //   setShowCartNotification(true);
+  //   setTimeout(() => setIsAddedToCart(false), 2200);
+  //   setTimeout(() => setShowCartNotification(false), 2600);
 
-    window.dispatchEvent(new Event("cart-updated"));
-  };
+  //   window.dispatchEvent(new Event("cart-updated"));
+  // };
 
   /* ----- OUVERTURE MODALE WHATSAPP (sans validation) ----- */
   const openWhatsAppModal = () => {
@@ -274,7 +274,9 @@ export default function ProductDetails() {
     );
   }
 
-  const images = product.image_path || [];
+  const images = selectedVariant?.image_path
+    ? [selectedVariant.image_path]
+    : product.image_path || [];
   const productPath = `/products/${product.slug || slug}`;
   const mainImage = images[0] ? absoluteImageUrl(images[0]) : null;
 
@@ -464,7 +466,7 @@ export default function ProductDetails() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
           >
-            <ProductGallery images={images} />
+            <ProductGallery key={selectedVariant?.id ?? "default"} images={images} />
           </motion.div>
 
           {/* Infos produit */}
@@ -595,8 +597,7 @@ export default function ProductDetails() {
             {/* BLOC TRANSACTIONNEL */}
             {isAvailable ? (
               <motion.div className="flex gap-3" variants={fadeInUp}>
-                {/* Bouton Ajouter au panier */}
-                <motion.button
+                {/* <motion.button
                   whileHover={{ scale: 1.01 }}
                   whileTap={{ scale: 0.99 }}
                   onClick={handleAddToCart}
@@ -617,7 +618,7 @@ export default function ProductDetails() {
                       Ajouter au Panier
                     </>
                   )}
-                </motion.button>
+                </motion.button> */}
 
                 {/* Bouton Commander (WhatsApp) */}
                 <motion.button

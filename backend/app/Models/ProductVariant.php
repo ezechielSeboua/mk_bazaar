@@ -9,18 +9,19 @@ class ProductVariant extends Model
 {
     protected $fillable = [
         'product_id',
-        'attributes',   // Tableau JSON contenant les options (ex: {"taille": "M", "couleur": "Rouge"})
-        'price',        // Prix spécifique à la variante (nullable : si null, on prend le prix du produit)
-        'old_price',    // Prix barré spécifique à la variante (nullable)
-        'stock',        // Le stock précis pour CETTE combinaison
+        'attributes',
+        'price',
+        'old_price',
+        'stock',
+        'image_path',
     ];
 
     protected $casts = [
         'product_id' => 'integer',
-        'attributes' => 'array',   // Transtypé automatiquement en tableau PHP / JSON en base
-        'price' => 'integer',
-        'old_price' => 'integer',
-        'stock' => 'integer',
+        'attributes' => 'array',
+        'price'      => 'integer',
+        'old_price'  => 'integer',
+        'stock'      => 'integer',
     ];
 
     /**

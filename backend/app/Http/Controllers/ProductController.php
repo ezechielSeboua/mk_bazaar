@@ -41,7 +41,7 @@ class ProductController extends Controller
         if ($request->filled('search')) {
             $query->where(function ($q) use ($request) {
                 $q->where('name', 'like', '%' . $request->search . '%')
-                    ->orWhere('description', 'like', '%' . $request->search . '%');
+                  ->orWhere('description', 'like', '%' . $request->search . '%');
             });
         }
 
@@ -63,18 +63,12 @@ class ProductController extends Controller
     /**
      * Afficher un seul produit complet (via ID ou Slug)
      */
-    // public function show($idOrSlug): JsonResponse
-    // {
-    //     $product = Product::where('id', $idOrSlug)
-    //         ->orWhere('slug', $idOrSlug)
-    //         ->firstOrFail();
-
-    //     return response()->json($product->load(['category', 'variants']));
-    // }
-
-
-    public function show(Product $product): JsonResponse
+    public function show($idOrSlug): JsonResponse
     {
+        $product = Product::where('id', $idOrSlug)
+            ->orWhere('slug', $idOrSlug)
+            ->firstOrFail();
+
         return response()->json($product->load(['category', 'variants']));
     }
 
@@ -101,19 +95,20 @@ class ProductController extends Controller
             'name'                  => 'required|string|max:255',
             'slug'                  => 'nullable|string|max:255|unique:products,slug',
             'description'           => 'required|string',
-            'price'                 => 'required|integer|min:0',
+            'price'                 => 'required|integer|min:0', 
             'old_price'             => 'nullable|integer|min:0',
             'category_id'           => 'required|exists:categories,id',
             'is_active'             => 'sometimes|boolean',
             'featured'              => 'sometimes|boolean',
             'image_path.*'          => 'image|mimes:jpeg,jpg,png,webp|max:4096',
-
+            
             // Validation des variantes envoyées en même temps que le produit
             'variants'              => 'sometimes|array',
             'variants.*.attributes' => 'required|array',
             'variants.*.price'      => 'nullable|integer|min:0',
             'variants.*.old_price'  => 'nullable|integer|min:0',
             'variants.*.stock'      => 'required|integer|min:0',
+            'variants.*.image'      => 'nullable|image|mimes:jpeg,jpg,png,webp|max:4096',
         ]);
 
         $validated['slug'] = $validated['slug'] ?? Str::slug($validated['name']);
@@ -138,7 +133,16 @@ class ProductController extends Controller
 
         // 2. Création des variantes associées si présentes
         if (!empty($validated['variants'])) {
-            $product->variants()->createMany($validated['variants']);
+            foreach ($validated['variants'] as $index => $variantData) {
+                if ($request->hasFile("variants.{$index}.image")) {
+                    $file = $request->file("variants.{$index}.image");
+                    if ($file->isValid()) {
+                        $path = $file->store('variants', 'public');
+                        $variantData['image_path'] = Storage::url($path);
+                    }
+                }
+                $product->variants()->create($variantData);
+            }
         }
 
         return response()->json($product->load(['category', 'variants']), 201);
@@ -166,11 +170,12 @@ class ProductController extends Controller
 
             // MODIFICATION : Validation poussée pour la mise à jour des variantes
             'variants'              => 'sometimes|array',
-            'variants.*.id'         => 'nullable|integer|exists:product_variants,id', // 'nullable' car les nouvelles variantes n'ont pas d'ID
+            'variants.*.id'         => 'nullable|integer|exists:product_variants,id',
             'variants.*.attributes' => 'required_with:variants|array',
             'variants.*.price'      => 'nullable|integer|min:0',
             'variants.*.old_price'  => 'nullable|integer|min:0',
             'variants.*.stock'      => 'required_with:variants|integer|min:0',
+            'variants.*.image'      => 'nullable|image|mimes:jpeg,jpg,png,webp|max:4096',
         ]);
 
         if (isset($validated['name']) && empty($validated['slug'])) {
@@ -201,7 +206,7 @@ class ProductController extends Controller
 
         // MODIFICATION : On encapsule les modifications en base de données dans une Transaction
         DB::transaction(function () use ($product, $validated, $request) {
-
+            
             // 1. Mise à jour du produit principal
             $product->update($validated);
 
@@ -209,21 +214,47 @@ class ProductController extends Controller
             if ($request->has('variants')) {
                 $activeVariantIds = [];
 
-                foreach ($validated['variants'] as $variantData) {
+                foreach ($validated['variants'] as $index => $variantData) {
+                    // Gestion de l'image de la variante
+                    if ($request->hasFile("variants.{$index}.image")) {
+                        $file = $request->file("variants.{$index}.image");
+                        if ($file->isValid()) {
+                            // Supprimer l'ancienne image si la variante existe déjà
+                            if (!empty($variantData['id'])) {
+                                $old = $product->variants()->find($variantData['id']);
+                                if ($old && $old->image_path) {
+                                    $rel = str_replace('/storage/', '', $old->image_path);
+                                    if (Storage::disk('public')->exists($rel)) {
+                                        Storage::disk('public')->delete($rel);
+                                    }
+                                }
+                            }
+                            $path = $file->store('variants', 'public');
+                            $variantData['image_path'] = Storage::url($path);
+                        }
+                    }
+
                     if (!empty($variantData['id'])) {
-                        // Variante existante : On la met à jour via la relation pour isoler la recherche au produit
                         $variant = $product->variants()->findOrFail($variantData['id']);
                         $variant->update($variantData);
                         $activeVariantIds[] = $variant->id;
                     } else {
-                        // Nouvelle variante : On la crée
                         $newVariant = $product->variants()->create($variantData);
                         $activeVariantIds[] = $newVariant->id;
                     }
                 }
 
-                // Suppression des variantes qui ne sont plus présentes dans le tableau envoyé par React
-                $product->variants()->whereNotIn('id', $activeVariantIds)->delete();
+                // Supprimer les variantes (et leurs images) absentes du payload
+                $removed = $product->variants()->whereNotIn('id', $activeVariantIds)->get();
+                foreach ($removed as $variant) {
+                    if ($variant->image_path) {
+                        $rel = str_replace('/storage/', '', $variant->image_path);
+                        if (Storage::disk('public')->exists($rel)) {
+                            Storage::disk('public')->delete($rel);
+                        }
+                    }
+                    $variant->delete();
+                }
             }
         });
 
@@ -246,6 +277,14 @@ class ProductController extends Controller
             }
         }
 
+        foreach ($product->variants as $variant) {
+            if ($variant->image_path) {
+                $rel = str_replace('/storage/', '', $variant->image_path);
+                if (Storage::disk('public')->exists($rel)) {
+                    Storage::disk('public')->delete($rel);
+                }
+            }
+        }
         $product->variants()->delete();
         $product->delete();
 
@@ -269,6 +308,14 @@ class ProductController extends Controller
                 $relativePath = str_replace('/storage/', '', $imageUrl);
                 if (Storage::disk('public')->exists($relativePath)) {
                     Storage::disk('public')->delete($relativePath);
+                }
+            }
+            foreach ($product->variants as $variant) {
+                if ($variant->image_path) {
+                    $rel = str_replace('/storage/', '', $variant->image_path);
+                    if (Storage::disk('public')->exists($rel)) {
+                        Storage::disk('public')->delete($rel);
+                    }
                 }
             }
             $product->variants()->delete();

@@ -18,6 +18,7 @@ import {
   Plus,
   X,
   Loader2,
+  ImageIcon,
 } from "lucide-react";
 import DashboardLayout from "../../components/DashboardLayout";
 import ConfirmDialog from "../../components/ConfirmDialog";
@@ -39,6 +40,8 @@ const EMPTY_VARIANT = {
   stock: "",
   taille: "",
   couleur: "",
+  imageFile: null,
+  imagePreview: null,
 };
 
 const EMPTY_FORM = {
@@ -477,7 +480,11 @@ export default function ProductsPage() {
   };
 
   const removeVariant = (index) => {
-    setVariants((prev) => prev.filter((_, i) => i !== index));
+    setVariants((prev) => {
+      const v = prev[index];
+      if (v?.imagePreview?.startsWith("blob:")) URL.revokeObjectURL(v.imagePreview);
+      return prev.filter((_, i) => i !== index);
+    });
   };
 
   const handleVariantChange = (index, field, value) => {
@@ -546,7 +553,12 @@ export default function ProductsPage() {
     setShowForm(false);
     setEditingId(null);
     setFormData(EMPTY_FORM);
-    setVariants([]);
+    setVariants((prev) => {
+      prev.forEach((v) => {
+        if (v?.imagePreview?.startsWith("blob:")) URL.revokeObjectURL(v.imagePreview);
+      });
+      return [];
+    });
     setErrors({});
     setPreviewUrls((prev) => {
       prev.forEach(URL.revokeObjectURL);
@@ -600,6 +612,8 @@ export default function ProductsPage() {
             fd.append(`variants[${index}][attributes][taille]`, v.taille);
           if (v.couleur)
             fd.append(`variants[${index}][attributes][couleur]`, v.couleur);
+          if (v.imageFile)
+            fd.append(`variants[${index}][image]`, v.imageFile);
         });
 
         const result = editingId
@@ -663,6 +677,8 @@ export default function ProductsPage() {
       stock: v.stock || "",
       taille: v.attributes?.taille || "",
       couleur: v.attributes?.couleur || "",
+      imageFile: null,
+      imagePreview: v.image_path ? resolveMediaUrl(v.image_path) : null,
     }));
     setVariants(existingVariants);
     setEditingId(product.id);
@@ -1009,8 +1025,41 @@ export default function ProductsPage() {
                       {variants.map((v, idx) => (
                         <div
                           key={idx}
-                          className="grid grid-cols-2 sm:grid-cols-5 gap-2 items-start bg-stone-50/70 border border-stone-200 rounded-lg p-3 relative"
+                          className="grid grid-cols-3 sm:grid-cols-6 gap-2 items-start bg-stone-50/70 border border-stone-200 rounded-lg p-3 relative"
                         >
+                          {/* Photo */}
+                          <div>
+                            <label className="text-[10px] uppercase font-bold block mb-1">
+                              Photo
+                            </label>
+                            <label className="cursor-pointer block">
+                              {v.imagePreview ? (
+                                <img
+                                  src={v.imagePreview}
+                                  alt=""
+                                  className="w-full h-14 object-cover rounded border border-stone-300"
+                                />
+                              ) : (
+                                <div className="w-full h-14 bg-stone-100 border border-dashed border-stone-300 rounded flex items-center justify-center text-stone-400">
+                                  <ImageIcon className="w-4 h-4" />
+                                </div>
+                              )}
+                              <input
+                                type="file"
+                                accept="image/jpeg,image/jpg,image/png,image/webp"
+                                className="hidden"
+                                onChange={(e) => {
+                                  const file = e.target.files[0];
+                                  if (!file) return;
+                                  if (v.imagePreview?.startsWith("blob:"))
+                                    URL.revokeObjectURL(v.imagePreview);
+                                  handleVariantChange(idx, "imageFile", file);
+                                  handleVariantChange(idx, "imagePreview", URL.createObjectURL(file));
+                                }}
+                              />
+                            </label>
+                          </div>
+                          {/* Prix */}
                           <div>
                             <label className="text-[10px] uppercase font-bold block mb-1">
                               Prix *
@@ -1025,9 +1074,10 @@ export default function ProductsPage() {
                               min="0"
                             />
                           </div>
+                          {/* Ancien prix */}
                           <div>
                             <label className="text-[10px] uppercase font-bold block mb-1">
-                              Ancien prix
+                              Anc. prix
                             </label>
                             <input
                               type="number"
@@ -1040,6 +1090,7 @@ export default function ProductsPage() {
                               placeholder="Optionnel"
                             />
                           </div>
+                          {/* Stock */}
                           <div>
                             <label className="text-[10px] uppercase font-bold block mb-1">
                               Stock *
@@ -1054,6 +1105,7 @@ export default function ProductsPage() {
                               min="0"
                             />
                           </div>
+                          {/* Taille */}
                           <div>
                             <label className="text-[10px] uppercase font-bold block mb-1">
                               Taille
@@ -1068,6 +1120,7 @@ export default function ProductsPage() {
                               placeholder="S, M, L..."
                             />
                           </div>
+                          {/* Couleur + bouton supprimer */}
                           <div className="relative">
                             <label className="text-[10px] uppercase font-bold block mb-1">
                               Couleur
