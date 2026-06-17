@@ -24,6 +24,7 @@ import {
 import { useCatalogData } from "../contexts/CatalogContext";
 import { getWhatsAppLink } from "../config/env";
 import Footer from "../components/Footer";
+import { useAuth } from "../contexts/AuthContext";
 
 // ---------- Composants utilitaires ----------
 
@@ -107,6 +108,7 @@ export default function ProductDetails() {
   const { slug } = useParams();
   const navigate = useNavigate();
   const { shippingZones } = useCatalogData();
+  const { user } = useAuth();
 
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -116,6 +118,8 @@ export default function ProductDetails() {
   const [quantity, setQuantity] = useState(1);
   const [selectedZone, setSelectedZone] = useState(null);
   const [addressDetail, setAddressDetail] = useState("");
+  const [customerName, setCustomerName] = useState("");
+  const [customerPhone, setCustomerPhone] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [orderSuccess, setOrderSuccess] = useState(false);
 
@@ -169,10 +173,12 @@ export default function ProductDetails() {
       ? selectedVariant.stock > 0
       : false
     : product
-      ? product.is_active && product.in_stock
+      ? product.is_active && (product.stock ?? 0) > 0
       : false;
   const maxAvailableStock =
-    hasVariants && selectedVariant ? selectedVariant.stock : 99;
+    hasVariants && selectedVariant
+      ? selectedVariant.stock
+      : product?.stock ?? 99;
   const productSubtotal = currentPrice * quantity;
   const deliveryPrice = selectedZone ? selectedZone.price : 0;
   const totalAmount = productSubtotal + deliveryPrice;
@@ -189,6 +195,10 @@ export default function ProductDetails() {
     if (!addressDetail.trim()) {
       newErrors.addressDetail = "L'adresse est obligatoire";
     }
+    if (!user) {
+      if (!customerName.trim()) newErrors.customerName = "Le nom est obligatoire";
+      if (!customerPhone.trim()) newErrors.customerPhone = "Le téléphone est obligatoire";
+    }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -199,10 +209,11 @@ export default function ProductDetails() {
       return;
     }
 
+    const resolvedName  = user ? user.name  : customerName.trim();
+    const resolvedPhone = user ? user.phone : customerPhone.trim();
+
     setIsSubmitting(true);
     try {
-      const clientOrderNumber = `MK-${Date.now().toString().slice(-6)}`;
-      const today = new Date().toISOString().split("T")[0];
       const variantLabel = selectedVariant
         ? Object.entries(selectedVariant.attributes)
             .map(([key, val]) => `${key.toUpperCase()}: ${val}`)
@@ -210,21 +221,17 @@ export default function ProductDetails() {
         : "Standard";
 
       const orderData = {
-        order_number: clientOrderNumber,
-        date: today,
         delivery_location: selectedZone.name,
         delivery_fee: selectedZone.price,
         detailed_address: addressDetail.trim(),
         total_price: totalAmount,
-        status: "pending",
+        ...(!user && { customer_name: resolvedName, customer_phone: resolvedPhone }),
         items: [
           {
-            product_id: product.id,
-            product_variant_id: selectedVariant?.id || null,
-            name: product.name,
+            ...(selectedVariant
+              ? { product_variant_id: selectedVariant.id }
+              : { product_id: product.id }),
             quantity: quantity,
-            price: currentPrice,
-            image_path: product.image_path?.[0] || null,
           },
         ],
       };
@@ -232,13 +239,15 @@ export default function ProductDetails() {
       const response = await createOrder(orderData);
       if (response.success) {
         const orderReference =
-          response.data.reference ||
-          response.data.order_number ||
-          clientOrderNumber;
+          response.data?.order?.order_number ||
+          response.data?.reference ||
+          "—";
 
         const message =
           `🛍️ *ACHAT INSTANTANÉ — MK BAZAAR*\n\n` +
-          `📌 *Référence Commande :* #${orderReference}\n\n` +
+          `📌 *Référence :* #${orderReference}\n\n` +
+          `👤 *Client :* ${resolvedName}\n` +
+          `📞 *Téléphone :* ${resolvedPhone}\n\n` +
           `📦 *Produit :* ${product.name}\n` +
           `✨ *Option / Taille :* ${variantLabel}\n` +
           `💰 *Prix unitaire :* ${currentPrice.toLocaleString()} FCFA\n` +
@@ -260,6 +269,10 @@ export default function ProductDetails() {
           setQuantity(1);
           setSelectedZone(null);
           setAddressDetail("");
+          if (!user) {
+            setCustomerName("");
+            setCustomerPhone("");
+          }
           setOrderSuccess(false);
         }, 1500);
       } else {
@@ -316,6 +329,10 @@ export default function ProductDetails() {
   const productPath = `/products/${product.slug || slug}`;
   const mainImage = images[0] ? absoluteImageUrl(images[0]) : null;
 
+
+  console.log(user);
+  
+
   return (
     <div className="min-h-screen flex flex-col bg-[#F9F9F7] text-black antialiased">
       <Seo
@@ -352,8 +369,8 @@ export default function ProductDetails() {
           onClick={() => navigate("/products")}
           className="group flex items-center gap-1.5 text-[10px] uppercase tracking-[0.2em] text-stone-700 hover:text-stone-950 bg-white/80 backdrop-blur px-3.5 py-2 rounded-full border border-stone-200 shadow-sm transition-colors mb-8"
         >
-          <ChevronLeft className="w-3.5 h-3.5 transition-transform group-hover:-translate-x-0.5" />
-          <strong>Retour au catalogue</strong>
+          <ChevronLeft className="w-3.5 h-3.5 transition-transform group-hover:-translate-x-0.5 text-[#c07b5a] " />
+          <strong className="text-[#c07b5a]">Retour au catalogue</strong>
         </motion.button>
 
         {/* Grille principale : Galerie | Infos produit | Livraison & Récap */}
@@ -416,14 +433,20 @@ export default function ProductDetails() {
                 />
                 {isAvailable ? "Disponible" : "Épuisé"}
               </span>
-              {hasVariants &&
-                selectedVariant &&
-                selectedVariant.stock <= 3 &&
-                selectedVariant.stock > 0 && (
-                  <span className="text-[10px] text-amber-600 font-medium ml-3 font-mono">
-                    (Plus que {selectedVariant.stock} pièces !)
-                  </span>
-                )}
+              {hasVariants
+                ? selectedVariant &&
+                  selectedVariant.stock <= 3 &&
+                  selectedVariant.stock > 0 && (
+                    <span className="text-[10px] text-amber-600 font-medium ml-3 font-mono">
+                      (Plus que {selectedVariant.stock} pièces !)
+                    </span>
+                  )
+                : product?.stock > 0 &&
+                  product.stock <= 3 && (
+                    <span className="text-[10px] text-amber-600 font-medium ml-3 font-mono">
+                      (Plus que {product.stock} pièces !)
+                    </span>
+                  )}
             </motion.div>
 
             <motion.p
@@ -555,10 +578,85 @@ export default function ProductDetails() {
             transition={{ duration: 0.5, delay: 0.1 }}
           >
             {/* 1. INFORMATIONS DE LIVRAISON */}
-            <div className="bg-white  rounded-2xl border border-stone-200 p-6 space-y-4">
+            <div className="bg-white rounded-2xl border border-stone-200 p-6 space-y-4">
               <h2 className="text-[12px] uppercase tracking-[0.25em] font-bold text-[#c07b5a]">
                 1. Informations de livraison
               </h2>
+
+              {/* Infos client — auto si connecté, saisie sinon */}
+              {user ? (
+                <div className="flex items-center gap-3 bg-stone-50 border border-stone-200 rounded-xl px-4 py-3">
+                  <div className="w-7 h-7 rounded-full bg-stone-200 flex items-center justify-center flex-shrink-0">
+                    <span className="text-[10px] font-bold text-stone-600 uppercase">
+                      {user.name?.charAt(0) || "?"}
+                    </span>
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold text-stone-900 truncate">{user.name}</p>
+                    <p className="text-[10px] text-stone-400 truncate">
+                      {user.phone || "Aucun téléphone enregistré"}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div>
+                    <label
+                      htmlFor="customerName"
+                      className="text-[10px] uppercase tracking-wider font-bold text-stone-600 mb-1 block"
+                    >
+                      Nom complet
+                    </label>
+                    <input
+                      id="customerName"
+                      type="text"
+                      value={customerName}
+                      onChange={(e) => {
+                        setCustomerName(e.target.value);
+                        if (errors.customerName)
+                          setErrors((prev) => ({ ...prev, customerName: undefined }));
+                      }}
+                      placeholder="Votre nom et prénom"
+                      className={`w-full px-4 py-3 rounded-xl border bg-stone-50 text-xs text-stone-950 placeholder-stone-400 focus:outline-none focus:border-stone-950 transition-all ${
+                        errors.customerName
+                          ? "border-rose-300 focus:border-rose-500"
+                          : "border-stone-200"
+                      }`}
+                    />
+                    {errors.customerName && (
+                      <p className="text-[9px] text-rose-600 mt-1">{errors.customerName}</p>
+                    )}
+                  </div>
+                  <div>
+                    <label
+                      htmlFor="customerPhone"
+                      className="text-[10px] uppercase tracking-wider font-bold text-stone-600 mb-1 block"
+                    >
+                      Téléphone
+                    </label>
+                    <input
+                      id="customerPhone"
+                      type="tel"
+                      value={customerPhone}
+                      onChange={(e) => {
+                        setCustomerPhone(e.target.value);
+                        if (errors.customerPhone)
+                          setErrors((prev) => ({ ...prev, customerPhone: undefined }));
+                      }}
+                      placeholder="07 XX XX XX XX"
+                      className={`w-full px-4 py-3 rounded-xl border bg-stone-50 text-xs text-stone-950 placeholder-stone-400 focus:outline-none focus:border-stone-950 transition-all ${
+                        errors.customerPhone
+                          ? "border-rose-300 focus:border-rose-500"
+                          : "border-stone-200"
+                      }`}
+                    />
+                    {errors.customerPhone && (
+                      <p className="text-[9px] text-rose-600 mt-1">{errors.customerPhone}</p>
+                    )}
+                  </div>
+                </>
+              )}
+
               <div>
                 <label
                   htmlFor="zone"

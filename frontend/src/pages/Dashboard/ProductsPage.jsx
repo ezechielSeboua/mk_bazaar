@@ -50,6 +50,8 @@ const EMPTY_FORM = {
   description: "",
   price: "",
   old_price: "",
+  stock: "",
+  rating: "",
   category_id: "",
   is_active: true,
   featured: false,
@@ -527,7 +529,11 @@ export default function ProductsPage() {
       e.images = "Au moins une image requise";
 
     if (variants.length === 0) {
-      e.variants = "Au moins une variante requise";
+      // Produit sans variante : le stock est géré au niveau du produit
+      const stock = parseInt(formData.stock, 10);
+      if (formData.stock === "" || isNaN(stock) || stock < 0) {
+        e.stock = "Stock requis (entier positif ou 0)";
+      }
     } else {
       const invalid = variants.some((v) => {
         const price = parseInt(v.price, 10);
@@ -588,6 +594,9 @@ export default function ProductsPage() {
           description: formData.description,
           price: parseInt(formData.price, 10),
           old_price: formData.old_price ? parseInt(formData.old_price, 10) : "",
+          ...(formData.rating !== "" && { rating: parseFloat(formData.rating) }),
+          // stock au niveau produit uniquement si pas de variantes
+          ...(variants.length === 0 && { stock: parseInt(formData.stock, 10) }),
           category_id: parseInt(formData.category_id, 10),
           is_active: formData.is_active ? 1 : 0,
           featured: formData.featured ? 1 : 0,
@@ -658,6 +667,8 @@ export default function ProductsPage() {
       description: product.description || "",
       price: product.price || "",
       old_price: product.old_price || "",
+      stock: product.stock ?? "",
+      rating: product.rating ?? "",
       category_id: product.category_id || "",
       is_active: product.is_active ?? true,
       featured: product.featured ?? false,
@@ -950,7 +961,7 @@ export default function ProductsPage() {
                     </Field>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
                     <Field label="Catégorie *" error={errors.category_id}>
                       <select
                         name="category_id"
@@ -987,7 +998,35 @@ export default function ProductsPage() {
                         className={inputCls()}
                       />
                     </Field>
+                    <Field label="Note (0 – 5)" error={errors.rating}>
+                      <input
+                        type="number"
+                        name="rating"
+                        value={formData.rating}
+                        onChange={handleChange}
+                        min="0"
+                        max="5"
+                        step="0.1"
+                        placeholder="Ex : 4.8"
+                        className={inputCls(errors.rating)}
+                      />
+                    </Field>
                   </div>
+
+                  {/* Stock produit — affiché uniquement si aucune variante */}
+                  {variants.length === 0 && (
+                    <Field label="Stock *" error={errors.stock}>
+                      <input
+                        type="number"
+                        name="stock"
+                        value={formData.stock}
+                        onChange={handleChange}
+                        min="0"
+                        placeholder="Quantité disponible"
+                        className={inputCls(errors.stock)}
+                      />
+                    </Field>
+                  )}
 
                   <Field label="Description *" error={errors.description}>
                     <textarea
@@ -1002,7 +1041,7 @@ export default function ProductsPage() {
                   {/* Variantes */}
                   <div>
                     <div className="flex items-center justify-between mb-3">
-                      <FilterLabel>Variantes *</FilterLabel>
+                      <FilterLabel>Variantes (optionnel)</FilterLabel>
                       <button
                         type="button"
                         onClick={addVariant}
@@ -1019,7 +1058,7 @@ export default function ProductsPage() {
                     <div className="space-y-3">
                       {variants.length === 0 && (
                         <p className="text-xs text-stone-400">
-                          Aucune variante ajoutée.
+                          Aucune variante — le stock est géré au niveau du produit.
                         </p>
                       )}
                       {variants.map((v, idx) => (

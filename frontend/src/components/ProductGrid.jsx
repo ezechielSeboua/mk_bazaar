@@ -108,9 +108,11 @@ function GridProductCard({ product, index }) {
               ? product.category.name
               : product.category}
           </div>
-          <div className="flex items-center font-bold text-stone-800">
-            <Star className="w-3 h-3 fill-amber-400 text-amber-400 mr-1" /> 4.8
-          </div>
+          {product.rating != null && (
+            <div className="flex items-center font-bold text-stone-800">
+              <Star className="w-3 h-3 fill-amber-400 text-amber-400 mr-1" /> {product.rating}
+            </div>
+          )}
         </div>
         <h2 className="text-xs sm:text-sm font-bold text-stone-950 line-clamp-1">
           {product.name}
@@ -127,20 +129,14 @@ function GridProductCard({ product, index }) {
               ? setShowVariantModal(true)
               : addToCart(product.variants?.[0])
           }
-          className="w-full py-2.5 rounded-lg bg-[#c07b5a] text-white text-[8px] sm:text-[11px] font-bold uppercase hover:bg-[#a5684a] flex items-center justify-center gap-2"
+          className="w-full py-2.5 rounded-lg bg-white border border-[#c07b5a] text-[#c07b5a] text-[8px] sm:text-[11px] font-bold uppercase hover:bg-[#a5684a] hover:text-white flex items-center justify-center gap-2"
         >
           <ShoppingBag className="w-3.5 h-3.5" /> Ajouter au panier
         </button>
-        {/* <Link
-          to={`/products/${product.slug}`}
-          className="w-full py-2.5 rounded-lg border border-emerald-600 text-emerald-700 text-[8px] sm:text-[11px font-bold uppercase hover:bg-emerald-600 hover:text-white flex items-center justify-center gap-2"
-        >
-          <WhatsAppIcon /> Commander maintenant
-        </Link> */}
 
         <Link
           to={`/products/${product.slug}`}
-          className="w-full py-3 rounded-lg border border-emerald-600 text-emerald-700 text-[8px] sm:text-[12px] font-bold uppercase tracking-wider hover:bg-emerald-600 hover:text-white transition-all flex items-center justify-center gap-2"
+          className="w-full py-3 rounded-lg bg-emerald-600  text-white text-[8px] sm:text-[12px] font-bold uppercase tracking-wider hover:bg-emerald-600 hover:text-white transition-all flex items-center justify-center gap-2"
         >
           <WhatsAppIcon className="w-4 h-4" /> Commander maintenant
         </Link>

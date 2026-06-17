@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Order;
+use App\Models\Product;
 use App\Models\ProductVariant;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
@@ -46,51 +47,90 @@ class OrderController extends Controller
      */
     public function store(Request $request): JsonResponse
     {
-        $validated = $request->validate([
-            'delivery_location' => 'required|string',
-            'delivery_fee'      => 'required|integer|min:0',
-            'detailed_address'  => 'required|string',
-            'total_price'       => 'required|integer|min:0',
-            
-            // Validation des articles du panier
-            'items'                      => 'required|array|min:1',
-            'items.*.product_variant_id' => 'required|integer|exists:product_variants,id',
-            'items.*.quantity'           => 'required|integer|min:1',
-        ]);
+        $authUser = auth('api')->user();
 
-        // Utilisation d'une transaction pour sécuriser l'écriture en base de données
+        $rules = [
+            'delivery_location'          => 'required|string',
+            'delivery_fee'               => 'required|integer|min:0',
+            'detailed_address'           => 'required|string',
+            'total_price'                => 'required|integer|min:0',
+            'items'                      => 'required|array|min:1',
+            'items.*.product_variant_id' => 'nullable|integer|exists:product_variants,id',
+            'items.*.product_id'         => 'nullable|integer|exists:products,id',
+            'items.*.quantity'           => 'required|integer|min:1',
+        ];
+
+        if (!$authUser) {
+            $rules['customer_name']  = 'required|string|max:255';
+            $rules['customer_phone'] = 'required|string|max:20';
+        }
+
+        $validated = $request->validate($rules);
+
+        // Chaque item doit avoir au moins product_variant_id ou product_id
+        foreach ($validated['items'] as $index => $item) {
+            if (empty($item['product_variant_id']) && empty($item['product_id'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "L'article à l'index {$index} doit avoir un product_variant_id ou un product_id.",
+                ], 422);
+            }
+        }
+
+        $customerName  = $authUser ? $authUser->name  : $validated['customer_name'];
+        $customerPhone = $authUser ? $authUser->phone : $validated['customer_phone'];
+
         try {
-            $order = DB::transaction(function () use ($request, $validated) {
-                
-                // 1. Création de la commande principale
+            $order = DB::transaction(function () use ($validated, $authUser, $customerName, $customerPhone) {
+
                 $order = Order::create([
-                    'user_id'           => auth('api')->id(), // Récupère l'ID si connecté, sinon null
+                    'user_id'           => $authUser?->id,
+                    'customer_name'     => $customerName,
+                    'customer_phone'    => $customerPhone,
                     'order_number'      => 'MK-' . strtoupper(Str::random(4)) . '-' . time(),
                     'delivery_location' => $validated['delivery_location'],
                     'delivery_fee'      => $validated['delivery_fee'],
                     'detailed_address'  => $validated['detailed_address'],
                     'total_price'       => $validated['total_price'],
-                    'status'            => 'pending', // Commande en attente par défaut
+                    'status'            => 'pending',
                 ]);
 
-                // 2. Traitement de chaque article du panier
                 foreach ($validated['items'] as $itemData) {
-                    $variant = ProductVariant::lockForUpdate()->find($itemData['product_variant_id']);
+                    $qty = $itemData['quantity'];
 
-                    // Vérification de sécurité pour le stock
-                    if ($variant->stock < $itemData['quantity']) {
-                        throw new \Exception("Stock insuffisant pour la variante ID: {$variant->id}");
+                    if (!empty($itemData['product_variant_id'])) {
+                        // Produit avec variante
+                        $variant = ProductVariant::lockForUpdate()->findOrFail($itemData['product_variant_id']);
+
+                        if ($variant->stock < $qty) {
+                            throw new \Exception("Stock insuffisant pour la variante ID: {$variant->id}");
+                        }
+
+                        $variant->decrement('stock', $qty);
+
+                        $order->items()->create([
+                            'product_id'         => $variant->product_id,
+                            'product_variant_id' => $variant->id,
+                            'quantity'           => $qty,
+                            'price'              => $variant->price ?? $variant->product->price,
+                        ]);
+                    } else {
+                        // Produit unique sans variante
+                        $product = Product::lockForUpdate()->findOrFail($itemData['product_id']);
+
+                        if ($product->stock < $qty) {
+                            throw new \Exception("Stock insuffisant pour le produit ID: {$product->id}");
+                        }
+
+                        $product->decrement('stock', $qty);
+
+                        $order->items()->create([
+                            'product_id'         => $product->id,
+                            'product_variant_id' => null,
+                            'quantity'           => $qty,
+                            'price'              => $product->price,
+                        ]);
                     }
-
-                    // Décrémentation du stock de la variante
-                    $variant->decrement('stock', $itemData['quantity']);
-
-                    // Création de la ligne de commande (On fige le prix actuel de la variante)
-                    $order->items()->create([
-                        'product_variant_id' => $variant->id,
-                        'quantity'           => $itemData['quantity'],
-                        'price'              => $variant->price ?? $variant->product->price, 
-                    ]);
                 }
 
                 return $order;
@@ -125,16 +165,29 @@ class OrderController extends Controller
                 // Si la commande passe à "annulée" alors qu'elle ne l'était pas, on rend les stocks
                 if ($validated['status'] === 'cancelled' && $order->status !== 'cancelled') {
                     foreach ($order->items as $item) {
-                        $item->variant()->increment('stock', $item->quantity);
+                        if ($item->product_variant_id) {
+                            $item->variant()->increment('stock', $item->quantity);
+                        } else {
+                            $item->product()->increment('stock', $item->quantity);
+                        }
                     }
                 }
                 // Si une commande annulée est réactivée par l'admin, on retire à nouveau les stocks
                 elseif ($validated['status'] !== 'cancelled' && $order->status === 'cancelled') {
                     foreach ($order->items as $item) {
-                        if ($item->variant->stock < $item->quantity) {
-                            throw new \Exception("Impossible de restaurer la commande. Stock insuffisant.");
+                        if ($item->product_variant_id) {
+                            $variant = ProductVariant::lockForUpdate()->findOrFail($item->product_variant_id);
+                            if ($variant->stock < $item->quantity) {
+                                throw new \Exception("Impossible de restaurer la commande. Stock insuffisant pour la variante ID: {$variant->id}.");
+                            }
+                            $variant->decrement('stock', $item->quantity);
+                        } else {
+                            $product = Product::lockForUpdate()->findOrFail($item->product_id);
+                            if ($product->stock < $item->quantity) {
+                                throw new \Exception("Impossible de restaurer la commande. Stock insuffisant pour le produit ID: {$product->id}.");
+                            }
+                            $product->decrement('stock', $item->quantity);
                         }
-                        $item->variant()->decrement('stock', $item->quantity);
                     }
                 }
 

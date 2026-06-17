@@ -6,11 +6,10 @@ import ConfirmDialog from "../../components/ConfirmDialog";
 import { DashboardTableSkeleton } from "../../components/DashboardSkeletons";
 import { createUser, updateUser, deleteUser } from "../../services/users";
 import { useDashboardData } from "../../contexts/DashboardDataContext";
-import { useAuth } from "../../contexts/AuthContext";
 
 /* ─── Constantes ─────────────────────────────────────────────────── */
 
-const EMPTY_FORM = { name: "", email: "", password: "", is_admin: false };
+const EMPTY_FORM = { name: "", email: "", phone: "", password: "", is_admin: false };
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const DATE_FMT = new Intl.DateTimeFormat("fr-FR", {
@@ -44,7 +43,6 @@ const inputCls = (hasError) =>
 
 export default function UsersPage() {
   const { users, setUsers, isLoading } = useDashboardData();
-  const { user: currentUser } = useAuth();
 
   // Formulaire
   const [showForm, setShowForm] = useState(false);
@@ -137,6 +135,7 @@ export default function UsersPage() {
         name: formData.name,
         email: formData.email,
         is_admin: Boolean(formData.is_admin),
+        ...(formData.phone.trim() && { phone: formData.phone }),
         ...(formData.password.trim() && { password: formData.password }),
       };
 
@@ -173,6 +172,7 @@ export default function UsersPage() {
     setFormData({
       name: user.name ?? "",
       email: user.email ?? "",
+      phone: user.phone ?? "",
       password: "",
       is_admin: user.is_admin === 1 || user.is_admin === true,
     });
@@ -294,6 +294,13 @@ export default function UsersPage() {
                 </Field>
               </div>
 
+              <Field label="Téléphone" error={errors.phone}>
+                <input type="tel" name="phone" value={formData.phone}
+                  onChange={handleChange}
+                  placeholder="07 XX XX XX XX"
+                  className={inputCls(errors.phone)} />
+              </Field>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Field label="Rôle">
                   <select name="is_admin" value={formData.is_admin ? "1" : "0"}
@@ -355,7 +362,6 @@ export default function UsersPage() {
                   </tr>
                 ) : (
                   users.map((user) => {
-                    const isSelf = currentUser?.id === user.id;
                     return (
                       <tr key={user.id} className="hover:bg-stone-50/80 transition-colors duration-150">
                         <td className="py-3 px-2 md:py-4 md:px-4 font-medium text-stone-900 truncate max-w-[120px] sm:max-w-none">

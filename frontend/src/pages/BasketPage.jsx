@@ -7,6 +7,7 @@ import { useCatalogData } from "../contexts/CatalogContext";
 import { getWhatsAppLink, resolveMediaUrl } from "../config/env";
 import { createOrder } from "../services/order";
 import Footer from "../components/Footer";
+import { useAuth } from "../contexts/AuthContext";
 
 /* ---------- Icône WhatsApp ---------- */
 function WhatsAppIcon() {
@@ -21,6 +22,7 @@ function WhatsAppIcon() {
 /* ---------- BasketPage ---------- */
 export default function BasketPage() {
   const { shippingZones } = useCatalogData();
+  const { user } = useAuth();
 
   const [cartItems, setCartItems] = useState(() => {
     const savedCart = localStorage.getItem("mk_bazaar_cart");
@@ -44,8 +46,15 @@ export default function BasketPage() {
 
   const [selectedZone, setSelectedZone] = useState(null);
   const [addressDetail, setAddressDetail] = useState("");
+  const [customerName, setCustomerName] = useState("");
+  const [customerPhone, setCustomerPhone] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [validationErrors, setValidationErrors] = useState({ zone: false, address: false });
+  const [validationErrors, setValidationErrors] = useState({
+    zone: false,
+    address: false,
+    customerName: false,
+    customerPhone: false,
+  });
 
   useEffect(() => {
     localStorage.setItem("mk_bazaar_cart", JSON.stringify(cartItems));
@@ -85,38 +94,50 @@ export default function BasketPage() {
   const handleWhatsAppCheckout = async () => {
     const hasZoneError = !selectedZone;
     const hasAddressError = selectedZone && addressDetail.trim() === "";
-    if (hasZoneError || hasAddressError) {
-      setValidationErrors({ zone: hasZoneError, address: hasAddressError });
+    const hasNameError = !user && customerName.trim() === "";
+    const hasPhoneError = !user && customerPhone.trim() === "";
+
+    if (hasZoneError || hasAddressError || hasNameError || hasPhoneError) {
+      setValidationErrors({
+        zone: hasZoneError,
+        address: hasAddressError,
+        customerName: hasNameError,
+        customerPhone: hasPhoneError,
+      });
       return;
     }
+
+    const resolvedName  = user ? user.name  : customerName.trim();
+    const resolvedPhone = user ? user.phone : customerPhone.trim();
+
     setIsSubmitting(true);
     try {
-      const clientOrderNumber = `MK-${Date.now().toString().slice(-6)}`;
-      const today = new Date().toISOString().split("T")[0];
       const orderData = {
-        order_number: clientOrderNumber,
-        date: today,
         delivery_location: selectedZone.name,
         delivery_fee: deliveryPrice,
         detailed_address: addressDetail.trim(),
         total_price: totalAmount,
-        status: "pending",
+        ...(!user && { customer_name: resolvedName, customer_phone: resolvedPhone }),
         items: cartItems.map((item) => ({
-          product_id: item.id,
-          product_variant_id: item.variant_id,
-          name: item.name,
+          ...(item.variant_id
+            ? { product_variant_id: item.variant_id }
+            : { product_id: item.id }),
           quantity: item.quantity,
-          price: item.price,
-          image_path: item.image,
         })),
       };
+
       const response = await createOrder(orderData);
       if (response.success) {
         const orderReference =
-          response.data.reference || response.data.order_number || clientOrderNumber;
+          response.data?.order?.order_number ||
+          response.data?.reference ||
+          "—";
+
         let message = `🛍️ *NOUVELLE COMMANDE — MK BAZAAR*\n\n`;
-        message += `📌 *Référence Commande :* #${orderReference}\n\n`;
-        message += `Bonjour, je souhaite valider mon panier contenant les articles suivants :\n\n`;
+        message += `📌 *Référence :* #${orderReference}\n\n`;
+        message += `👤 *Client :* ${resolvedName}\n`;
+        message += `📞 *Téléphone :* ${resolvedPhone}\n\n`;
+        message += `Bonjour, je souhaite valider mon panier :\n\n`;
         cartItems.forEach((item, index) => {
           const variantText = item.attributes
             ? ` (${Object.values(item.attributes).join(" - ")})`
@@ -129,12 +150,17 @@ export default function BasketPage() {
         message += `📦 *Sous-total :* ${calculateSubtotal().toLocaleString()} FCFA\n`;
         message += `🚚 *Livraison :* ${selectedZone.name}\n`;
         message += `💵 *Frais d'expédition :* ${deliveryPrice.toLocaleString()} FCFA\n`;
-        message += `📍 *Adresse Précise :* ${addressDetail.trim()}\n`;
-        message += `💰 *Montant global à régler :* ${totalAmount.toLocaleString()} FCFA\n\n`;
-        message += `Merci de prendre en compte ma commande pour expédition.`;
+        message += `📍 *Adresse :* ${addressDetail.trim()}\n`;
+        message += `💰 *Total à régler :* ${totalAmount.toLocaleString()} FCFA\n\n`;
+        message += `Merci de prendre en compte ma commande.`;
+
         setCartItems([]);
         setSelectedZone(null);
         setAddressDetail("");
+        if (!user) {
+          setCustomerName("");
+          setCustomerPhone("");
+        }
         window.open(getWhatsAppLink(message), "_blank");
       } else {
         alert("Erreur lors de la validation. Veuillez réessayer.");
@@ -277,8 +303,57 @@ export default function BasketPage() {
                   <div className="bg-white p-4 sm:p-5 border border-stone-200/60 shadow-sm rounded-xl space-y-4">
                     <div className="flex items-center gap-2 text-xs uppercase tracking-widest font-bold text-black border-b border-stone-100 pb-2">
                       <MapPin className="w-4 h-4 text-stone-500" />
-                      <h2>Détails d'expédition</h2>
+                      <h2>Ville / Commune</h2>
                     </div>
+
+                    {/* Infos client */}
+                    {user ? (
+                      <div className="flex items-center gap-3 bg-stone-50 border border-stone-200 rounded-xl px-4 py-3">
+                        <div className="w-7 h-7 rounded-full bg-stone-200 flex items-center justify-center flex-shrink-0">
+                          <span className="text-[10px] font-bold text-stone-600 uppercase">
+                            {user.name?.charAt(0) || "?"}
+                          </span>
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold text-stone-900 truncate">{user.name}</p>
+                          <p className="text-[10px] text-stone-400 truncate">
+                            {user.phone || "Aucun téléphone enregistré"}
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <div>
+                          <input
+                            type="text"
+                            value={customerName}
+                            onChange={(e) => {
+                              setCustomerName(e.target.value);
+                              setValidationErrors((prev) => ({ ...prev, customerName: false }));
+                            }}
+                            placeholder="Nom complet"
+                            className={`w-full px-4 py-3 rounded-xl border bg-white text-xs text-stone-950 placeholder-stone-400 focus:outline-none focus:border-stone-950 transition-all ${
+                              validationErrors.customerName ? "border-rose-500 bg-rose-50/20" : "border-stone-200"
+                            }`}
+                          />
+                        </div>
+                        <div>
+                          <input
+                            type="tel"
+                            value={customerPhone}
+                            onChange={(e) => {
+                              setCustomerPhone(e.target.value);
+                              setValidationErrors((prev) => ({ ...prev, customerPhone: false }));
+                            }}
+                            placeholder="Téléphone (07 XX XX XX XX)"
+                            className={`w-full px-4 py-3 rounded-xl border bg-white text-xs text-stone-950 placeholder-stone-400 focus:outline-none focus:border-stone-950 transition-all ${
+                              validationErrors.customerPhone ? "border-rose-500 bg-rose-50/20" : "border-stone-200"
+                            }`}
+                          />
+                        </div>
+                      </div>
+                    )}
+
                     <div className="space-y-3">
                       <div>
                         <select
@@ -361,12 +436,11 @@ export default function BasketPage() {
                         <span className="text-xs font-light">FCFA</span>
                       </span>
                     </div>
-                    {(validationErrors.zone || validationErrors.address) && (
+                    {(validationErrors.zone || validationErrors.address || validationErrors.customerName || validationErrors.customerPhone) && (
                       <div className="mb-4 p-3 bg-rose-50 border border-rose-100 rounded-xl text-[11px] text-rose-800 flex items-start gap-2">
                         <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
                         <span>
-                          Veuillez sélectionner un lieu de livraison valide et renseigner votre
-                          adresse physique avant d'envoyer.
+                          Veuillez remplir tous les champs obligatoires avant de continuer.
                         </span>
                       </div>
                     )}

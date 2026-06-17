@@ -9,13 +9,15 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Order extends Model
 {
     protected $fillable = [
-        'user_id',             // ID de l'utilisateur (nullable si tu autorises les commandes invités)
-        'order_number',        // Numéro de commande unique (ex: MK-2026-00001)
-        'delivery_location',   // Ville / Zone de livraison (ex: Abidjan, Cocody)
-        'delivery_fee',        // Frais de livraison (en centimes)
-        'detailed_address',    // Adresse précise, numéro de téléphone, consignes
-        'total_price',         // Montant total final payé (en centimes)
-        'status',              // Statut (ex: 'pending', 'processing', 'delivered', 'cancelled')
+        'user_id',
+        'customer_name',
+        'customer_phone',
+        'order_number',
+        'delivery_location',
+        'delivery_fee',
+        'detailed_address',
+        'total_price',
+        'status',
     ];
 
     protected $casts = [

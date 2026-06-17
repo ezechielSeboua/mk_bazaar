@@ -12,21 +12,31 @@ class Product extends Model
         'name',
         'slug',
         'description',
-        'price',          // Prix par défaut (en centimes)
-        'old_price',      // Prix d'origine avant promo (en centimes, nullable)
+        'price',
+        'old_price',
+        'stock',
+        'rating',
         'category_id',
-        'is_active',      // Statut de publication (brouillon/en ligne)
-        'featured',       // Mis en avant sur la page d'accueil
-        'image_path',     // Tableau de liens vers les images du produit
+        'is_active',
+        'featured',
+        'image_path',
     ];
 
     protected $casts = [
-        'price' => 'integer',
-        'old_price' => 'integer',
-        'is_active' => 'boolean',
-        'featured' => 'boolean',
+        'price'      => 'integer',
+        'old_price'  => 'integer',
+        'stock'      => 'integer',
+        'rating'     => 'float',
+        'is_active'  => 'boolean',
+        'featured'   => 'boolean',
         'image_path' => 'array',
     ];
+
+    // Exposé au frontend : true si le produit (sans variante) a du stock
+    public function getInStockAttribute(): bool
+    {
+        return $this->stock > 0;
+    }
 
     /**
      * Définit la clé de routage par défaut pour Laravel (Slug).

@@ -108,17 +108,17 @@ class ProductController extends Controller
             'description'           => 'required|string',
             'price'                 => 'required|integer|min:0',
             'old_price'             => 'nullable|integer|min:0',
+            'stock'                 => 'sometimes|integer|min:0',
+            'rating'                => 'nullable|numeric|min:0|max:5',
             'category_id'           => 'required|exists:categories,id',
             'is_active'             => 'sometimes|boolean',
             'featured'              => 'sometimes|boolean',
             'image_path.*'          => 'image|mimes:jpeg,jpg,png,webp|max:4096',
-
-            // Validation des variantes envoyées en même temps que le produit
             'variants'              => 'sometimes|array',
-            'variants.*.attributes' => 'required|array',
+            'variants.*.attributes' => 'required_with:variants|array',
             'variants.*.price'      => 'nullable|integer|min:0',
             'variants.*.old_price'  => 'nullable|integer|min:0',
-            'variants.*.stock'      => 'required|integer|min:0',
+            'variants.*.stock'      => 'required_with:variants|integer|min:0',
             'variants.*.image'      => 'nullable|image|mimes:jpeg,jpg,png,webp|max:4096',
         ]);
 
@@ -174,12 +174,12 @@ class ProductController extends Controller
             'description'           => 'sometimes|string',
             'price'                 => 'sometimes|integer|min:0',
             'old_price'             => 'nullable|integer|min:0',
+            'stock'                 => 'sometimes|integer|min:0',
+            'rating'                => 'nullable|numeric|min:0|max:5',
             'category_id'           => 'sometimes|exists:categories,id',
             'is_active'             => 'sometimes|boolean',
             'featured'              => 'sometimes|boolean',
             'image_path.*'          => 'image|mimes:jpeg,jpg,png,webp|max:4096',
-
-            // MODIFICATION : Validation poussée pour la mise à jour des variantes
             'variants'              => 'sometimes|array',
             'variants.*.id'         => 'nullable|integer|exists:product_variants,id',
             'variants.*.attributes' => 'required_with:variants|array',

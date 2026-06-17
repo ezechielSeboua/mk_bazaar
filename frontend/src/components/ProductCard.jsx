@@ -24,14 +24,16 @@ export default function ProductCard({ product, delay = 0 }) {
   const backgroundImage = product.image_path?.[0] ? resolveMediaUrl(product.image_path[0]) : DEFAULT_PLACEHOLDER_IMAGE;
   const name = product.name || "Sans titre";
   const categoryName = typeof product.category === "object" ? product.category?.name : product.category || "—";
-  const rating = product.rating || "4.8";
   const currentPrice = product.price || 0;
   const oldPrice = product.old_price;
   const hasDiscount = oldPrice && oldPrice > currentPrice;
   const discountPercentage = hasDiscount ? Math.round(((oldPrice - currentPrice) / oldPrice) * 100) : 0;
-  const hasStock = product.variants?.some((v) => v.stock > 0) ?? true;
-  const isAvailable = product.is_active && hasStock;
   const variants = product.variants || [];
+  const hasVariants = variants.length > 0;
+  const hasStock = hasVariants
+    ? variants.some((v) => v.stock > 0)
+    : (product.stock ?? 0) > 0;
+  const isAvailable = product.is_active && hasStock;
 
   const addToCart = (variant) => {
     const localCartRaw = localStorage.getItem("mk_bazaar_cart");
@@ -96,7 +98,9 @@ export default function ProductCard({ product, delay = 0 }) {
       <div className="flex flex-col flex-1 p-3 sm:p-4 space-y-2">
         <div className="flex items-center justify-between text-[10px] sm:text-[11px] text-stone-500 font-medium">
           <div className="flex items-center"><CategoryIcon /> <span className="truncate max-w-[80px]">{categoryName}</span></div>
-          <div className="flex items-center font-bold text-stone-800"><Star className="w-3 h-3 fill-amber-400 text-amber-400 mr-0.5" /> {rating}</div>
+          {product.rating != null && (
+            <div className="flex items-center font-bold text-stone-800"><Star className="w-3 h-3 fill-amber-400 text-amber-400 mr-0.5" /> {product.rating}</div>
+          )}
         </div>
         <h2 className="text-sm sm:text-base font-bold text-stone-950 line-clamp-2 leading-snug">{name}</h2>
         <div className="mt-auto pt-2 border-t border-stone-100 flex items-end justify-between">
@@ -109,10 +113,10 @@ export default function ProductCard({ product, delay = 0 }) {
       </div>
 
       <div className="p-3 pt-0 flex flex-col gap-2">
-        <button onClick={handleAddToCartClick} disabled={!isAvailable} className={`w-full py-3 rounded-lg text-[8px] sm:text-[12px] font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all ${isAvailable ? "bg-[#c07b5a] text-white hover:bg-[#a5684a]" : "bg-stone-100 text-stone-400 cursor-not-allowed"}`}>
+        <button onClick={handleAddToCartClick} disabled={!isAvailable} className={`w-full py-3 rounded-lg text-[8px] sm:text-[12px] font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all ${isAvailable ? "bg-white border border-[#c07b5a] text-[#c07b5a] hover:bg-[#a5684a] hover:text-white" : "bg-white text-[#a5684a] cursor-not-allowed"}`}>
           <ShoppingBag className="w-4 h-4" /> {isAvailable ? "Ajouter au panier" : "Indisponible"}
         </button>
-        <Link to={`/products/${product.slug}`} className="w-full py-3 rounded-lg border border-emerald-600 text-emerald-700 text-[8px] sm:text-[12px] font-bold uppercase tracking-wider hover:bg-emerald-600 hover:text-white transition-all flex items-center justify-center gap-2">
+        <Link to={`/products/${product.slug}`} className="w-full py-3 rounded-lg border bg-emerald-600 text-white text-[8px] sm:text-[12px] font-bold uppercase tracking-wider hover:bg-emerald-600 hover:text-white transition-all flex items-center justify-center gap-2">
           <WhatsAppIcon className="w-4 h-4" /> Commander maintenant
         </Link>
       </div>
