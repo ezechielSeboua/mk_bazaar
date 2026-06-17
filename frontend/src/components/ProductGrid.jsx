@@ -131,18 +131,12 @@ function GridProductCard({ product, index }) {
         >
           <ShoppingBag className="w-3.5 h-3.5" /> Ajouter au panier
         </button>
-        {/* <Link
-          to={`/products/${product.slug}`}
-          className="w-full py-2.5 rounded-lg border border-emerald-600 text-emerald-700 text-[8px] sm:text-[11px font-bold uppercase hover:bg-emerald-600 hover:text-white flex items-center justify-center gap-2"
-        >
-          <WhatsAppIcon /> Commander maintenant
-        </Link> */}
-
         <Link
           to={`/products/${product.slug}`}
-          className="w-full py-3 rounded-lg border border-emerald-600 text-emerald-700 text-[8px] sm:text-[12px] font-bold uppercase tracking-wider hover:bg-emerald-600 hover:text-white transition-all flex items-center justify-center gap-2"
+          className="w-full py-2.5 rounded-lg border border-emerald-600 text-emerald-700 text-[9px] sm:text-[11px] font-bold uppercase tracking-wider hover:bg-emerald-600 hover:text-white transition-all flex items-center justify-center gap-1 whitespace-nowrap px-1"
         >
-          <WhatsAppIcon className="w-4 h-4" /> Commander maintenant
+          <WhatsAppIcon className="w-3.5 h-3.5 flex-shrink-0" />
+          <span className="truncate">Commander maintenant</span>
         </Link>
       </div>
     </motion.div>
