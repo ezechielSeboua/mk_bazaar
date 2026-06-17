@@ -39,6 +39,14 @@ const appSettingsService = {
 
     return result.data;
   },
+
+  uploadImage: async (file) => {
+    const fd = new FormData();
+    fd.append('image', file);
+    const result = await fetchAPI('/settings/upload-image', { method: 'POST', body: fd });
+    if (!result.success) throw new Error(result.error);
+    return result.data.url;
+  },
 };
 
 export default appSettingsService;

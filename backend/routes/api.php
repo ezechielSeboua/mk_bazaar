@@ -77,5 +77,6 @@ Route::middleware('auth:api')->group(function () {
     Route::get('/stats/advanced', [OrderReportController::class, 'getAdvancedStats']);
 
     // Configuration Admin
+    Route::post('/settings/upload-image', [AppSettingController::class, 'uploadImage']);
     Route::post('/settings/{key}', [AppSettingController::class, 'updateByKey']);
 });

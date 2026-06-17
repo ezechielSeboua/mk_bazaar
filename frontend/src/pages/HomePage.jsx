@@ -11,13 +11,9 @@ import Seo from "../components/Seo";
 import { buildOrganizationJsonLd } from "../utils/seoStructuredData";
 import WhatsAppFloatingButton from "../components/WhatsAppFloatingButton";
 import TestimonialsSection from "../components/TestimonialsSection";
-
-const CAROUSEL_IMAGES = [
-  "https://images.unsplash.com/photo-1601924994987-69e26d50dc26?w=1200&h=675&fit=crop",
-  "https://images.unsplash.com/photo-1591047139829-d91aecb6caea?w=1200&h=675&fit=crop",
-  "https://images.unsplash.com/photo-1551028719-00167b16eac5?w=1200&h=675&fit=crop",
-  "https://images.unsplash.com/photo-1581655353564-df123a1eb820?w=1200&h=675&fit=crop",
-];
+import appSettingsService from "../services/appSettings";
+import { resolveMediaUrl } from "../config/env";
+import { FALLBACK_CAROUSEL } from "../constants/siteDefaults";
 
 /* ---------- Animation variants ---------- */
 const sectionVariants = {
@@ -172,6 +168,22 @@ export default function Home() {
   const { products, isLoading } = useHomeProducts();
   const showInitialLoad = isLoading && products.length === 0;
 
+  const [heroData, setHeroData] = useState({});
+  const [carouselImages, setCarouselImages] = useState(FALLBACK_CAROUSEL);
+  const [testimonialsData, setTestimonialsData] = useState([]);
+
+  useEffect(() => {
+    appSettingsService.getSetting('hero')
+      .then(data => { if (data && !Array.isArray(data) && Object.keys(data).length) setHeroData(data); })
+      .catch(() => {});
+    appSettingsService.getSetting('carousel')
+      .then(data => { if (Array.isArray(data) && data.length) setCarouselImages(data.map(url => url.startsWith('/storage') ? resolveMediaUrl(url) : url)); })
+      .catch(() => {});
+    appSettingsService.getSetting('testimonials')
+      .then(data => { if (Array.isArray(data) && data.length) setTestimonialsData(data); })
+      .catch(() => {});
+  }, []);
+
   return (
     <div className="min-h-screen bg-[#F9F9F7] text-black antialiased selection:bg-black selection:text-[#F9F9F7]">
       <Seo
@@ -183,7 +195,7 @@ export default function Home() {
       <Header />
       <main className="overflow-x-hidden">
         <motion.section variants={sectionVariants} initial="hidden" animate="visible">
-          <HeroSection />
+          <HeroSection hero={heroData} />
         </motion.section>
 
         <motion.section
@@ -220,7 +232,7 @@ export default function Home() {
             </h2>
           </div>
           {/* Carrousel amélioré avec flèches, dots et pause */}
-          <EnhancedCarousel images={CAROUSEL_IMAGES} interval={10000} aspectRatio="16/9" />
+          <EnhancedCarousel images={carouselImages} interval={10000} aspectRatio="16/9" />
         </motion.section>
 
         <motion.section
@@ -229,7 +241,7 @@ export default function Home() {
           whileInView="visible"
           viewport={{ once: true, amount: 0.1 }}
         >
-          <TestimonialsSection />
+          <TestimonialsSection testimonials={testimonialsData} />
         </motion.section>
       </main>
 

@@ -4,9 +4,25 @@ namespace App\Http\Controllers;
 
 use App\Models\Setting;
 use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Storage;
 
 class AppSettingController extends Controller
 {
+    /**
+     * Upload d'une image liée aux settings (Hero, Carrousel…)
+     */
+    public function uploadImage(Request $request): JsonResponse
+    {
+        $request->validate([
+            'image' => 'required|image|mimes:jpeg,jpg,png,webp|max:4096',
+        ]);
+
+        $path = $request->file('image')->store('settings', 'public');
+
+        return response()->json(['url' => Storage::url($path)]);
+    }
+
     /**
      * Récupérer une configuration spécifique par sa clé
      */
