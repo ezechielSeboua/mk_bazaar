@@ -107,7 +107,6 @@ export default function ProductCard({ product, delay = 0 }) {
           {variants.length > 1 && <span className="text-[10px] font-medium text-stone-400">+{variants.length} options</span>}
         </div>
       </div>
-
       <div className="p-3 pt-0 flex flex-col gap-2">
         <button onClick={handleAddToCartClick} disabled={!isAvailable} className={`w-full py-3 rounded-lg text-[8px] sm:text-[12px] font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all ${isAvailable ? "bg-[#c07b5a] text-white hover:bg-[#a5684a]" : "bg-stone-100 text-stone-400 cursor-not-allowed"}`}>
           <ShoppingBag className="w-4 h-4" /> {isAvailable ? "Ajouter au panier" : "Indisponible"}
