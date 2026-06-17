@@ -1,5 +1,5 @@
 import { createContext, useState, useContext, useEffect, useMemo } from 'react';
-import { getCurrentUser, isAuthenticated, logout } from '../services/auth';
+import { getCurrentUser, isAuthenticated, logout, profile } from '../services/auth';
 import { clearDashboardCache } from '../utils/dashboardCache';
 
 const AuthContext = createContext();
@@ -9,10 +9,16 @@ export const AuthProvider = ({ children }) => {
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
-        const loadUser = () => {
+        const loadUser = async () => {
             if (isAuthenticated()) {
-                const currentUser = getCurrentUser();
-                setUser(currentUser);
+                const res = await profile();
+                if (res.success && res.data) {
+                    setUser(res.data);
+                } else {
+                    localStorage.removeItem('token');
+                    localStorage.removeItem('user');
+                    setUser(null);
+                }
             } else {
                 setUser(null);
             }
@@ -20,6 +26,13 @@ export const AuthProvider = ({ children }) => {
         };
 
         loadUser();
+
+        const handleUnauthorized = () => {
+            clearDashboardCache();
+            setUser(null);
+        };
+        window.addEventListener('auth:unauthorized', handleUnauthorized);
+        return () => window.removeEventListener('auth:unauthorized', handleUnauthorized);
     }, []);
 
     const handleLogout = async () => {

@@ -70,6 +70,7 @@ export const fetchAPI = async (endpoint, options = {}) => {
         if (response.status === 401) {
             localStorage.removeItem('token');
             localStorage.removeItem('user');
+            window.dispatchEvent(new Event('auth:unauthorized'));
         }
 
         return {
