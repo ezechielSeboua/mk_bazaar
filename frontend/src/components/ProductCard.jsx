@@ -183,7 +183,7 @@ export default function ProductCard({ product, delay = 0 }) {
           to={`/products/${product.slug}`}
           className="w-full py-2.5 sm:py-3 rounded-lg border bg-emerald-600 text-white text-[7px] sm:text-[11px] font-bold uppercase tracking-wider hover:bg-emerald-600 hover:text-white transition-all flex items-center justify-center gap-1.5 sm:gap-2"
         >
-          <WhatsAppIcon /> Commander
+          <WhatsAppIcon /> Commander maintenant
         </Link>
       </div>
 
