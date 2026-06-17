@@ -63,7 +63,7 @@ function GridProductCard({ product, index }) {
         >
           <ShoppingBag className="w-3.5 h-3.5" /> Ajouter au panier
         </button>
-        <Link to={`/products/${product.slug}`} className="w-full py-2.5 rounded-lg border border-emerald-600 text-emerald-700 text-[8px] sm:text-[11px font-bold uppercase hover:bg-emerald-600 hover:text-white flex items-center justify-center gap-2">
+        <Link to={`/products/${product.id}`} className="w-full py-2.5 rounded-lg border border-emerald-600 text-emerald-700 text-[8px] sm:text-[11px font-bold uppercase hover:bg-emerald-600 hover:text-white flex items-center justify-center gap-2">
           <WhatsAppIcon /> Commander maintenant
         </Link>
       </div>

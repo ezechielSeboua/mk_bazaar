@@ -170,7 +170,7 @@ export default function ProductCard({ product, delay = 0 }) {
           {isAvailable ? "Ajouter au panier" : "Indisponible"}
         </button>
         <Link
-          to={`/products/${product.slug}`}
+          to={`/products/${product.id}`}
           className="w-full py-2.5 rounded-lg border border-emerald-600 text-emerald-700 text-[9px] xs:text-[10px] sm:text-[11px] font-bold uppercase tracking-tighter hover:bg-emerald-600 hover:text-white transition-all flex items-center justify-center gap-1 whitespace-nowrap px-1"
         >
           <WhatsAppIcon />
