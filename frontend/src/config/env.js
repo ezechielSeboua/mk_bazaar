@@ -13,7 +13,7 @@ export const getApiOrigin = () =>
 export const API_URL = getApiUrl();
 
 export const getWhatsAppNumber = () =>
-    String(import.meta.env.VITE_WHATSAPP_NUMBER || '2250141649464').replace(/\D/g, '');
+    String(import.meta.env.VITE_WHATSAPP_NUMBER || '+2250141649464').replace(/\D/g, '');
 
 export const getWhatsAppLink = (message) => {
     const base = `https://wa.me/${getWhatsAppNumber()}`;

@@ -6,6 +6,7 @@ import Header from "../components/Header";
 import { useCatalogData } from "../contexts/CatalogContext";
 import { getWhatsAppLink, resolveMediaUrl } from "../config/env";
 import { createOrder } from "../services/order";
+import Footer from "../components/Footer";
 
 /* ---------- Icône WhatsApp ---------- */
 function WhatsAppIcon() {
@@ -16,37 +17,6 @@ function WhatsAppIcon() {
   );
 }
 
-/* ---------- Footer ---------- */
-function Footer() {
-  return (
-    <footer className="w-full bg-white border-t border-stone-200/80 mt-20">
-      <div className="max-w-6xl mx-auto px-4 sm:px-8 py-12 grid grid-cols-1 md:grid-cols-3 gap-8 text-xs">
-        <div>
-          <h3 className="font-bold uppercase tracking-widest text-black mb-3">MK Bazaar</h3>
-          <p className="text-stone-500 leading-relaxed max-w-xs">
-            Sélection d'objets d'art et pièces textiles épurées. L'authenticité à l'état pur.
-          </p>
-        </div>
-        <div>
-          <h3 className="font-bold uppercase tracking-widest text-black mb-3">Aide & Infos</h3>
-          <ul className="space-y-2 text-stone-500 uppercase tracking-wider">
-            <li><Link to="/products" className="hover:text-black">Collections</Link></li>
-            <li><span className="cursor-not-allowed opacity-50">Livraisons</span></li>
-          </ul>
-        </div>
-        <div>
-          <h3 className="font-bold uppercase tracking-widest text-black mb-3">Commandes</h3>
-          <p className="text-stone-500 leading-relaxed">
-            Toutes les transactions et validations s'effectuent via notre canal WhatsApp sécurisé.
-          </p>
-        </div>
-      </div>
-      <div className="max-w-6xl mx-auto px-4 sm:px-8 py-6 border-t border-stone-100 text-center text-[10px] text-stone-400 uppercase tracking-widest">
-        &copy; {new Date().getFullYear()} MK BAZAAR. Tous droits réservés.
-      </div>
-    </footer>
-  );
-}
 
 /* ---------- BasketPage ---------- */
 export default function BasketPage() {
