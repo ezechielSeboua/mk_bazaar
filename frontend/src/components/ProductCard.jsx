@@ -143,16 +143,15 @@ export default function ProductCard({ product, delay = 0 }) {
           {name}
         </h2>
         <div className="mt-auto pt-2 border-t border-stone-100 flex items-end justify-between">
-          <div className="flex flex-col">
-            <span className="text-base sm:text-lg font-black text-stone-950">
-              {currentPrice.toLocaleString()} FCFA
+          <span className="text-sm sm:text-lg font-black text-stone-950">
+            {currentPrice.toLocaleString()} FCFA
+          </span>
+
+          {oldPrice && oldPrice > currentPrice && (
+            <span className="text-[10px] sm:text-[11px] text-stone-400 line-through">
+              {oldPrice.toLocaleString()}
             </span>
-            {oldPrice && oldPrice > currentPrice && (
-              <span className="text-[11px] text-stone-400 line-through">
-                {oldPrice.toLocaleString()}
-              </span>
-            )}
-          </div>
+          )}
           {variants.length > 1 && (
             <span className="text-[10px] font-medium text-stone-400">
               +{variants.length} options
