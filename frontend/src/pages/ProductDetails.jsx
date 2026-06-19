@@ -323,11 +323,20 @@ export default function ProductDetails() {
     );
   }
 
-  const images = selectedVariant?.image_path
-    ? [selectedVariant.image_path]
-    : product.image_path || [];
+  const productImages = Array.isArray(product?.image_path) ? product.image_path : [];
+  const allImages = (() => {
+    if (!hasVariants) return productImages;
+    const seen = new Set(productImages);
+    const extraVariantImages = product.variants
+      .map((v) => v.image_path)
+      .filter((img) => img && !seen.has(img) && !seen.add(img));
+    return [...productImages, ...extraVariantImages];
+  })();
+  const activeGalleryIndex = selectedVariant?.image_path
+    ? Math.max(0, allImages.indexOf(selectedVariant.image_path))
+    : 0;
   const productPath = `/products/${product.slug || slug}`;
-  const mainImage = images[0] ? absoluteImageUrl(images[0]) : null;
+  const mainImage = allImages[0] ? absoluteImageUrl(allImages[0]) : null;
 
 
   console.log(user);
@@ -382,8 +391,8 @@ export default function ProductDetails() {
             transition={{ duration: 0.5 }}
           >
             <ProductGallery
-              key={selectedVariant?.id ?? "default"}
-              images={images}
+              images={allImages}
+              selectedIndex={activeGalleryIndex}
             />
           </motion.div>
 

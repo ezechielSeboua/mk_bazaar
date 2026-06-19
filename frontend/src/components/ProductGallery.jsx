@@ -3,12 +3,15 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { resolveMediaUrl } from '../config/env';
 
-export default function ProductGallery({ images = [] }) {
-    const [activeIndex, setActiveIndex] = useState(0);
+export default function ProductGallery({ images = [], selectedIndex = 0 }) {
+    const [activeIndex, setActiveIndex] = useState(selectedIndex);
     const scrollContainerRef = useRef(null);
 
-    // Prise en compte de tes données de secours strictes
     const displayImages = images && images.length > 0 ? images : [null, null, null];
+
+    useEffect(() => {
+        setActiveIndex(selectedIndex);
+    }, [selectedIndex]);
 
     // Défilement automatique et centrage de la miniature active
     useEffect(() => {

@@ -37,7 +37,7 @@ function App() {
           {/* Vitrine */}
           <Route element={<StorefrontWrapper />}>
             <Route path="/" element={<Navigate to="/products" replace />} />
-            <Route path="/acceuil" element={<Home />} />
+            <Route path="/accueil" element={<Home />} />
             <Route index path="/products" element={<ProductList />} />
             <Route path="/products/:slug" element={<ProductPage />} />
             <Route path="/panier" element={<BasketPage />} />

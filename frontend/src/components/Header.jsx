@@ -199,7 +199,7 @@ export default function Header() {
     : "AD";
 
   const navigationLinks = [
-    { to: "/acceuil", label: "Accueil" },
+    { to: "/accueil", label: "Accueil" },
     { to: "/products", label: "Collections" },
     { to: "/about", label: "A propos" },
     ...(user ? [{ to: "/dashboard", label: "Mon tableau de bord" }] : []),
@@ -246,7 +246,7 @@ export default function Header() {
             {/* Logo centré */}
             <div className="flex items-center justify-center md:justify-start">
               <Link
-                to="/acceuil"
+                to="/accueil"
                 className="hover:opacity-80 transition-opacity duration-200 inline-flex"
                 aria-label="MK Bazaar – retour à l'accueil"
               >
