@@ -329,7 +329,7 @@ export default function ProductDetails() {
     const seen = new Set(productImages);
     const extraVariantImages = product.variants
       .map((v) => v.image_path)
-      .filter((img) => img && !seen.has(img) && !seen.add(img));
+      .filter((img) => img && !seen.has(img) && seen.add(img));
     return [...productImages, ...extraVariantImages];
   })();
   const activeGalleryIndex = selectedVariant?.image_path
