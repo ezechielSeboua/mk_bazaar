@@ -180,6 +180,8 @@ class ProductController extends Controller
             'is_active'             => 'sometimes|boolean',
             'featured'              => 'sometimes|boolean',
             'image_path.*'          => 'image|mimes:jpeg,jpg,png,webp|max:4096',
+            'existing_images'       => 'sometimes|array',
+            'existing_images.*'     => 'sometimes|string',
             'variants'              => 'sometimes|array',
             'variants.*.id'         => 'nullable|integer|exists:product_variants,id',
             'variants.*.attributes' => 'required_with:variants|array',
@@ -194,24 +196,35 @@ class ProductController extends Controller
         }
 
         // Gestion du remplacement de la galerie d'images
-        if ($request->hasFile('image_path')) {
+        $hasNewFiles = $request->hasFile('image_path');
+        $hasExistingImages = $request->has('existing_images');
+
+        if ($hasNewFiles || $hasExistingImages) {
+            $existingToKeep = $request->input('existing_images', []);
+
+            // Supprimer uniquement les images qui ne sont plus conservées
             foreach (($product->image_path ?? []) as $imageUrl) {
-                $relativePath = str_replace('/storage/', '', $imageUrl);
-                if (Storage::disk('public')->exists($relativePath)) {
-                    Storage::disk('public')->delete($relativePath);
+                if (!in_array($imageUrl, $existingToKeep)) {
+                    $relativePath = str_replace('/storage/', '', $imageUrl);
+                    if (Storage::disk('public')->exists($relativePath)) {
+                        Storage::disk('public')->delete($relativePath);
+                    }
                 }
             }
 
-            $files = $request->file('image_path');
-            $files = is_array($files) ? $files : [$files];
+            $newImages = array_values($existingToKeep);
 
-            $newImages = [];
-            foreach ($files as $file) {
-                if ($file->isValid()) {
-                    $path = $file->store('products', 'public');
-                    $newImages[] = Storage::url($path);
+            if ($hasNewFiles) {
+                $files = $request->file('image_path');
+                $files = is_array($files) ? $files : [$files];
+                foreach ($files as $file) {
+                    if ($file->isValid()) {
+                        $path = $file->store('products', 'public');
+                        $newImages[] = Storage::url($path);
+                    }
                 }
             }
+
             $validated['image_path'] = $newImages;
         }
 
