@@ -133,7 +133,9 @@ class ProductController extends Controller
             foreach ($files as $file) {
                 if ($file->isValid()) {
                     $path = $file->store('products', 'public');
-                    $paths[] = Storage::url($path);
+                    if ($path !== false) {
+                        $paths[] = Storage::url($path);
+                    }
                 }
             }
         }
@@ -220,7 +222,9 @@ class ProductController extends Controller
                 foreach ($files as $file) {
                     if ($file->isValid()) {
                         $path = $file->store('products', 'public');
-                        $newImages[] = Storage::url($path);
+                        if ($path !== false) {
+                            $newImages[] = Storage::url($path);
+                        }
                     }
                 }
             }
