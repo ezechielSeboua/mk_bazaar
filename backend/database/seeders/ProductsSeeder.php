@@ -476,31 +476,8 @@ class ProductsSeeder extends Seeder
         }
     }
 
-    /**
-     * Gère le téléchargement des images de secours
-     */
     private function downloadImages(array $urls): array
     {
-        $paths = [];
-        $context = stream_context_create([
-            'ssl' => ['verify_peer' => false, 'verify_peer_name' => false],
-            'http' => ['timeout' => 5, 'header' => 'User-Agent: Mozilla/5.0']
-        ]);
-
-        foreach ($urls as $url) {
-            try {
-                $body = @file_get_contents($url, false, $context);
-                if ($body === false) {
-                    $paths[] = $url;
-                    continue;
-                }
-                $filename = 'products/' . Str::uuid() . '.jpg';
-                Storage::disk('public')->put($filename, $body);
-                $paths[] = 'storage/' . $filename;
-            } catch (\Exception $e) {
-                $paths[] = $url;
-            }
-        }
-        return $paths;
+        return $urls;
     }
 }
