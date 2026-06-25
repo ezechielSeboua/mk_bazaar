@@ -1,5 +1,9 @@
-import { API_URL, fetchAPI } from './apiConfig';
+import { fetchAPI } from './apiConfig';
 
+// S-02 : token stocké en sessionStorage (ne survit pas à la fermeture du navigateur)
+// La migration vers des cookies HttpOnly est la correction définitive mais requiert le backend.
+
+const TOKEN_KEY = 'token';
 
 // Login
 export const login = async (email, password) => {
@@ -9,12 +13,8 @@ export const login = async (email, password) => {
     });
 
     if (res.success) {
-        localStorage.setItem('token', res.data.token);
-
-        // user optionnel (si backend le renvoie)
-        if (res.data.user) {
-            localStorage.setItem('user', JSON.stringify(res.data.user));
-        }
+        sessionStorage.setItem(TOKEN_KEY, res.data.token);
+        // L'objet user n'est plus persisté localement — AuthContext gère l'état React
     }
 
     return res;
@@ -28,11 +28,7 @@ export const register = async (userData) => {
     });
 
     if (res.success) {
-        localStorage.setItem('token', res.data.token);
-
-        if (res.data.user) {
-            localStorage.setItem('user', JSON.stringify(res.data.user));
-        }
+        sessionStorage.setItem(TOKEN_KEY, res.data.token);
     }
 
     return res;
@@ -44,9 +40,7 @@ export const logout = async () => {
         method: 'POST'
     });
 
-    // nettoyage local dans tous les cas (UX safe)
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    sessionStorage.removeItem(TOKEN_KEY);
 
     return res;
 };
@@ -57,10 +51,6 @@ export const profile = async () => {
         method: 'GET'
     });
 
-    if (res.success && res.data) {
-        localStorage.setItem('user', JSON.stringify(res.data));
-    }
-
     return res;
 };
 
@@ -70,9 +60,6 @@ export const updateProfile = async (data) => {
         method: 'PUT',
         body: JSON.stringify(data)
     });
-    if (res.success && res.data) {
-        localStorage.setItem('user', JSON.stringify(res.data));
-    }
     return res;
 };
 
@@ -84,15 +71,12 @@ export const uploadAvatar = async (file) => {
         method: 'POST',
         body: formData,
     });
-    if (res.success && res.data) {
-        localStorage.setItem('user', JSON.stringify(res.data));
-    }
     return res;
 };
 
 // Token helper
 export const getToken = () => {
-    return localStorage.getItem('token');
+    return sessionStorage.getItem(TOKEN_KEY);
 };
 
 // Auth state
@@ -100,12 +84,5 @@ export const isAuthenticated = () => {
     return !!getToken();
 };
 
-// User local cache (safe parse)
-export const getCurrentUser = () => {
-    try {
-        const user = localStorage.getItem('user');
-        return user ? JSON.parse(user) : null;
-    } catch {
-        return null;
-    }
-};
+// Compatibilité — retourne null (user géré uniquement via AuthContext/React state)
+export const getCurrentUser = () => null;

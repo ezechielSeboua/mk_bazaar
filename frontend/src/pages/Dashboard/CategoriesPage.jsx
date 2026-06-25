@@ -1,4 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
+
+// S-07 : liste blanche MIME — exclut SVG (vecteur XSS)
+const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+// S-06 : limite 4 Mo
+const MAX_FILE_SIZE = 4 * 1024 * 1024;
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import DashboardLayout from '../../components/DashboardLayout';
@@ -149,10 +154,11 @@ export default function CategoriesPage() {
     };
 
     const processFile = (file) => {
-        if (file && file.type.startsWith('image/')) {
-            setImageFile(file);
-            setImagePreview(URL.createObjectURL(file));
-        }
+        if (!file) return;
+        if (!ALLOWED_IMAGE_TYPES.includes(file.type)) return; // S-07
+        if (file.size > MAX_FILE_SIZE) return; // S-06
+        setImageFile(file);
+        setImagePreview(URL.createObjectURL(file));
     };
 
     const handleFileChange = (e) => {
@@ -421,7 +427,7 @@ export default function CategoriesPage() {
                                         }`}
                                     >
                                         <input
-                                            type="file" ref={fileInputRef} accept="image/*" onChange={handleFileChange} className="hidden"
+                                            type="file" ref={fileInputRef} accept="image/jpeg,image/jpg,image/png,image/webp" onChange={handleFileChange} className="hidden"
                                         />
                                         
                                         {imagePreview ? (

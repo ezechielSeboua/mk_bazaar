@@ -1,10 +1,12 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
+import { Home, LayoutGrid, Info, LayoutDashboard, Heart, ShoppingCart, LogIn } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { useWishlist } from "../contexts/WishlistContext";
 import { resolveMediaUrl } from "../config/env";
 import LogoutFip from "./LogoutFip";
+
 
 /* ---------- Icônes SVG ---------- */
 function HamburgerIcon() {
@@ -140,6 +142,13 @@ const navItemVariants = {
   },
 };
 
+const NAV_ICONS = {
+  "/accueil":  Home,
+  "/products": LayoutGrid,
+  "/about":    Info,
+  "/dashboard": LayoutDashboard,
+};
+
 export default function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
@@ -151,6 +160,7 @@ export default function Header() {
   const wishlistCount = wishlist.length;
   const { pathname } = useLocation();
   const navigate = useNavigate();
+  const touchStartX = useRef(null);
 
   const calculateCartCount = () => {
     try {
@@ -191,6 +201,13 @@ export default function Header() {
   useEffect(() => {
     document.body.style.overflow = mobileMenuOpen ? "hidden" : "";
     return () => { document.body.style.overflow = ""; };
+  }, [mobileMenuOpen]);
+
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+    const handler = (e) => { if (e.key === "Escape") setMobileMenuOpen(false); };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
   }, [mobileMenuOpen]);
 
   const handleLogout = async () => {
@@ -412,19 +429,22 @@ export default function Header() {
               />
 
               <motion.div
-                className="fixed top-0 left-0 h-full w-full sm:w-80 bg-[#F9F9F7] z-50 shadow-2xl flex flex-col"
+                className="fixed top-0 left-0 h-dvh w-[85vw] max-w-xs sm:w-80 bg-[#F9F9F7] z-50 shadow-2xl flex flex-col"
                 initial={{ x: "-100%" }}
                 animate={{ x: 0 }}
                 exit={{ x: "-100%" }}
                 transition={{ type: "spring", stiffness: 350, damping: 35 }}
+                onTouchStart={(e) => { touchStartX.current = e.touches[0].clientX; }}
+                onTouchEnd={(e) => {
+                  if (touchStartX.current === null) return;
+                  if (touchStartX.current - e.changedTouches[0].clientX > 60) setMobileMenuOpen(false);
+                  touchStartX.current = null;
+                }}
               >
-                <div className="flex items-center justify-between p-5 border-b border-stone-200 bg-white">
-                  <Link to="/" onClick={() => setMobileMenuOpen(false)}>
-                    <img
-                      src="/mk_bazaar_logo.png"
-                      alt="MK Bazaar"
-                      className="h-8 w-auto object-contain"
-                    />
+                {/* Logo + fermer */}
+                <div className="flex items-center justify-between px-5 py-4 border-b border-stone-200 bg-white shrink-0">
+                  <Link to="/accueil" onClick={() => setMobileMenuOpen(false)}>
+                    <img src="/mk_bazaar_logo.png" alt="MK Bazaar" className="h-8 w-auto object-contain" />
                   </Link>
                   <button
                     onClick={() => setMobileMenuOpen(false)}
@@ -435,115 +455,112 @@ export default function Header() {
                   </button>
                 </div>
 
+                {/* Carte utilisateur / CTA connexion */}
+                {user ? (
+                  <Link
+                    to="/compte"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center gap-3 px-5 py-4 bg-stone-50 border-b border-stone-100 hover:bg-stone-100 transition-colors shrink-0"
+                  >
+                    <div className="w-10 h-10 rounded-full bg-stone-950 text-white flex items-center justify-center text-sm font-bold uppercase shrink-0 select-none overflow-hidden">
+                      {user.avatar
+                        ? <img src={resolveMediaUrl(user.avatar)} alt={user.name} className="w-full h-full object-cover" />
+                        : userInitials
+                      }
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-bold text-stone-900 truncate leading-tight">{user.name}</p>
+                      <p className="text-xs text-stone-400 truncate">{user.email}</p>
+                    </div>
+                    <ArrowRightIcon className="w-4 h-4 text-stone-400 shrink-0" />
+                  </Link>
+                ) : (
+                  <div className="px-4 py-3 border-b border-stone-100 bg-stone-50 shrink-0">
+                    <Link
+                      to="/login"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center justify-center gap-2 py-3 bg-stone-950 text-white rounded-xl text-xs font-bold uppercase tracking-wider hover:bg-stone-800 transition-colors"
+                    >
+                      <LogIn className="w-4 h-4" />
+                      Se connecter
+                    </Link>
+                  </div>
+                )}
+
+                {/* Navigation scrollable */}
                 <motion.nav
-                  className="flex-1 flex flex-col p-4 space-y-2 text-sm uppercase tracking-[0.15em] font-semibold bg-white"
+                  className="flex-1 min-h-0 overflow-y-auto px-3 py-4 space-y-1"
                   initial="hidden"
                   animate="visible"
                   exit="hidden"
-                  variants={{
-                    visible: { transition: { staggerChildren: 0.06 } },
-                  }}
+                  variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.05 } } }}
                 >
+                  {/* Section Navigation */}
+                  <p className="px-3 pb-2 text-[10px] uppercase tracking-widest font-bold text-stone-400">Navigation</p>
                   {navigationLinks.map((link) => {
                     const isActive = pathname === link.to;
+                    const Icon = NAV_ICONS[link.to];
                     return (
                       <MotionLink
                         key={link.to}
                         to={link.to}
                         variants={navItemVariants}
                         onClick={() => setMobileMenuOpen(false)}
-                        className={`flex items-center justify-between py-3.5 px-4 rounded-xl transition-all duration-200 ${
-                          isActive
-                            ? "bg-stone-900 text-white pl-6"
-                            : "text-stone-600 hover:bg-stone-100 hover:text-black"
+                        className={`flex items-center gap-3 py-3 px-4 rounded-xl text-sm font-semibold uppercase tracking-[0.1em] transition-all duration-200 ${
+                          isActive ? "bg-stone-900 text-white" : "text-stone-600 hover:bg-stone-100 hover:text-black"
                         }`}
                       >
-                        <span>{link.label}</span>
-                        <ArrowRightIcon
-                          className={`w-4 h-4 transition-transform ${isActive ? "translate-x-1" : "opacity-70"}`}
-                        />
+                        {Icon && <Icon className="w-4 h-4 shrink-0" />}
+                        <span className="flex-1">{link.label}</span>
+                        <ArrowRightIcon className={`w-4 h-4 transition-transform ${isActive ? "translate-x-0.5" : "opacity-50"}`} />
                       </MotionLink>
                     );
                   })}
 
-                  {/* Favoris dans le menu mobile */}
-                  <MotionLink
-                    to="/compte?tab=favorites"
-                    variants={navItemVariants}
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="flex items-center justify-between py-3.5 px-4 rounded-xl text-stone-600 hover:bg-rose-50 hover:text-rose-500 transition-all duration-200"
-                  >
-                    <div className="flex items-center gap-2">
-                      <span>Mes Favoris</span>
-                      {wishlistCount > 0 && (
-                        <span className="bg-rose-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
-                          {wishlistCount}
-                        </span>
-                      )}
-                    </div>
-                    <ArrowRightIcon className="w-4 h-4 opacity-70" />
-                  </MotionLink>
-
-                  {/* Panier dans le menu mobile */}
-                  <MotionLink
-                    to="/panier"
-                    variants={navItemVariants}
-                    onClick={() => setMobileMenuOpen(false)}
-                    className={`flex items-center justify-between py-3.5 px-4 rounded-xl transition-all duration-200 ${
-                      pathname === "/panier"
-                        ? "bg-[#c07b5a]/20 text-[#c07b5a] pl-6"
-                        : "text-stone-600 hover:bg-stone-100 hover:text-black"
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <span>Mon Panier</span>
-                      {cartCount > 0 && (
-                        <span className="bg-[#c07b5a] text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
-                          {cartCount}
-                        </span>
-                      )}
-                    </div>
-                    <ArrowRightIcon className="w-4 h-4 opacity-70" />
-                  </MotionLink>
-
-                  {!user && (
+                  {/* Section Mon espace */}
+                  <div className="pt-3">
+                    <p className="px-3 pb-2 text-[10px] uppercase tracking-widest font-bold text-stone-400">Mon espace</p>
                     <MotionLink
-                      to="/login"
+                      to="/compte?tab=favorites"
                       variants={navItemVariants}
                       onClick={() => setMobileMenuOpen(false)}
-                      className="flex items-center justify-between py-3.5 px-4 rounded-xl text-stone-600 hover:bg-stone-100 hover:text-black transition-all duration-200"
+                      className="flex items-center gap-3 py-3 px-4 rounded-xl text-sm font-semibold uppercase tracking-[0.1em] text-stone-600 hover:bg-rose-50 hover:text-rose-500 transition-all duration-200"
                     >
-                      <span>Se connecter</span>
-                      <ArrowRightIcon className="w-4 h-4 opacity-70" />
+                      <Heart className="w-4 h-4 shrink-0" />
+                      <span className="flex-1">Mes Favoris</span>
+                      {wishlistCount > 0 && (
+                        <span className="bg-rose-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">{wishlistCount}</span>
+                      )}
                     </MotionLink>
-                  )}
-
-                  {user && (
                     <MotionLink
-                      to="/compte"
+                      to="/panier"
                       variants={navItemVariants}
                       onClick={() => setMobileMenuOpen(false)}
-                      className={`flex items-center justify-between py-3.5 px-4 rounded-xl transition-all duration-200 ${
-                        pathname === "/compte"
-                          ? "bg-stone-900 text-white pl-6"
-                          : "text-stone-600 hover:bg-stone-100 hover:text-black"
+                      className={`flex items-center gap-3 py-3 px-4 rounded-xl text-sm font-semibold uppercase tracking-[0.1em] transition-all duration-200 ${
+                        pathname === "/panier" ? "bg-[#c07b5a]/15 text-[#c07b5a]" : "text-stone-600 hover:bg-stone-100 hover:text-black"
                       }`}
                     >
-                      <span>Mon compte</span>
-                      <ArrowRightIcon className="w-4 h-4 opacity-70" />
+                      <ShoppingCart className="w-4 h-4 shrink-0" />
+                      <span className="flex-1">Mon Panier</span>
+                      {cartCount > 0 && (
+                        <span className="bg-[#c07b5a] text-white text-[10px] font-bold px-2 py-0.5 rounded-full">{cartCount}</span>
+                      )}
                     </MotionLink>
-                  )}
+                  </div>
+                </motion.nav>
 
-                  {user && (
+                {/* Déconnexion ancrée en bas */}
+                {user && (
+                  <div className="shrink-0 px-3 py-3 border-t border-stone-200 bg-white">
                     <button
                       onClick={handleLogout}
-                      className="flex items-center justify-between py-3.5 px-4 rounded-xl text-red-600 hover:bg-red-50 transition-all duration-200 mt-auto border border-red-200/60"
+                      className="w-full flex items-center gap-3 py-3 px-4 rounded-xl text-sm font-semibold uppercase tracking-[0.1em] text-red-600 hover:bg-red-50 transition-all"
                     >
+                      <LogoutIcon className="w-4 h-4 shrink-0" />
                       <span>Se déconnecter</span>
-                      <LogoutIcon className="w-4 h-4" />
                     </button>
-                  )}
-                </motion.nav>
+                  </div>
+                )}
               </motion.div>
             </>
           )}

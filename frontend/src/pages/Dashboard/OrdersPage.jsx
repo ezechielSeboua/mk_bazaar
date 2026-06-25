@@ -1,5 +1,9 @@
 // pages/Dashboard/OrdersPage.jsx
 import { useState, useMemo } from 'react';
+
+// S-04 : valider le format d'un numéro de téléphone avant de construire un lien tel:
+const sanitizePhone = (phone) =>
+    phone && /^[\d\s+().-]{6,20}$/.test(phone) ? phone : null;
 import { motion, AnimatePresence } from 'framer-motion';
 import DashboardLayout from '../../components/DashboardLayout';
 import { DashboardTableSkeleton } from '../../components/DashboardSkeletons';
@@ -92,7 +96,7 @@ function FiltersBlock({
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="N° de commande ou adresse..."
+              placeholder="N° commande, client, téléphone ou adresse..."
               className="w-full pl-10 pr-4 py-2.5 border border-stone-200 rounded-lg text-sm bg-stone-50 focus:bg-white focus:border-stone-400 focus:ring-1 focus:ring-stone-400 transition-all outline-none"
             />
           </div>
@@ -198,6 +202,8 @@ export default function OrdersPage() {
       const term = searchTerm.trim().toLowerCase();
       results = results.filter(cmd =>
         cmd.order_number.toLowerCase().includes(term) ||
+        (cmd.customer_name && cmd.customer_name.toLowerCase().includes(term)) ||
+        (cmd.customer_phone && cmd.customer_phone.toLowerCase().includes(term)) ||
         (cmd.delivery_location && cmd.delivery_location.toLowerCase().includes(term)) ||
         (cmd.detailed_address && cmd.detailed_address.toLowerCase().includes(term))
       );
@@ -350,6 +356,7 @@ export default function OrdersPage() {
               <thead className="bg-stone-50 border-b border-stone-200">
                 <tr>
                   <th className="text-left py-3 px-3 md:px-6 font-bold uppercase text-[10px] tracking-wider">Commande</th>
+                  <th className="text-left py-3 px-3 md:px-6 font-bold uppercase text-[10px] tracking-wider">Client</th>
                   <th className="text-left py-3 px-3 md:px-6 font-bold uppercase text-[10px] tracking-wider">Date</th>
                   <th className="text-left py-3 px-3 md:px-6 font-bold uppercase text-[10px] tracking-wider">Livraison</th>
                   <th className="text-left py-3 px-3 md:px-6 font-bold uppercase text-[10px] tracking-wider">Total</th>
@@ -359,10 +366,10 @@ export default function OrdersPage() {
               </thead>
               <tbody>
                 {showInitialLoad ? (
-                  <DashboardTableSkeleton rows={5} cols={6} />
+                  <DashboardTableSkeleton rows={5} cols={7} />
                 ) : filteredCommands.length === 0 ? (
                   <tr>
-                    <td colSpan="6" className="py-12 text-center text-stone-400 text-sm">
+                    <td colSpan="7" className="py-12 text-center text-stone-400 text-sm">
                       Aucune commande trouvée.
                     </td>
                   </tr>
@@ -377,6 +384,20 @@ export default function OrdersPage() {
                     >
                       <td className="py-3 md:py-4 px-3 md:px-6 font-medium text-stone-700 text-xs md:text-sm">
                         {cmd.order_number}
+                      </td>
+                      <td className="py-3 md:py-4 px-3 md:px-6">
+                        <p className="font-medium text-stone-800 text-xs md:text-sm truncate max-w-[130px]">
+                          {cmd.customer_name || '—'}
+                        </p>
+                        {sanitizePhone(cmd.customer_phone) && (
+                          <a
+                            href={`tel:${sanitizePhone(cmd.customer_phone)}`}
+                            className="text-[11px] text-[#c07b5a] hover:underline mt-0.5 block"
+                            onClick={e => e.stopPropagation()}
+                          >
+                            {cmd.customer_phone}
+                          </a>
+                        )}
                       </td>
                       <td className="py-3 md:py-4 px-3 md:px-6 text-stone-600 text-xs md:text-sm">
                         {new Date(cmd.created_at).toLocaleDateString('fr-FR', {
@@ -450,9 +471,20 @@ export default function OrdersPage() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4 mb-4 md:mb-6">
                   <div>
-                    <p className="text-[10px] uppercase tracking-wider font-bold text-stone-500 mb-1">Livraison</p>
-                    <p className="text-sm font-medium">{selectedCommand.delivery_location || 'Non spécifiée'}</p>
-                    <p className="text-xs md:text-sm text-stone-600">{selectedCommand.detailed_address || 'Aucun détail'}</p>
+                    <p className="text-[10px] uppercase tracking-wider font-bold text-stone-500 mb-1">Client</p>
+                    <p className="text-sm font-medium">{selectedCommand.customer_name || '—'}</p>
+                    {sanitizePhone(selectedCommand.customer_phone) ? (
+                      <a
+                        href={`tel:${sanitizePhone(selectedCommand.customer_phone)}`}
+                        className="text-sm text-[#c07b5a] hover:underline"
+                      >
+                        {selectedCommand.customer_phone}
+                      </a>
+                    ) : (
+                      <p className="text-xs text-stone-400">
+                        {selectedCommand.customer_phone || 'Aucun téléphone'}
+                      </p>
+                    )}
                   </div>
                   <div>
                     <p className="text-[10px] uppercase tracking-wider font-bold text-stone-500 mb-1">Date</p>
@@ -461,6 +493,11 @@ export default function OrdersPage() {
                         year: 'numeric', month: 'long', day: 'numeric',
                       })}
                     </p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wider font-bold text-stone-500 mb-1">Livraison</p>
+                    <p className="text-sm font-medium">{selectedCommand.delivery_location || 'Non spécifiée'}</p>
+                    <p className="text-xs md:text-sm text-stone-600">{selectedCommand.detailed_address || 'Aucun détail'}</p>
                   </div>
                 </div>
 

@@ -1,4 +1,4 @@
-import { API_URL } from '../config/env';
+import { API_URL, getApiOrigin } from '../config/env';
 
 export { API_URL };
 
@@ -11,10 +11,19 @@ const safeJson = async (response) => {
     }
 };
 
-// Headers dynamiques
+// Vérifie que l'URL appartient bien à notre domaine API (S-01)
+const isTrustedUrl = (url) => {
+    try {
+        const apiOrigin = getApiOrigin();
+        return url.startsWith(apiOrigin) || url.startsWith(API_URL) || !url.startsWith('http');
+    } catch {
+        return false;
+    }
+};
+
+// Headers dynamiques — token injecté uniquement vers les URLs de confiance
 export const getAuthHeaders = (isJson = true) => {
-    const token = localStorage.getItem('token');
-    
+    const token = sessionStorage.getItem('token'); // S-02 : sessionStorage
 
     const headers = {
         'Accept': 'application/json',
@@ -35,8 +44,9 @@ export const fetchAPI = async (endpoint, options = {}) => {
             ? endpoint
             : `${API_URL}${endpoint}`;
 
-        const token = localStorage.getItem('token');
         const isFormData = options.body instanceof FormData;
+        // S-01 : ne pas envoyer le token vers des URLs externes
+        const trusted = isTrustedUrl(url);
 
         // console.log('📤 Request to:', url);
         
@@ -47,24 +57,16 @@ export const fetchAPI = async (endpoint, options = {}) => {
         const response = await fetch(url, {
             ...options,
             headers: {
-                ...getAuthHeaders(!isFormData),
+                ...(trusted ? getAuthHeaders(!isFormData) : { 'Accept': 'application/json' }),
                 ...(options.headers || {})
             }
         });
 
-
-        // console.log('📥 Raw response:', response);
-
         const data = await safeJson(response);
 
-        // DEBUG Response
-        // console.log('📥 Response status:', response.status);
-        // console.log('📥 Response data:', data);
-
-        // gestion JWT expired
+        // gestion JWT expired — S-02 : sessionStorage
         if (response.status === 401) {
-            localStorage.removeItem('token');
-            localStorage.removeItem('user');
+            sessionStorage.removeItem('token');
             window.dispatchEvent(new Event('auth:unauthorized'));
         }
 
@@ -78,7 +80,7 @@ export const fetchAPI = async (endpoint, options = {}) => {
         };
 
     } catch (error) {
-        console.error('❌ API Error:', error);
+        if (import.meta.env.DEV) console.error('❌ API Error:', error); // S-14
         return {
             success: false,
             status: 0,

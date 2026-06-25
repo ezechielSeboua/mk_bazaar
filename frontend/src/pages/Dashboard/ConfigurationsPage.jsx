@@ -226,6 +226,11 @@ export default function ConfigurationsPage() {
   };
 
   const saveHero = async () => {
+    // S-03 : valider que le lien CTA est une URL relative (pas d'open redirect)
+    if (hero.cta_link && !/^\/[^/]/.test(hero.cta_link)) {
+      showStatus('hero', 'error', 'Le lien CTA doit être une URL relative commençant par / (ex: /products)');
+      return;
+    }
     setIsSavingHero(true);
     try {
       let imageUrl = hero.image_url;
