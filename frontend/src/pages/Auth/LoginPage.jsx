@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { login } from '../../services/auth';
@@ -81,7 +81,13 @@ const errorVariants = {
 
 export default function LoginPage() {
   const navigate = useNavigate();
-  const { setAuthUser } = useAuth();
+  const { setAuthUser, isAuthenticated } = useAuth();
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
   const [formData, setFormData] = useState({ email: '', password: '' });
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
@@ -122,7 +128,6 @@ export default function LoginPage() {
     if (result.success) {
       const user = result.data?.user;
       if (user) setAuthUser(user);
-      navigate('/dashboard');
     } else {
       setErrors({ submit: result.error || 'Email ou mot de passe incorrect.' });
       setIsLoading(false);
