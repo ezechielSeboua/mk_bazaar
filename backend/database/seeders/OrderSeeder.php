@@ -31,20 +31,25 @@ class OrderSeeder extends Seeder
 
         $statuses = ['pending', 'processing', 'completed', 'cancelled'];
 
+        $guestNames  = ['Koffi Atta', 'Adjoua Brou', 'Yao Kouassi', 'Amenan Djè', 'Kouadio N\'Goran'];
+        $guestPhones = ['+225 0701020304', '+225 0756781234', '+225 0712345678', '+225 0787654321', '+225 0723456789'];
+
         for ($i = 1; $i <= 15; $i++) {
-            
-            $userId = (rand(0, 1) && $users->isNotEmpty()) ? $users->random()->id : null;
+
+            $user     = ($users->isNotEmpty() && rand(0, 1)) ? $users->random() : null;
             $location = $locations[array_rand($locations)];
 
             $order = Order::create([
-                'user_id'           => $userId,
+                'user_id'           => $user?->id,
+                'customer_name'     => $user ? $user->name  : $guestNames[array_rand($guestNames)],
+                'customer_phone'    => $user ? ($user->phone ?? $guestPhones[array_rand($guestPhones)]) : $guestPhones[array_rand($guestPhones)],
                 'order_number'      => 'MK-' . strtoupper(Str::random(4)) . '-' . (time() - rand(1000, 86400)),
                 'delivery_location' => $location['name'],
                 'delivery_fee'      => $location['fee'],
-                'detailed_address'  => 'Cité ' . rand(1, 20) . ', Appt ' . rand(10, 99) . ' - Tel: +225 07' . rand(10000000, 99999999),
-                'total_price'       => 0, 
+                'detailed_address'  => 'Cité ' . rand(1, 20) . ', Appt ' . rand(10, 99),
+                'total_price'       => 0,
                 'status'            => $statuses[array_rand($statuses)],
-                'created_at'        => now()->subDays(rand(0, 30)), 
+                'created_at'        => now()->subDays(rand(0, 30)),
             ]);
 
             // --- LA CORRECTION EST ICI ---
@@ -59,6 +64,7 @@ class OrderSeeder extends Seeder
                 $unitPrice = $variant->price ?? $variant->product->price;
                 
                 $order->items()->create([
+                    'product_id'         => $variant->product_id,
                     'product_variant_id' => $variant->id,
                     'quantity'           => $qty,
                     'price'              => $unitPrice,
