@@ -222,9 +222,7 @@ export default function ProductDetails() {
 
       const orderData = {
         delivery_location: selectedZone.name,
-        delivery_fee: selectedZone.price,
         detailed_address: addressDetail.trim(),
-        total_price: totalAmount,
         ...(!user && { customer_name: resolvedName, customer_phone: resolvedPhone }),
         items: [
           {
@@ -276,7 +274,7 @@ export default function ProductDetails() {
           setOrderSuccess(false);
         }, 1500);
       } else {
-        showToast("Erreur lors de la validation. Veuillez réessayer.", "error");
+        showToast(response.error || "Erreur lors de la validation. Veuillez réessayer.", "error");
       }
     } catch (error) {
       console.error(error);
@@ -338,9 +336,6 @@ export default function ProductDetails() {
   const productPath = `/products/${product.slug || slug}`;
   const mainImage = allImages[0] ? absoluteImageUrl(allImages[0]) : null;
 
-
-  console.log(user);
-  
 
   return (
     <div className="min-h-screen flex flex-col bg-[#F9F9F7] text-black antialiased">

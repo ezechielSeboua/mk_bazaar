@@ -14,7 +14,6 @@ export const getCategories = async () => {
  * @param {FormData} categoryFormData - Doit être une instance de FormData
  */
 export const createCategory = async (categoryFormData) => {
-    console.log("Creating category with FormData containing image...");
     return fetchAPI('/categories', {
         method: 'POST',
         // IMPORTANT : Pas de 'Content-Type' ici, le navigateur le gère automatiquement pour FormData

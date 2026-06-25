@@ -102,11 +102,11 @@ export default function ProductCard({ product, delay = 0 }) {
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, amount: 0.1 }}
       transition={{ duration: 0.4, delay }}
-      className="group relative flex flex-col h-full bg-white rounded-xl border border-stone-200/80 overflow-hidden transition-all duration-300 hover:border-stone-400 hover:shadow-lg"
+      className="group relative flex flex-col h-full bg-white rounded-xl border border-stone-200/80 transition-all duration-300 hover:border-stone-400 hover:shadow-lg"
     >
       <Link
         to={`/products/${product.slug}`}
-        className="block aspect-[4/5] sm:aspect-[3/4] bg-stone-100 overflow-hidden"
+        className="block aspect-[4/5] sm:aspect-[3/4] bg-stone-100 overflow-hidden rounded-t-xl"
       >
         <img
           src={backgroundImage}

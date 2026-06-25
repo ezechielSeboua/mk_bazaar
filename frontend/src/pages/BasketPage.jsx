@@ -49,6 +49,7 @@ export default function BasketPage() {
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [orderError, setOrderError] = useState(null);
   const [validationErrors, setValidationErrors] = useState({
     zone: false,
     address: false,
@@ -112,11 +113,10 @@ export default function BasketPage() {
 
     setIsSubmitting(true);
     try {
+      setOrderError(null);
       const orderData = {
         delivery_location: selectedZone.name,
-        delivery_fee: deliveryPrice,
         detailed_address: addressDetail.trim(),
-        total_price: totalAmount,
         ...(!user && { customer_name: resolvedName, customer_phone: resolvedPhone }),
         items: cartItems.map((item) => ({
           ...(item.variant_id
@@ -163,10 +163,11 @@ export default function BasketPage() {
         }
         window.open(getWhatsAppLink(message), "_blank");
       } else {
-        alert("Erreur lors de la validation. Veuillez réessayer.");
+        setOrderError(response.error || "Erreur lors de la validation. Veuillez réessayer.");
       }
     } catch (error) {
       console.error("Erreur de commande:", error);
+      setOrderError("Une erreur réseau est survenue. Veuillez réessayer.");
     } finally {
       setIsSubmitting(false);
     }
@@ -442,6 +443,12 @@ export default function BasketPage() {
                         <span>
                           Veuillez remplir tous les champs obligatoires avant de continuer.
                         </span>
+                      </div>
+                    )}
+                    {orderError && (
+                      <div className="mb-4 p-3 bg-rose-50 border border-rose-100 rounded-xl text-[11px] text-rose-800 flex items-start gap-2">
+                        <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                        <span>{orderError}</span>
                       </div>
                     )}
                     <button

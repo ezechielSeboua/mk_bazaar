@@ -18,8 +18,6 @@ export const getAuthHeaders = (isJson = true) => {
 
     const headers = {
         'Accept': 'application/json',
-        'Access-Control-Allow-Credentials': 'true',
-        'ngrok-skip-browser-warning': 'true',
         ...(token && { 'Authorization': `Bearer ${token}` })
     };
 
@@ -40,10 +38,7 @@ export const fetchAPI = async (endpoint, options = {}) => {
         const token = localStorage.getItem('token');
         const isFormData = options.body instanceof FormData;
 
-        // DEBUG
-        console.log('🔐 Token found:', !!token, token);
         // console.log('📤 Request to:', url);
-        // console.log('🔑 Auth header:', token ? `Bearer ${token.substring(0, 20)}...` : 'NO TOKEN');
         
         if (options.body && !isFormData && typeof options.body === 'object') {
             options.body = JSON.stringify(options.body);

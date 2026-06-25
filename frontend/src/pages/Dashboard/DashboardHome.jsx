@@ -69,7 +69,6 @@ export default function DashboardHome() {
     const recentProducts = useMemo(() => products.slice(0, 3), [products]);
     const showInitialLoad = isLoading && products.length === 0;
     
-    console.log("Mes produits du dash:", products);
     return (
         <DashboardLayout>
             <div className="space-y-6 md:space-y-8 px-1 md:px-0 max-w-[1600px] mx-auto">

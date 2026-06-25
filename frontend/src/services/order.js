@@ -45,7 +45,6 @@ export const getOrders = async (status = null) => {
  * @param {Object} orderData - { delivery_location, detailed_address, items: [{ product_variant_id, quantity }] }
  */
 export const createOrder = async (orderData) => {
-    console.log("Creating order with data:", orderData);
     return fetchAPI('/orders', {
         method: 'POST',
         body: orderData // Allégé : fetchAPI s'occupe du JSON.stringify()
@@ -56,7 +55,6 @@ export const createOrder = async (orderData) => {
  * Mettre à jour le statut ou les détails d'une commande
  */
 export const updateOrder = async (orderId, orderData) => {
-    console.log(`Updating order ${orderId} with data:`, orderData);
     return fetchAPI(`/orders/${orderId}`, {
         method: 'PUT',
         body: orderData // Allégé : fetchAPI s'occupe du JSON.stringify()

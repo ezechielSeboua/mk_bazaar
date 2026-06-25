@@ -224,8 +224,6 @@ export default function OrdersPage() {
     return results;
   }, [orders, searchTerm, statusFilter, dateSort, dateFrom, dateTo]);
 
-  console.log("Mes commandes:", orders);
-
   const openDetailModal = (cmd) => {
     setSelectedCommand(cmd);
     setIsModalOpen(true);

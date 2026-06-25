@@ -25,7 +25,6 @@ export const createUser = async (userData) => {
 
 // Update user
 export const updateUser = async (userId, userData) => {
-    console.log("Updating user:", userId, userData);
     return fetchAPI(`/users/${userId}`, {
         method: 'PUT',
         body: JSON.stringify(userData)
@@ -64,7 +63,7 @@ export const deactivateAccount = async (userId) => {
 
 // Search users (Admin only)
 export const searchUsers = async (query) => {
-    return fetchAPI(`/users?search=${query}`, {
+    return fetchAPI(`/users?search=${encodeURIComponent(query)}`, {
         method: 'GET'
     });
 };

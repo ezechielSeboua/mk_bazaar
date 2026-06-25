@@ -1,9 +1,5 @@
 import { API_URL, fetchAPI } from './apiConfig';
 
-if(API_URL){
-    console.log("Route api disponible");
-}
-
 
 // Login
 export const login = async (email, password) => {
@@ -13,8 +9,6 @@ export const login = async (email, password) => {
     });
 
     if (res.success) {
-        console.log("Connexion reussie:", res);
-        
         localStorage.setItem('token', res.data.token);
 
         // user optionnel (si backend le renvoie)
