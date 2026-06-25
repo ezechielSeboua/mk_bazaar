@@ -36,12 +36,16 @@ Route::post('/orders', [OrderController::class, 'store']);
 Route::get('/settings/{key}', [AppSettingController::class, 'getByKey']);
 
 // Authentification
-Route::post('/auth/login', [UserAuthController::class, 'login'])->middleware('throttle:5,1');
+Route::post('/auth/register', [UserAuthController::class, 'register'])->middleware('throttle:5,1');
+Route::post('/auth/login',    [UserAuthController::class, 'login'])->middleware('throttle:5,1');
 
 // --- Routes Authentifiées (utilisateur connecté) ---
 Route::middleware('auth:api')->group(function () {
-    Route::get('/auth/me', [UserAuthController::class, 'me']);
-    Route::post('/auth/logout', [UserAuthController::class, 'logout']);
+    Route::get('/auth/me',          [UserAuthController::class, 'me']);
+    Route::post('/auth/logout',     [UserAuthController::class, 'logout']);
+    Route::get('/orders/my',        [OrderController::class, 'myOrders']);
+    Route::put('/profile',          [UserAuthController::class, 'updateProfile']);
+    Route::post('/profile/avatar',  [UserAuthController::class, 'updateAvatar']);
 });
 
 // --- Routes Admin (authentifié + is_admin) ---

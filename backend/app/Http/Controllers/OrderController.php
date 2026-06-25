@@ -45,6 +45,19 @@ class OrderController extends Controller
     }
 
     /**
+     * Commandes de l'utilisateur connecté (Espace client)
+     */
+    public function myOrders(): JsonResponse
+    {
+        $orders = Order::with(['items.variant.product', 'items.product'])
+            ->where('user_id', auth('api')->id())
+            ->latest()
+            ->get();
+
+        return response()->json($orders);
+    }
+
+    /**
      * Enregistrer une nouvelle commande multi-produits et décrémenter les stocks
      */
     public function store(Request $request): JsonResponse
