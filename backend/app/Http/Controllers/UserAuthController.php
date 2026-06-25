@@ -2,9 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\User;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Hash;
 use Tymon\JWTAuth\Facades\JWTAuth;
 
 class UserAuthController extends Controller
@@ -31,7 +29,7 @@ class UserAuthController extends Controller
         return response()->json([
             'token' => $token,
             'token_type' => 'bearer',
-            'user' => auth()->user()
+            'user' => auth('api')->user()
         ]);
     }
 
@@ -53,6 +51,6 @@ class UserAuthController extends Controller
      */
     public function me()
     {
-        return response()->json(auth()->user());
+        return response()->json(auth('api')->user());
     }
 }
