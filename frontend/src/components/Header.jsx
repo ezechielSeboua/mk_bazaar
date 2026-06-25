@@ -205,7 +205,7 @@ export default function Header() {
     ...(user ? [{ to: "/dashboard", label: "Mon tableau de bord" }] : []),
   ];
 
-  const logoHeight = scrolled ? "h-10 sm:h-14 md:h-16" : "h-11 sm:h-16 md:h-20";
+  const logoHeight = scrolled ? "h-12 sm:h-16 md:h-20" : "h-14 sm:h-20 md:h-24";
 
   return (
     <>

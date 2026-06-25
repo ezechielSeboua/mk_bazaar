@@ -9,7 +9,7 @@ export default function Footer() {
       <div className="max-w-7xl mx-auto px-4 sm:px-8 lg:px-12 py-12 md:py-16 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-8 text-xs">
         {/* Colonne 1 – Marque */}
         <div className="sm:col-span-2 md:col-span-1">
-          <div className="w-16 bg-white rounded-full flex items-center justify-start mb-6">
+          <div className="w-24 bg-white rounded-full flex items-center justify-start mb-6">
             <img src="/mk_bazaar_logo.png" alt="logo" />
           </div>
           <h3 className="font-bold uppercase tracking-[0.2em] text-white mb-4 text-sm">

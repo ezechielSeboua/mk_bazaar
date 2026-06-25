@@ -437,10 +437,10 @@ export default function DashboardLayout({ children }) {
               <span className="text-sm text-stone-600 hidden sm:block">
                 <strong>Bienvenue</strong> , {user?.name || "Admin"}
               </span>
-              <div className="w-12 h-12 rounded-full flex items-center justify-cente text-stone-700 font-bold">
+              <div className="w-14 h-14 rounded-full flex items-center justify-center text-stone-700 font-bold">
                 {/* {user?.name?.charAt(0)?.toUpperCase() || "A"} */}
                 <img
-                  className="flex mt-2"
+                  className="w-14 h-14 object-contain"
                   src="/mk_bazaar_logo.png"
                   alt="Logo"
                 />

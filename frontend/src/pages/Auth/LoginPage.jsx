@@ -136,7 +136,7 @@ export default function LoginPage() {
       {/* Header minimal avec logo */}
       <div className="px-6 py-6 md:py-8">
         <Link to="/" className="inline-block" aria-label="Retour à l'accueil MK Bazaar">
-          <img src="/mk_bazaar_logo.png" alt="MK Bazaar" className="h-12 w-auto hover:opacity-80 transition-opacity" />
+          <img src="/mk_bazaar_logo.png" alt="MK Bazaar" className="h-16 w-auto hover:opacity-80 transition-opacity" />
         </Link>
       </div>
 
@@ -154,7 +154,7 @@ export default function LoginPage() {
               <motion.img
                 src="/mk_bazaar_logo.png"
                 alt="MK Bazaar"
-                className="mx-auto w-24 h-24 md:w-36 md:h-36 object-contain drop-shadow-sm"
+                className="mx-auto w-32 h-32 md:w-44 md:h-44 object-contain drop-shadow-sm"
                 variants={logoVariants}
                 initial="hidden"
                 animate="visible"

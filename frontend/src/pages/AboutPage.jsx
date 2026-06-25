@@ -93,7 +93,7 @@ export default function AboutPage() {
                 <img
                   src="/mk_bazaar_logo.png"
                   alt="MK Bazaar"
-                  className="h-12 md:h-16 w-auto object-contain"
+                  className="h-16 md:h-24 w-auto object-contain"
                 />
               </motion.div>
               <motion.p
