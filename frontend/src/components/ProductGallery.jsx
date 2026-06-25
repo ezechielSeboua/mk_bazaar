@@ -36,7 +36,7 @@ function Lightbox({ images, activeIndex, onClose, onGoTo }) {
 
             {/* Image */}
             <motion.div
-                className="relative max-w-[90vw] max-h-[90vh] flex items-center justify-center"
+                className="relative w-full h-full md:w-auto md:h-auto md:max-w-[90vw] md:max-h-[90vh] flex items-center justify-center"
                 drag={images.length > 1 ? "x" : false}
                 dragConstraints={{ left: 0, right: 0 }}
                 dragElastic={0.15}
@@ -52,7 +52,7 @@ function Lightbox({ images, activeIndex, onClose, onGoTo }) {
                         animate={{ opacity: 1, scale: 1 }}
                         exit={{ opacity: 0, scale: 0.97 }}
                         transition={{ duration: 0.2, ease: 'easeOut' }}
-                        className="max-w-[90vw] max-h-[90vh] object-contain rounded-lg select-none"
+                        className="w-full h-full object-contain md:rounded-lg md:max-w-[90vw] md:max-h-[90vh] select-none"
                         draggable={false}
                     />
                 </AnimatePresence>
