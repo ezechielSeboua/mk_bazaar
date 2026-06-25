@@ -15,7 +15,6 @@ class User extends Authenticatable implements JWTSubject
         'email',
         'phone',
         'password',
-        'is_admin',
     ];
 
     protected $hidden = [
@@ -40,9 +39,7 @@ class User extends Authenticatable implements JWTSubject
      */
     public function getJWTCustomClaims()
     {
-        return [
-            'is_admin' => $this->is_admin,
-        ];
+        return [];
     }
 
     /**

@@ -9,6 +9,23 @@ use Illuminate\Support\Facades\Storage;
 
 class AppSettingController extends Controller
 {
+    private const ALLOWED_KEYS = [
+        'hero_banner',
+        'carousel',
+        'delivery_zones',
+        'shipping_zones',
+        'site_name',
+        'contact_info',
+        'social_links',
+    ];
+
+    private function validateKey(string $key): void
+    {
+        if (!in_array($key, self::ALLOWED_KEYS, true)) {
+            abort(422, "Clé de configuration invalide : {$key}");
+        }
+    }
+
     /**
      * Upload d'une image liée aux settings (Hero, Carrousel…)
      */
@@ -28,6 +45,7 @@ class AppSettingController extends Controller
      */
     public function getByKey(string $key)
     {
+        $this->validateKey($key);
         $setting = Setting::where('key', $key)->first();
 
         if (!$setting) {
@@ -48,6 +66,7 @@ class AppSettingController extends Controller
      */
     public function updateByKey(Request $request, string $key)
     {
+        $this->validateKey($key);
         $request->validate([
             'value' => 'required',
         ]);

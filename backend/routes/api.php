@@ -1,7 +1,6 @@
 <?php
 
 use App\Http\Controllers\AppSettingController;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\CategoryController;
@@ -37,14 +36,16 @@ Route::post('/orders', [OrderController::class, 'store']);
 Route::get('/settings/{key}', [AppSettingController::class, 'getByKey']);
 
 // Authentification
-Route::post('/auth/login', [UserAuthController::class, 'login']);
-Route::post('/auth/logout', [UserAuthController::class, 'logout']);
+Route::post('/auth/login', [UserAuthController::class, 'login'])->middleware('throttle:5,1');
 
-
-// --- Routes Sécurisées (Espace Admin) ---
+// --- Routes Authentifiées (utilisateur connecté) ---
 Route::middleware('auth:api')->group(function () {
-
     Route::get('/auth/me', [UserAuthController::class, 'me']);
+    Route::post('/auth/logout', [UserAuthController::class, 'logout']);
+});
+
+// --- Routes Admin (authentifié + is_admin) ---
+Route::middleware(['auth:api', 'admin'])->group(function () {
 
     // Gestion des Catégories
     Route::post('/categories', [CategoryController::class, 'store']);
@@ -70,7 +71,6 @@ Route::middleware('auth:api')->group(function () {
 
     // Gestion des Commandes (Back-office)
     Route::get('/orders', [OrderController::class, 'index']);
-    Route::get('/orders/{order}', [OrderController::class, 'show']); // AJOUTÉ : Pour voir le détail d'une commande et ses items
     Route::put('/orders/{order}', [OrderController::class, 'update']);
 
     // Statistiques & Rapports Dashboard

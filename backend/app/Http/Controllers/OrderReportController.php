@@ -15,8 +15,8 @@ class OrderReportController extends Controller
      */
     public function getAdvancedStats(Request $request)
     {
-        // Période personnalisable via le Front (30 jours par défaut)
-        $days = $request->get('days', 30);
+        // Période personnalisable via le Front (30 jours par défaut, max 365)
+        $days = min(max((int) $request->input('days', 30), 1), 365);
         $startDate = Carbon::now()->subDays($days);
 
         // 1. Métriques Globales (Tous les temps)

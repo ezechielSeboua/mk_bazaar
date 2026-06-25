@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\User;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Str;
 
 class UserSeeder extends Seeder
 {
@@ -14,12 +15,16 @@ class UserSeeder extends Seeder
     {
         // Création d'un administrateur
         User::create([
-            'name' => 'Marie Dagua',
-            'email' => 'marie.dagua@epitech.eu',
-            //Utiliser bcrypt pour hasher le mot de passe
-            'password' => bcrypt('password'),
-            'is_admin' => true,
+            'name'     => 'Marie Dagua',
+            'email'    => env('ADMIN_EMAIL', 'marie.dagua@epitech.eu'),
+            'password' => bcrypt(env('ADMIN_SEED_PASSWORD', Str::random(32))),
         ]);
+
+        // Définir is_admin via forceFill (non mass-assignable)
+        User::where('email', env('ADMIN_EMAIL', 'marie.dagua@epitech.eu'))
+            ->first()
+            ?->forceFill(['is_admin' => true])
+            ->save();
 
         // Création d'un utilisateur régulier
         // User::create([

@@ -2,7 +2,6 @@
 namespace App\Http\Controllers;
 use App\Models\User;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
 
 class UserController extends Controller
 {
@@ -29,13 +28,16 @@ class UserController extends Controller
         ]);
 
         $validated['password'] = bcrypt($validated['password']);
+        $validated['name']     = trim($validated['name']);
+        $validated['email']    = strtolower(trim($validated['email']));
 
-        // ✅ Normalisation pour PostgreSQL (sensible à la casse)
-        $validated['name']  = trim($validated['name']);
-        $validated['email'] = strtolower(trim($validated['email']));
+        $isAdmin = $validated['is_admin'] ?? false;
+        unset($validated['is_admin']);
 
         $user = User::create($validated);
-        return response()->json($user, 201);
+        $user->forceFill(['is_admin' => $isAdmin])->save();
+
+        return response()->json($user->fresh(), 201);
     }
 
     /**
@@ -55,13 +57,18 @@ class UserController extends Controller
             $validated['password'] = bcrypt($validated['password']);
         }
 
-        // ✅ Normalisation à l'update aussi
         if (isset($validated['name']))  $validated['name']  = trim($validated['name']);
         if (isset($validated['email'])) $validated['email'] = strtolower(trim($validated['email']));
 
+        $isAdmin = $validated['is_admin'] ?? null;
+        unset($validated['is_admin']);
+
         $user->update($validated);
 
-        // ✅ Rafraîchir depuis la BD après update (évite les données stale avec Postgres)
+        if (!is_null($isAdmin)) {
+            $user->forceFill(['is_admin' => $isAdmin])->save();
+        }
+
         return response()->json($user->fresh());
     }
 
@@ -70,6 +77,9 @@ class UserController extends Controller
      */
     public function destroy(User $user)
     {
+        if ($user->id === auth('api')->id()) {
+            return response()->json(['message' => 'Vous ne pouvez pas supprimer votre propre compte.'], 403);
+        }
         $user->delete();
         return response()->json(['message' => 'User deleted']);
     }

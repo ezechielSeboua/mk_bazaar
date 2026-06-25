@@ -5,9 +5,11 @@ namespace App\Http\Controllers;
 use App\Models\Order;
 use App\Models\Product;
 use App\Models\ProductVariant;
+use App\Models\Setting;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class OrderController extends Controller
@@ -51,9 +53,7 @@ class OrderController extends Controller
 
         $rules = [
             'delivery_location'          => 'required|string',
-            'delivery_fee'               => 'required|integer|min:0',
             'detailed_address'           => 'required|string',
-            'total_price'                => 'required|integer|min:0',
             'items'                      => 'required|array|min:1',
             'items.*.product_variant_id' => 'nullable|integer|exists:product_variants,id',
             'items.*.product_id'         => 'nullable|integer|exists:products,id',
@@ -77,6 +77,20 @@ class OrderController extends Controller
             }
         }
 
+        // Calculer delivery_fee côté serveur depuis la table settings
+        $zonesSetting = Setting::where('key', 'shipping_zones')->first();
+        $zones        = $zonesSetting ? ($zonesSetting->value ?? []) : [];
+        $matchedZone  = collect($zones)->firstWhere('name', $validated['delivery_location']);
+
+        if (!$matchedZone) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Zone de livraison invalide.',
+            ], 422);
+        }
+
+        $deliveryFee = (int) ($matchedZone['price'] ?? 0);
+
         $customerName  = $authUser ? $authUser->name  : $validated['customer_name'];
         $customerPhone = $authUser ? $authUser->phone : $validated['customer_phone'];
 
@@ -89,11 +103,13 @@ class OrderController extends Controller
                     'customer_phone'    => $customerPhone,
                     'order_number'      => 'MK-' . strtoupper(Str::random(4)) . '-' . time(),
                     'delivery_location' => $validated['delivery_location'],
-                    'delivery_fee'      => $validated['delivery_fee'],
+                    'delivery_fee'      => $deliveryFee,
                     'detailed_address'  => $validated['detailed_address'],
-                    'total_price'       => $validated['total_price'],
+                    'total_price'       => 0,
                     'status'            => 'pending',
                 ]);
+
+                $computedTotal = 0;
 
                 foreach ($validated['items'] as $itemData) {
                     $qty = $itemData['quantity'];
@@ -108,12 +124,14 @@ class OrderController extends Controller
 
                         $variant->decrement('stock', $qty);
 
+                        $unitPrice = $variant->price ?? $variant->product->price;
                         $order->items()->create([
                             'product_id'         => $variant->product_id,
                             'product_variant_id' => $variant->id,
                             'quantity'           => $qty,
-                            'price'              => $variant->price ?? $variant->product->price,
+                            'price'              => $unitPrice,
                         ]);
+                        $computedTotal += $unitPrice * $qty;
                     } else {
                         // Produit unique sans variante
                         $product = Product::lockForUpdate()->findOrFail($itemData['product_id']);
@@ -130,8 +148,12 @@ class OrderController extends Controller
                             'quantity'           => $qty,
                             'price'              => $product->price,
                         ]);
+                        $computedTotal += $product->price * $qty;
                     }
                 }
+
+                // Total calculé côté serveur : prix des articles + frais de livraison
+                $order->update(['total_price' => $computedTotal + $deliveryFee]);
 
                 return $order;
             });
@@ -143,9 +165,10 @@ class OrderController extends Controller
             ], 201);
 
         } catch (\Exception $e) {
+            Log::error('Order creation failed', ['message' => $e->getMessage()]);
             return response()->json([
                 'success' => false,
-                'message' => 'Erreur lors de la commande : ' . $e->getMessage()
+                'message' => 'Une erreur est survenue lors de la création de la commande.'
             ], 400);
         }
     }
@@ -201,9 +224,10 @@ class OrderController extends Controller
             ]);
 
         } catch (\Exception $e) {
+            Log::error('Order update failed', ['message' => $e->getMessage()]);
             return response()->json([
                 'success' => false,
-                'message' => $e->getMessage()
+                'message' => 'Une erreur est survenue lors de la mise à jour de la commande.'
             ], 400);
         }
     }
