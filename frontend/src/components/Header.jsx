@@ -5,6 +5,8 @@ import { Home, LayoutGrid, Info, LayoutDashboard, Heart, ShoppingCart, LogIn } f
 import { useAuth } from "../contexts/AuthContext";
 import { useWishlist } from "../contexts/WishlistContext";
 import { resolveMediaUrl } from "../config/env";
+import { useSiteSettings } from "../contexts/SiteSettingsContext";
+import PromoBanner from "./PromoBanner";
 import LogoutFip from "./LogoutFip";
 
 
@@ -157,6 +159,8 @@ export default function Header() {
 
   const { user, isAdmin, handleLogout: logoutFromContext } = useAuth();
   const { wishlist } = useWishlist();
+  const { logo } = useSiteSettings();
+  const logoSrc = logo?.url ? resolveMediaUrl(logo.url) : '/mk_bazaar_logo.png';
   const wishlistCount = wishlist.length;
   const { pathname } = useLocation();
   const navigate = useNavigate();
@@ -259,10 +263,12 @@ export default function Header() {
       <header
         className={`sticky top-0 z-40 transition-all duration-300 ${
           scrolled
-            ? "shadow-md bg-[#F9F9F7]/95 backdrop-blur-lg py-2"
-            : "bg-[#F9F9F7]/80 backdrop-blur-md py-3"
-        } border-b border-stone-200/60 px-4 sm:px-8 md:px-12`}
+            ? "shadow-md bg-[#F9F9F7]/95 backdrop-blur-lg"
+            : "bg-[#F9F9F7]/80 backdrop-blur-md"
+        } border-b border-stone-200/60`}
       >
+        <PromoBanner />
+        <div className={`px-4 sm:px-8 md:px-12 ${scrolled ? 'py-2' : 'py-3'}`}>
         <div className="max-w-7xl mx-auto">
           {/* Grille responsive */}
           <div className="grid grid-cols-[auto_1fr_auto] md:flex md:items-center md:justify-between">
@@ -285,7 +291,7 @@ export default function Header() {
                 aria-label="MK Bazaar – retour à l'accueil"
               >
                 <img
-                  src="/mk_bazaar_logo.png"
+                  src={logoSrc}
                   alt="MK Bazaar"
                   className={`${logoHeight} w-auto object-contain transition-all duration-300`}
                 />
@@ -415,6 +421,7 @@ export default function Header() {
             </div>
           </div>
         </div>
+        </div>
 
         {/* ---------- MENU MOBILE ---------- */}
         <AnimatePresence>
@@ -444,7 +451,7 @@ export default function Header() {
                 {/* Logo + fermer */}
                 <div className="flex items-center justify-between px-5 py-4 border-b border-stone-200 bg-white shrink-0">
                   <Link to="/accueil" onClick={() => setMobileMenuOpen(false)}>
-                    <img src="/mk_bazaar_logo.png" alt="MK Bazaar" className="h-8 w-auto object-contain" />
+                    <img src={logoSrc} alt="MK Bazaar" className="h-8 w-auto object-contain" />
                   </Link>
                   <button
                     onClick={() => setMobileMenuOpen(false)}

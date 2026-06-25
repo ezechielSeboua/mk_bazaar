@@ -10,13 +10,16 @@ use Illuminate\Support\Facades\Storage;
 class AppSettingController extends Controller
 {
     private const ALLOWED_KEYS = [
-        'hero_banner',
+        'hero',          // Hero banner (used by ConfigurationsPage + dashboard context)
+        'hero_banner',   // Legacy alias — kept for backward-compat with existing DB rows
         'carousel',
-        'delivery_zones',
+        'testimonials',
         'shipping_zones',
         'site_name',
         'contact_info',
         'social_links',
+        'logo',          // Logo uploadable (remplace /mk_bazaar_logo.png statique)
+        'promo_banner',  // Bannière promotionnelle sticky (toggle + texte)
     ];
 
     private function validateKey(string $key): void

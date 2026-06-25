@@ -26,8 +26,8 @@ class OrderController extends Controller
             $query->where('status', $request->status);
         }
 
-        // Tri par date de création (Remplacement de la colonne 'date' supprimée)
-        $orders = $query->latest()->get();
+        // Paginated to prevent full-table memory dump
+        $orders = $query->latest()->paginate($request->input('per_page', 25));
 
         // Calculs des revenus basés sur les statuts réels
         $totalRevenue = Order::where('status', 'completed')->sum('total_price');
@@ -70,11 +70,14 @@ class OrderController extends Controller
             'items'                      => 'required|array|min:1',
             'items.*.product_variant_id' => 'nullable|integer|exists:product_variants,id',
             'items.*.product_id'         => 'nullable|integer|exists:products,id',
-            'items.*.quantity'           => 'required|integer|min:1',
+            'items.*.quantity'           => 'required|integer|min:1|max:100',
         ];
 
         if (!$authUser) {
             $rules['customer_name']  = 'required|string|max:255';
+            $rules['customer_phone'] = 'required|string|max:20';
+        } elseif (empty($authUser->phone)) {
+            // Utilisateur connecté sans téléphone enregistré
             $rules['customer_phone'] = 'required|string|max:20';
         }
 
@@ -105,10 +108,12 @@ class OrderController extends Controller
         $deliveryFee = (int) ($matchedZone['price'] ?? 0);
 
         $customerName  = $authUser ? $authUser->name  : $validated['customer_name'];
-        $customerPhone = $authUser ? $authUser->phone : $validated['customer_phone'];
+        $customerPhone = $authUser
+            ? ($authUser->phone ?: ($validated['customer_phone'] ?? null))
+            : $validated['customer_phone'];
 
         try {
-            $order = DB::transaction(function () use ($validated, $authUser, $customerName, $customerPhone) {
+            $order = DB::transaction(function () use ($validated, $authUser, $customerName, $customerPhone, $deliveryFee) {
 
                 $order = Order::create([
                     'user_id'           => $authUser?->id,
@@ -187,6 +192,16 @@ class OrderController extends Controller
     }
 
     /**
+     * Valid status transitions — prevents circular stock manipulation and skipped states.
+     */
+    private const VALID_TRANSITIONS = [
+        'pending'    => ['processing', 'cancelled'],
+        'processing' => ['completed', 'cancelled'],
+        'completed'  => [],
+        'cancelled'  => ['processing'],
+    ];
+
+    /**
      * Mettre à jour le statut d'une commande (Admin)
      * Gère la réintégration des stocks si la commande est annulée
      */
@@ -195,6 +210,25 @@ class OrderController extends Controller
         $validated = $request->validate([
             'status' => 'required|string|in:pending,processing,completed,cancelled',
         ]);
+
+        $newStatus     = $validated['status'];
+        $currentStatus = $order->status;
+
+        if ($newStatus === $currentStatus) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Statut inchangé.',
+                'order'   => $order->load('items.variant.product'),
+            ]);
+        }
+
+        $allowed = self::VALID_TRANSITIONS[$currentStatus] ?? [];
+        if (!in_array($newStatus, $allowed, true)) {
+            return response()->json([
+                'success' => false,
+                'message' => "Transition invalide : {$currentStatus} → {$newStatus}.",
+            ], 422);
+        }
 
         try {
             DB::transaction(function () use ($order, $validated) {

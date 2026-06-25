@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { WishlistProvider } from './contexts/WishlistContext';
+import { SiteSettingsProvider } from './contexts/SiteSettingsContext';
 
 // Les Wrappers restent importés normalement car ils gèrent la structure et les contextes vitaux
 import DashboardWrapper from './components/DashboardWrapper';
@@ -35,6 +36,7 @@ const ConfigurationsPage = lazy(() => import('./pages/Dashboard/ConfigurationsPa
 function App() {
   return (
     <AuthProvider>
+      <SiteSettingsProvider>
       <WishlistProvider>
       <Suspense fallback={<LoadingScreen isLoading={true} />}>
         <Routes>
@@ -66,6 +68,7 @@ function App() {
         </Routes>
       </Suspense>
       </WishlistProvider>
+      </SiteSettingsProvider>
     </AuthProvider>
   );
 }

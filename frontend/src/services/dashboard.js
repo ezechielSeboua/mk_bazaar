@@ -26,7 +26,7 @@ const dashboardService = {
   getSettings: async () => {
     const [shippingRes, heroRes] = await Promise.all([
       fetchAPI(`/settings/${SHIPPING_KEY}`, { method: 'GET' }),
-      fetchAPI('/settings/hero_config', { method: 'GET' }),
+      fetchAPI('/settings/hero', { method: 'GET' }),
     ]);
 
     return {

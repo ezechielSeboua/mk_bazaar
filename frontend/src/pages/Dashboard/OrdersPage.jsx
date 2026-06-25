@@ -1,14 +1,14 @@
 // pages/Dashboard/OrdersPage.jsx
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 
-// S-04 : valider le format d'un numéro de téléphone avant de construire un lien tel:
 const sanitizePhone = (phone) =>
     phone && /^[\d\s+().-]{6,20}$/.test(phone) ? phone : null;
 import { motion, AnimatePresence } from 'framer-motion';
 import DashboardLayout from '../../components/DashboardLayout';
 import { DashboardTableSkeleton } from '../../components/DashboardSkeletons';
 import { useDashboardData } from '../../contexts/DashboardDataContext';
-import { updateOrder } from '../../services/order';
+import { getOrders, updateOrder } from '../../services/order';
+import { extractList, extractPaginationMeta } from '../../contexts/DashboardDataContext';
 import { resolveMediaUrl } from '../../config/env';
 
 /* ---------- Icônes SVG ---------- */
@@ -177,22 +177,51 @@ function FiltersBlock({
 
 /* ---------- Page principale ---------- */
 export default function OrdersPage() {
-  const { orders, setOrders, isLoading } = useDashboardData();
-  const showInitialLoad = isLoading && orders.length === 0;
+  const { orders: contextOrders, setOrders, ordersMeta: contextMeta, isLoading } = useDashboardData();
+
+  // Local page state — starts from context (page 1), can navigate
+  const [pageOrders, setPageOrders] = useState(contextOrders);
+  const [pagination, setPagination] = useState(contextMeta);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [isFetchingPage, setIsFetchingPage] = useState(false);
+
+  // Sync from context on initial load
+  useEffect(() => {
+    if (!isLoading) {
+      setPageOrders(contextOrders);
+      setPagination(contextMeta);
+    }
+  }, [isLoading, contextOrders, contextMeta]);
+
+  const loadPage = useCallback(async (page) => {
+    setIsFetchingPage(true);
+    const res = await getOrders({ page, perPage: 25 });
+    if (res?.success) {
+      const list = extractList(res, 'orders');
+      const meta = extractPaginationMeta(res, 'orders');
+      setPageOrders(list);
+      if (meta) setPagination(meta);
+      setCurrentPage(page);
+    }
+    setIsFetchingPage(false);
+  }, []);
+
+  const showInitialLoad = isLoading && pageOrders.length === 0;
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('Tous');
   const [dateSort, setDateSort] = useState('desc');
-  const [dateFrom, setDateFrom] = useState(''); // nouvelle
-  const [dateTo, setDateTo] = useState('');     // nouvelle
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const [selectedCommand, setSelectedCommand] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [updateError, setUpdateError] = useState(null);
   const [showFilters, setShowFilters] = useState(false);
 
   const hasActiveFilters = searchTerm || statusFilter !== 'Tous' || dateFrom || dateTo;
 
   const filteredCommands = useMemo(() => {
-    let results = [...orders];
+    let results = [...pageOrders];
 
     if (statusFilter !== 'Tous') {
       results = results.filter(cmd => cmd.status === statusFilter);
@@ -228,10 +257,11 @@ export default function OrdersPage() {
     });
 
     return results;
-  }, [orders, searchTerm, statusFilter, dateSort, dateFrom, dateTo]);
+  }, [pageOrders, searchTerm, statusFilter, dateSort, dateFrom, dateTo]);
 
   const openDetailModal = (cmd) => {
     setSelectedCommand(cmd);
+    setUpdateError(null);
     setIsModalOpen(true);
   };
 
@@ -243,16 +273,16 @@ export default function OrdersPage() {
   const handleStatusChange = async (newStatus) => {
     if (!selectedCommand) return;
     setIsUpdating(true);
+    setUpdateError(null);
 
     const response = await updateOrder(selectedCommand.id, { status: newStatus });
 
-    if (response.success) {
-      setOrders(prevOrders =>
-        prevOrders.map(o => o.id === selectedCommand.id ? { ...o, status: newStatus } : o)
-      );
+    if (response?.success) {
+      setPageOrders(prev => prev.map(o => o.id === selectedCommand.id ? { ...o, status: newStatus } : o));
+      setOrders(prev => prev.map(o => o.id === selectedCommand.id ? { ...o, status: newStatus } : o));
       setSelectedCommand(prev => ({ ...prev, status: newStatus }));
     } else {
-      alert("Erreur lors de la mise à jour du statut");
+      setUpdateError(response?.data?.message || response?.message || 'Erreur lors de la mise à jour du statut.');
     }
     setIsUpdating(false);
   };
@@ -283,7 +313,12 @@ export default function OrdersPage() {
               {showInitialLoad ? (
                 <span className="inline-block w-32 h-4 bg-stone-200 rounded animate-pulse" />
               ) : (
-                `${filteredCommands.length} commande(s) trouvée(s)`
+                <>
+                  {filteredCommands.length} commande(s) sur cette page
+                  {pagination?.total > 0 && (
+                    <span className="text-stone-400 ml-1">· {pagination.total} au total</span>
+                  )}
+                </>
               )}
             </p>
           </div>
@@ -437,6 +472,60 @@ export default function OrdersPage() {
           </div>
         </motion.div>
 
+        {/* Pagination */}
+        {pagination && pagination.lastPage > 1 && (
+          <div className="flex items-center justify-between bg-white border border-stone-200 rounded-xl px-5 py-3 shadow-sm">
+            <p className="text-sm text-stone-500">
+              Page <span className="font-semibold text-stone-800">{currentPage}</span> sur{' '}
+              <span className="font-semibold text-stone-800">{pagination.lastPage}</span>
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => loadPage(currentPage - 1)}
+                disabled={currentPage <= 1 || isFetchingPage}
+                className="px-3 py-1.5 text-xs font-medium border border-stone-200 rounded-lg hover:bg-stone-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                ← Précédente
+              </button>
+              {/* Page numbers (show ±2 around current) */}
+              <div className="hidden sm:flex items-center gap-1">
+                {Array.from({ length: pagination.lastPage }, (_, i) => i + 1)
+                  .filter(p => p === 1 || p === pagination.lastPage || Math.abs(p - currentPage) <= 1)
+                  .reduce((acc, p, i, arr) => {
+                    if (i > 0 && p - arr[i - 1] > 1) acc.push('…');
+                    acc.push(p);
+                    return acc;
+                  }, [])
+                  .map((p, i) =>
+                    p === '…' ? (
+                      <span key={`ellipsis-${i}`} className="px-1 text-stone-400 text-xs">…</span>
+                    ) : (
+                      <button
+                        key={p}
+                        onClick={() => loadPage(p)}
+                        disabled={isFetchingPage}
+                        className={`w-8 h-8 text-xs rounded-lg transition-colors ${
+                          p === currentPage
+                            ? 'bg-[#c07b5a] text-white font-bold'
+                            : 'border border-stone-200 hover:bg-stone-50 text-stone-700'
+                        }`}
+                      >
+                        {p}
+                      </button>
+                    )
+                  )}
+              </div>
+              <button
+                onClick={() => loadPage(currentPage + 1)}
+                disabled={currentPage >= pagination.lastPage || isFetchingPage}
+                className="px-3 py-1.5 text-xs font-medium border border-stone-200 rounded-lg hover:bg-stone-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                Suivante →
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Modale détails commande */}
         <AnimatePresence>
           {isModalOpen && selectedCommand && (
@@ -583,10 +672,28 @@ export default function OrdersPage() {
                   </div>
                 </div>
 
-                {/* Actions */}
+                {/* Erreur mise à jour statut */}
+                {updateError && (
+                  <p className="mt-3 text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                    {updateError}
+                  </p>
+                )}
+
+                {/* Actions — respecte le state machine backend */}
                 <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 mt-4 md:mt-6 pt-4 border-t border-stone-100">
                   <div className="flex flex-wrap gap-2">
-                    {selectedCommand.status !== 'completed' && (
+                    {/* pending → processing */}
+                    {selectedCommand.status === 'pending' && (
+                      <button
+                        onClick={() => handleStatusChange('processing')}
+                        disabled={isUpdating}
+                        className="flex-1 sm:flex-none bg-blue-600 text-white px-3 py-1.5 rounded-lg text-[10px] uppercase tracking-wider font-bold hover:bg-blue-700 transition-colors disabled:opacity-50"
+                      >
+                        Mettre en traitement
+                      </button>
+                    )}
+                    {/* processing → completed */}
+                    {selectedCommand.status === 'processing' && (
                       <button
                         onClick={() => handleStatusChange('completed')}
                         disabled={isUpdating}
@@ -595,7 +702,18 @@ export default function OrdersPage() {
                         Marquer Livrée
                       </button>
                     )}
-                    {selectedCommand.status !== 'cancelled' && (
+                    {/* cancelled → processing */}
+                    {selectedCommand.status === 'cancelled' && (
+                      <button
+                        onClick={() => handleStatusChange('processing')}
+                        disabled={isUpdating}
+                        className="flex-1 sm:flex-none bg-amber-600 text-white px-3 py-1.5 rounded-lg text-[10px] uppercase tracking-wider font-bold hover:bg-amber-700 transition-colors disabled:opacity-50"
+                      >
+                        Réactiver
+                      </button>
+                    )}
+                    {/* pending or processing → cancelled */}
+                    {(selectedCommand.status === 'pending' || selectedCommand.status === 'processing') && (
                       <button
                         onClick={() => handleStatusChange('cancelled')}
                         disabled={isUpdating}

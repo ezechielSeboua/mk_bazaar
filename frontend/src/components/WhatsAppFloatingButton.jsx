@@ -58,6 +58,7 @@
 
 
 import { motion } from "framer-motion";
+import { useSiteSettings } from "../contexts/SiteSettingsContext";
 
 const WhatsAppIcon = () => (
   <svg
@@ -71,11 +72,10 @@ const WhatsAppIcon = () => (
 );
 
 export default function WhatsAppFloatingButton() {
-  // Configuration du numéro (Ex: indicatif 225 pour la Côte d'Ivoire sans le + ni les espaces)
-  const WHATSAPP_NUMBER = "2250000000000"; 
+  const { contactInfo } = useSiteSettings();
+  const number = contactInfo.whatsapp || "2250000000000";
   const PRESET_MESSAGE = "Bonjour MK BAZAAR, je souhaiterais avoir des informations sur vos collections.";
-  
-  const whatsappUrl = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(PRESET_MESSAGE)}`;
+  const whatsappUrl = `https://wa.me/${number}?text=${encodeURIComponent(PRESET_MESSAGE)}`;
 
   return (
     <div className="fixed bottom-6 right-6 z-50 flex items-center justify-center">

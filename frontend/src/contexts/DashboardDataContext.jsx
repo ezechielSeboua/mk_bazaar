@@ -20,15 +20,33 @@ import {
     getDashboardCache,
 } from '../utils/dashboardCache';
 
+const DEFAULT_ORDERS_META = { currentPage: 1, lastPage: 1, total: 0, perPage: 25 };
+
 const DashboardDataContext = createContext();
 
 export const extractList = (result, key = null) => {
     if (!result?.success) return [];
     const data = result.data;
     if (key && data && typeof data === 'object' && key in data) {
-        return Array.isArray(data[key]) ? data[key] : [];
+        const value = data[key];
+        if (Array.isArray(value)) return value;
+        // Laravel paginated response: { data: [...], current_page: N, ... }
+        if (value && Array.isArray(value.data)) return value.data;
+        return [];
     }
     return Array.isArray(data) ? data : (data?.data ?? []);
+};
+
+export const extractPaginationMeta = (result, key) => {
+    if (!result?.success) return null;
+    const value = result.data?.[key];
+    if (!value || Array.isArray(value) || value.current_page === undefined) return null;
+    return {
+        currentPage: value.current_page,
+        lastPage: value.last_page,
+        total: value.total,
+        perPage: value.per_page,
+    };
 };
 
 export const DashboardDataProvider = ({ children }) => {
@@ -39,6 +57,7 @@ export const DashboardDataProvider = ({ children }) => {
     const [categories, setCategories] = useState(initial.categories);
     const [users, setUsers] = useState(initial.users);
     const [orders, setOrders] = useState(initial.orders);
+    const [ordersMeta, setOrdersMeta] = useState(initial.ordersMeta ?? DEFAULT_ORDERS_META);
     const [metrics, setMetrics] = useState(initial.metrics);
     const [shippingZones, setShippingZones] = useState(initial.shippingZones);
     const [heroConfig, setHeroConfig] = useState(initial.heroConfig);
@@ -105,6 +124,7 @@ export const DashboardDataProvider = ({ children }) => {
             const nextCategories = extractList(categoriesRes);
             const nextUsers = extractList(usersRes);
             const nextOrders = extractList(ordersRes, 'orders');
+            const nextOrdersMeta = extractPaginationMeta(ordersRes, 'orders') ?? DEFAULT_ORDERS_META;
             const nextMetrics = ordersRes?.success && ordersRes.data?.metrics
                 ? ordersRes.data.metrics
                 : cached?.metrics ?? defaultsRef.current.metrics;
@@ -116,6 +136,7 @@ export const DashboardDataProvider = ({ children }) => {
             setCategories(nextCategories);
             setUsers(nextUsers);
             setOrders(nextOrders);
+            setOrdersMeta(nextOrdersMeta);
             setMetrics(nextMetrics);
             setShippingZones(nextShippingZones);
             setHeroConfig(nextHeroConfig);
@@ -203,6 +224,7 @@ export const DashboardDataProvider = ({ children }) => {
             categories, setCategories,
             users, setUsers,
             orders, setOrders,
+            ordersMeta,
             metrics, setMetrics,
             shippingZones, setShippingZones,
             heroConfig, setHeroConfig,
@@ -213,7 +235,7 @@ export const DashboardDataProvider = ({ children }) => {
             refreshAll,
         }),
         [
-            products, categories, users, orders, metrics,
+            products, categories, users, orders, ordersMeta, metrics,
             shippingZones, heroConfig, advancedStats,
             isLoading, isRefreshing, error, refreshAll,
         ],

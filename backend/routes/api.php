@@ -28,21 +28,22 @@ Route::get('/products/{product}', [ProductController::class, 'show']);
 Route::get('/variants', [ProductVariantController::class, 'index']);
 Route::get('/variants/{productVariant}', [ProductVariantController::class, 'show']);
 
-// Tunnel d'achat public
-Route::post('/orders', [OrderController::class, 'store']);
+// Tunnel d'achat public — rate limited to prevent stock DoS
+Route::post('/orders', [OrderController::class, 'store'])->middleware('throttle:30,1');
 
 
 // Configuration de l'application (Hero, Carrousel, etc.)
 Route::get('/settings/{key}', [AppSettingController::class, 'getByKey']);
 
-// Authentification
-Route::post('/auth/register', [UserAuthController::class, 'register'])->middleware('throttle:5,1');
-Route::post('/auth/login',    [UserAuthController::class, 'login'])->middleware('throttle:5,1');
+// Authentification — composite rate limit: 5/min par IP + 3/min par email
+Route::post('/auth/register', [UserAuthController::class, 'register'])->middleware('throttle:register');
+Route::post('/auth/login',    [UserAuthController::class, 'login'])->middleware('throttle:login');
 
 // --- Routes Authentifiées (utilisateur connecté) ---
 Route::middleware('auth:api')->group(function () {
     Route::get('/auth/me',          [UserAuthController::class, 'me']);
     Route::post('/auth/logout',     [UserAuthController::class, 'logout']);
+    Route::post('/auth/refresh',    [UserAuthController::class, 'refresh']);
     Route::get('/orders/my',        [OrderController::class, 'myOrders']);
     Route::put('/profile',          [UserAuthController::class, 'updateProfile']);
     Route::post('/profile/avatar',  [UserAuthController::class, 'updateAvatar']);

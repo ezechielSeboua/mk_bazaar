@@ -30,14 +30,13 @@
 import { fetchAPI } from './apiConfig';
 
 /**
- * Récupérer toutes les commandes (avec filtre de statut optionnel)
- * Idéal pour l'historique ou le panneau d'administration
+ * Récupérer les commandes paginées (admin)
+ * @param {{ page?: number, perPage?: number, status?: string }} options
  */
-export const getOrders = async (status = null) => {
-    const endpoint = status ? `/orders?status=${status}` : '/orders';
-    return fetchAPI(endpoint, {
-        method: 'GET'
-    });
+export const getOrders = async ({ page = 1, perPage = 25, status = null } = {}) => {
+    const params = new URLSearchParams({ page, per_page: perPage });
+    if (status) params.set('status', status);
+    return fetchAPI(`/orders?${params.toString()}`, { method: 'GET' });
 };
 
 /**

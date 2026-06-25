@@ -33,7 +33,7 @@ class UserAuthController extends Controller
         return response()->json([
             'token'      => $token,
             'token_type' => 'bearer',
-            'user'       => $user,
+            'user'       => $this->safeUserData($user),
         ], 201);
     }
 
@@ -49,27 +49,33 @@ class UserAuthController extends Controller
 
         $credentials = $request->only('email', 'password');
 
-
         if (!$token = JWTAuth::attempt($credentials)) {
             return response()->json([
                 'message' => 'Invalid credentials'
             ], 401);
         }
 
+        // auth('api')->user() can be null if the guard hasn't loaded the user yet —
+        // resolve directly from the token we just generated to guarantee a non-null result.
+        $user = JWTAuth::setToken($token)->toUser();
+
         return response()->json([
-            'token' => $token,
+            'token'      => $token,
             'token_type' => 'bearer',
-            'user' => auth('api')->user()
+            'user'       => $this->safeUserData($user),
         ]);
     }
-
 
     /**
      * Logout (invalidate token)
      */
     public function logout()
     {
-        JWTAuth::invalidate(JWTAuth::getToken());
+        try {
+            JWTAuth::invalidate(JWTAuth::getToken());
+        } catch (\Tymon\JWTAuth\Exceptions\JWTException) {
+            // Token already invalid or absent — logout is idempotent
+        }
 
         return response()->json([
             'message' => 'Logged out successfully'
@@ -81,7 +87,7 @@ class UserAuthController extends Controller
      */
     public function me()
     {
-        return response()->json(auth('api')->user());
+        return response()->json($this->safeUserData(auth('api')->user()));
     }
 
     /**
@@ -89,6 +95,7 @@ class UserAuthController extends Controller
      */
     public function updateProfile(Request $request)
     {
+        /** @var User $user */
         $user = auth('api')->user();
 
         $validated = $request->validate([
@@ -98,7 +105,7 @@ class UserAuthController extends Controller
 
         $user->update($validated);
 
-        return response()->json($user->fresh());
+        return response()->json($this->safeUserData($user->fresh()));
     }
 
     /**
@@ -110,6 +117,7 @@ class UserAuthController extends Controller
             'avatar' => 'required|image|mimes:jpeg,jpg,png,webp|max:2048',
         ]);
 
+        /** @var User $user */
         $user = auth('api')->user();
 
         // Supprimer l'ancien avatar s'il existe
@@ -125,6 +133,40 @@ class UserAuthController extends Controller
 
         $user->update(['avatar' => $url]);
 
-        return response()->json($user->fresh());
+        return response()->json($this->safeUserData($user->fresh()));
+    }
+
+    /**
+     * Refresh JWT token without re-authenticating
+     */
+    public function refresh()
+    {
+        try {
+            $newToken = JWTAuth::refresh(JWTAuth::getToken());
+        } catch (\Tymon\JWTAuth\Exceptions\TokenExpiredException $e) {
+            return response()->json(['message' => 'Token expiré, reconnexion requise.'], 401);
+        } catch (\Tymon\JWTAuth\Exceptions\JWTException $e) {
+            return response()->json(['message' => 'Token invalide.'], 401);
+        }
+
+        return response()->json([
+            'token'      => $newToken,
+            'token_type' => 'bearer',
+        ]);
+    }
+
+    /**
+     * Returns only the fields the frontend needs — never timestamps or internals.
+     */
+    private function safeUserData(User $user): array
+    {
+        return [
+            'id'       => $user->id,
+            'name'     => $user->name,
+            'email'    => $user->email,
+            'phone'    => $user->phone,
+            'avatar'   => $user->avatar,
+            'is_admin' => (bool) $user->is_admin,
+        ];
     }
 }
