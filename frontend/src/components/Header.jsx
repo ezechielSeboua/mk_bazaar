@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "../contexts/AuthContext";
+import { useWishlist } from "../contexts/WishlistContext";
+import { resolveMediaUrl } from "../config/env";
 import LogoutFip from "./LogoutFip";
 
 /* ---------- Icônes SVG ---------- */
@@ -100,6 +102,14 @@ function LogoutIcon({ className = "w-4 h-4" }) {
   );
 }
 
+function HeartIcon({ className = "w-5 h-5" }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z" />
+    </svg>
+  );
+}
+
 function CartIcon({ className = "w-5 h-5" }) {
   return (
     <svg
@@ -136,7 +146,9 @@ export default function Header() {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [cartCount, setCartCount] = useState(0);
 
-  const { user, handleLogout: logoutFromContext } = useAuth();
+  const { user, isAdmin, handleLogout: logoutFromContext } = useAuth();
+  const { wishlist } = useWishlist();
+  const wishlistCount = wishlist.length;
   const { pathname } = useLocation();
   const navigate = useNavigate();
 
@@ -199,10 +211,10 @@ export default function Header() {
     : "AD";
 
   const navigationLinks = [
-    { to: "/accueil", label: "Accueil" },
+    { to: "/accueil",  label: "Accueil" },
     { to: "/products", label: "Collections" },
-    { to: "/about", label: "A propos" },
-    ...(user ? [{ to: "/dashboard", label: "Mon tableau de bord" }] : []),
+    { to: "/about",    label: "À propos" },
+    ...(isAdmin ? [{ to: "/dashboard", label: "Dashboard" }] : []),
   ];
 
   const logoHeight = scrolled ? "h-12 sm:h-16 md:h-20" : "h-14 sm:h-20 md:h-24";
@@ -284,7 +296,32 @@ export default function Header() {
 
             {/* Actions (droite) */}
             <div className="flex items-center justify-end gap-1 sm:gap-3">
-              {/* Panier en marron/or */}
+              {/* Favoris */}
+              <Link
+                to="/compte?tab=favorites"
+                className={`relative p-2 rounded-full transition-all duration-200 ${
+                  pathname === "/compte" ? "text-rose-500 bg-rose-50" : "text-stone-400 hover:text-rose-500 hover:bg-rose-50"
+                }`}
+                aria-label="Mes favoris"
+                title="Mes favoris"
+              >
+                <HeartIcon className="w-5 h-5 md:w-6 md:h-6" />
+                <AnimatePresence>
+                  {wishlistCount > 0 && (
+                    <motion.span
+                      key={wishlistCount}
+                      initial={{ scale: 0.6, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      exit={{ scale: 0.6, opacity: 0 }}
+                      className="absolute -top-0.5 -right-0.5 bg-rose-500 text-white text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center border border-[#F9F9F7]"
+                    >
+                      {wishlistCount}
+                    </motion.span>
+                  )}
+                </AnimatePresence>
+              </Link>
+
+              {/* Panier */}
               <Link
                 to="/panier"
                 className={`relative p-2 rounded-full transition-all duration-200 ${
@@ -315,12 +352,21 @@ export default function Header() {
 
               {user ? (
                 <div className="hidden md:flex items-center gap-2 sm:gap-3">
-                  <span className="hidden lg:inline text-xs uppercase tracking-wider text-stone-500 font-medium">
-                    Bonjour, {user.name?.split(" ")[0] || "vous"}
-                  </span>
-                  <div className="w-8 h-8 md:w-9 md:h-9 rounded-full bg-black text-white flex items-center justify-center text-xs font-bold uppercase tracking-wider shadow-sm select-none">
-                    {userInitials}
-                  </div>
+                  <Link
+                    to="/compte"
+                    className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+                    title="Mon compte"
+                  >
+                    <span className="hidden lg:inline text-xs uppercase tracking-wider text-stone-500 font-medium">
+                      {user.name?.split(" ")[0] || "Mon compte"}
+                    </span>
+                    <div className="w-8 h-8 md:w-9 md:h-9 rounded-full overflow-hidden bg-black text-white flex items-center justify-center text-xs font-bold uppercase tracking-wider shadow-sm select-none shrink-0">
+                      {user.avatar
+                        ? <img src={resolveMediaUrl(user.avatar)} alt={user.name} className="w-full h-full object-cover" />
+                        : userInitials
+                      }
+                    </div>
+                  </Link>
                   <div className="hidden sm:block h-4 w-[1px] bg-stone-300 mx-0.5" />
                   <button
                     onClick={handleLogout}
@@ -415,7 +461,25 @@ export default function Header() {
                     );
                   })}
 
-                  {/* Panier dans le menu mobile (marron/or) */}
+                  {/* Favoris dans le menu mobile */}
+                  <MotionLink
+                    to="/compte?tab=favorites"
+                    variants={navItemVariants}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center justify-between py-3.5 px-4 rounded-xl text-stone-600 hover:bg-rose-50 hover:text-rose-500 transition-all duration-200"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span>Mes Favoris</span>
+                      {wishlistCount > 0 && (
+                        <span className="bg-rose-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                          {wishlistCount}
+                        </span>
+                      )}
+                    </div>
+                    <ArrowRightIcon className="w-4 h-4 opacity-70" />
+                  </MotionLink>
+
+                  {/* Panier dans le menu mobile */}
                   <MotionLink
                     to="/panier"
                     variants={navItemVariants}
@@ -445,6 +509,22 @@ export default function Header() {
                       className="flex items-center justify-between py-3.5 px-4 rounded-xl text-stone-600 hover:bg-stone-100 hover:text-black transition-all duration-200"
                     >
                       <span>Se connecter</span>
+                      <ArrowRightIcon className="w-4 h-4 opacity-70" />
+                    </MotionLink>
+                  )}
+
+                  {user && (
+                    <MotionLink
+                      to="/compte"
+                      variants={navItemVariants}
+                      onClick={() => setMobileMenuOpen(false)}
+                      className={`flex items-center justify-between py-3.5 px-4 rounded-xl transition-all duration-200 ${
+                        pathname === "/compte"
+                          ? "bg-stone-900 text-white pl-6"
+                          : "text-stone-600 hover:bg-stone-100 hover:text-black"
+                      }`}
+                    >
+                      <span>Mon compte</span>
                       <ArrowRightIcon className="w-4 h-4 opacity-70" />
                     </MotionLink>
                   )}

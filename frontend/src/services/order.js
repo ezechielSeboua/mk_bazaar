@@ -57,6 +57,20 @@ export const createOrder = async (orderData) => {
 export const updateOrder = async (orderId, orderData) => {
     return fetchAPI(`/orders/${orderId}`, {
         method: 'PUT',
-        body: orderData // Allégé : fetchAPI s'occupe du JSON.stringify()
+        body: orderData
     });
+};
+
+/**
+ * Récupérer les commandes de l'utilisateur connecté
+ */
+export const getMyOrders = async () => {
+    return fetchAPI('/orders/my', { method: 'GET' });
+};
+
+/**
+ * Suivre une commande par son numéro (public, sans auth)
+ */
+export const trackOrder = async (orderNumber) => {
+    return fetchAPI(`/orders/track/${encodeURIComponent(orderNumber)}`, { method: 'GET' });
 };

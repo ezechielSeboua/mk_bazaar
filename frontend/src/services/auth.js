@@ -64,6 +64,32 @@ export const profile = async () => {
     return res;
 };
 
+// Mettre à jour son propre profil (nom, téléphone)
+export const updateProfile = async (data) => {
+    const res = await fetchAPI('/profile', {
+        method: 'PUT',
+        body: JSON.stringify(data)
+    });
+    if (res.success && res.data) {
+        localStorage.setItem('user', JSON.stringify(res.data));
+    }
+    return res;
+};
+
+// Upload photo de profil
+export const uploadAvatar = async (file) => {
+    const formData = new FormData();
+    formData.append('avatar', file);
+    const res = await fetchAPI('/profile/avatar', {
+        method: 'POST',
+        body: formData,
+    });
+    if (res.success && res.data) {
+        localStorage.setItem('user', JSON.stringify(res.data));
+    }
+    return res;
+};
+
 // Token helper
 export const getToken = () => {
     return localStorage.getItem('token');

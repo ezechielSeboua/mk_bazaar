@@ -10,6 +10,9 @@ import {
   X,
   CheckCircle,
   AlertCircle,
+  Heart,
+  Share2,
+  Copy,
 } from "lucide-react";
 import Header from "../components/Header";
 import ProductGallery from "../components/ProductGallery";
@@ -25,6 +28,7 @@ import { useCatalogData } from "../contexts/CatalogContext";
 import { getWhatsAppLink } from "../config/env";
 import Footer from "../components/Footer";
 import { useAuth } from "../contexts/AuthContext";
+import { useWishlist } from "../contexts/WishlistContext";
 
 // ---------- Composants utilitaires ----------
 
@@ -123,10 +127,26 @@ export default function ProductDetails() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [orderSuccess, setOrderSuccess] = useState(false);
 
+  const { toggleWishlist, isInWishlist } = useWishlist();
+
   const [toast, setToast] = useState(null);
   const showToast = (message, type = "info") => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 5000);
+  };
+
+  const handleShare = async () => {
+    const shareData = {
+      title: product?.name,
+      text: `${product?.name} — ${currentPrice?.toLocaleString()} FCFA`,
+      url: window.location.href,
+    };
+    if (navigator.share) {
+      try { await navigator.share(shareData); } catch {}
+    } else {
+      await navigator.clipboard.writeText(window.location.href);
+      showToast("Lien copié dans le presse-papier", "success");
+    }
   };
 
   const [errors, setErrors] = useState({});
@@ -454,11 +474,33 @@ export default function ProductDetails() {
             </motion.div>
 
             <motion.p
-              className="text-xs md:text-sm text-stone-600 leading-relaxed mb-8 font-light"
+              className="text-xs md:text-sm text-stone-600 leading-relaxed mb-5 font-light"
               variants={fadeInUp}
             >
               {product.description}
             </motion.p>
+
+            {/* Actions : Favori + Partage */}
+            <motion.div className="flex items-center gap-3 mb-6" variants={fadeInUp}>
+              <button
+                onClick={() => toggleWishlist(product)}
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-full border text-xs font-medium transition-all ${
+                  isInWishlist(product.id)
+                    ? "border-rose-300 bg-rose-50 text-rose-600"
+                    : "border-stone-200 text-stone-500 hover:border-stone-400"
+                }`}
+              >
+                <Heart className={`w-3.5 h-3.5 ${isInWishlist(product.id) ? "fill-rose-500 text-rose-500" : ""}`} />
+                {isInWishlist(product.id) ? "Dans vos favoris" : "Ajouter aux favoris"}
+              </button>
+              <button
+                onClick={handleShare}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-full border border-stone-200 text-stone-500 text-xs font-medium hover:border-stone-400 transition-all"
+              >
+                <Share2 className="w-3.5 h-3.5" />
+                Partager
+              </button>
+            </motion.div>
 
             <motion.div
               className="space-y-6 mb-6 pb-6 border-b border-stone-200/80"

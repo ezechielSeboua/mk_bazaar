@@ -68,6 +68,20 @@ export default function DashboardHome() {
 
     const recentProducts = useMemo(() => products.slice(0, 3), [products]);
     const showInitialLoad = isLoading && products.length === 0;
+
+    const lowStockItems = useMemo(() => {
+        const items = [];
+        products.forEach(product => {
+            if (product.variants?.length > 0) {
+                product.variants.forEach(v => {
+                    if (v.stock > 0 && v.stock <= 3) items.push({ product, variant: v });
+                });
+            } else if ((product.stock ?? 0) > 0 && product.stock <= 3) {
+                items.push({ product, variant: null });
+            }
+        });
+        return items;
+    }, [products]);
     
     return (
         <DashboardLayout>
@@ -269,6 +283,48 @@ export default function DashboardHome() {
                         </table>
                     </div>
                 </motion.div>
+
+                {/* Alertes stock bas */}
+                {!showInitialLoad && lowStockItems.length > 0 && (
+                    <motion.div
+                        className="bg-white border border-amber-200 rounded-lg p-4 md:p-6 shadow-sm"
+                        initial={{ opacity: 0, y: 15 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.4, delay: 0.1 }}
+                    >
+                        <div className="flex items-center justify-between mb-4">
+                            <h2 className="text-xs font-bold uppercase tracking-widest text-amber-600 flex items-center gap-2">
+                                <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                                Réapprovisionnement nécessaire ({lowStockItems.length})
+                            </h2>
+                        </div>
+                        <div className="space-y-2">
+                            {lowStockItems.map(({ product, variant }, i) => (
+                                <div key={`${product.id}-${variant?.id ?? 'base'}`}
+                                    className="flex items-center justify-between py-2 px-3 bg-amber-50/60 border border-amber-100 rounded-lg">
+                                    <div className="flex items-center gap-3 min-w-0">
+                                        {product.image_path?.[0] && (
+                                            <img src={resolveMediaUrl(product.image_path[0])} alt=""
+                                                className="w-8 h-8 rounded object-cover shrink-0" />
+                                        )}
+                                        <div className="min-w-0">
+                                            <p className="text-xs font-semibold text-stone-800 truncate">{product.name}</p>
+                                            {variant && (
+                                                <p className="text-[10px] text-stone-400">
+                                                    {Object.values(variant.attributes || {}).join(" · ")}
+                                                </p>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <span className="shrink-0 text-[10px] font-black text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full ml-2">
+                                        {variant ? variant.stock : product.stock} restant{(variant?.stock ?? product.stock) > 1 ? "s" : ""}
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+                    </motion.div>
+                )}
+
             </div>
         </DashboardLayout>
     );

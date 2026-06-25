@@ -1,6 +1,7 @@
-import { lazy, Suspense } from 'react'; // <-- 1. Importation des outils de lazy-loading
+import { lazy, Suspense } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
+import { WishlistProvider } from './contexts/WishlistContext';
 
 // Les Wrappers restent importés normalement car ils gèrent la structure et les contextes vitaux
 import DashboardWrapper from './components/DashboardWrapper';
@@ -15,8 +16,12 @@ const ProductList = lazy(() => import('./pages/ProductsList'));
 const ProductPage = lazy(() => import('./pages/ProductDetails'));
 const AboutPage = lazy(() => import('./pages/AboutPage'));
 
-// Page d'Authentification
-const LoginPage = lazy(() => import('./pages/Auth/LoginPage'));
+// Pages d'Authentification
+const LoginPage    = lazy(() => import('./pages/Auth/LoginPage'));
+const RegisterPage = lazy(() => import('./pages/Auth/RegisterPage'));
+
+// Espace client
+const AccountPage = lazy(() => import('./pages/Account/AccountPage'));
 
 // Pages du Dashboard
 const DashboardHome = lazy(() => import('./pages/Dashboard/DashboardHome'));
@@ -30,8 +35,7 @@ const ConfigurationsPage = lazy(() => import('./pages/Dashboard/ConfigurationsPa
 function App() {
   return (
     <AuthProvider>
-      {/* 3. Suspense intercepte le téléchargement des morceaux de code (chunks) 
-           et affiche ton LoadingScreen pendant l'opération */}
+      <WishlistProvider>
       <Suspense fallback={<LoadingScreen isLoading={true} />}>
         <Routes>
           {/* Vitrine */}
@@ -42,10 +46,12 @@ function App() {
             <Route path="/products/:slug" element={<ProductPage />} />
             <Route path="/panier" element={<BasketPage />} />
           </Route>
-          
+
           {/* Hors layout */}
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/about" element={<AboutPage />} />
+          <Route path="/login"    element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+          <Route path="/about"    element={<AboutPage />} />
+          <Route path="/compte"   element={<AccountPage />} />
 
           {/* Dashboard — Données chargées à la demande */}
           <Route path="/dashboard" element={<DashboardWrapper />}>
@@ -59,6 +65,7 @@ function App() {
           </Route>
         </Routes>
       </Suspense>
+      </WishlistProvider>
     </AuthProvider>
   );
 }
