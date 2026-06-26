@@ -5,9 +5,9 @@ namespace App\Http\Controllers;
 use App\Models\Product;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use Illuminate\Support\Facades\DB; // AJOUTÉ : Pour la sécurité des transactions
+use Illuminate\Support\Facades\DB;
+use Cloudinary\Cloudinary as CloudinarySDK;
 
 class ProductController extends Controller
 {
@@ -132,10 +132,7 @@ class ProductController extends Controller
 
             foreach ($files as $file) {
                 if ($file->isValid()) {
-                    $path = $file->store('products', 'public');
-                    if ($path !== false) {
-                        $paths[] = Storage::url($path);
-                    }
+                    $paths[] = $this->cloudinaryUpload($file, 'products');
                 }
             }
         }
@@ -150,8 +147,7 @@ class ProductController extends Controller
                 if ($request->hasFile("variants.{$index}.image")) {
                     $file = $request->file("variants.{$index}.image");
                     if ($file->isValid()) {
-                        $path = $file->store('variants', 'public');
-                        $variantData['image_path'] = Storage::url($path);
+                        $variantData['image_path'] = $this->cloudinaryUpload($file, 'variants');
                     }
                 }
                 $product->variants()->create($variantData);
@@ -207,10 +203,7 @@ class ProductController extends Controller
             // Supprimer uniquement les images qui ne sont plus conservées
             foreach (($product->image_path ?? []) as $imageUrl) {
                 if (!in_array($imageUrl, $existingToKeep)) {
-                    $relativePath = str_replace('/storage/', '', $imageUrl);
-                    if (Storage::disk('public')->exists($relativePath)) {
-                        Storage::disk('public')->delete($relativePath);
-                    }
+                    $this->cloudinaryDelete($imageUrl);
                 }
             }
 
@@ -221,10 +214,7 @@ class ProductController extends Controller
                 $files = is_array($files) ? $files : [$files];
                 foreach ($files as $file) {
                     if ($file->isValid()) {
-                        $path = $file->store('products', 'public');
-                        if ($path !== false) {
-                            $newImages[] = Storage::url($path);
-                        }
+                        $newImages[] = $this->cloudinaryUpload($file, 'products');
                     }
                 }
             }
@@ -251,14 +241,10 @@ class ProductController extends Controller
                             if (!empty($variantData['id'])) {
                                 $old = $product->variants()->find($variantData['id']);
                                 if ($old && $old->image_path) {
-                                    $rel = str_replace('/storage/', '', $old->image_path);
-                                    if (Storage::disk('public')->exists($rel)) {
-                                        Storage::disk('public')->delete($rel);
-                                    }
+                                    $this->cloudinaryDelete($old->image_path);
                                 }
                             }
-                            $path = $file->store('variants', 'public');
-                            $variantData['image_path'] = Storage::url($path);
+                            $variantData['image_path'] = $this->cloudinaryUpload($file, 'variants');
                         }
                     }
 
@@ -276,10 +262,7 @@ class ProductController extends Controller
                 $removed = $product->variants()->whereNotIn('id', $activeVariantIds)->get();
                 foreach ($removed as $variant) {
                     if ($variant->image_path) {
-                        $rel = str_replace('/storage/', '', $variant->image_path);
-                        if (Storage::disk('public')->exists($rel)) {
-                            Storage::disk('public')->delete($rel);
-                        }
+                        $this->cloudinaryDelete($variant->image_path);
                     }
                     $variant->delete();
                 }
@@ -299,18 +282,12 @@ class ProductController extends Controller
             ->firstOrFail();
 
         foreach (($product->image_path ?? []) as $imageUrl) {
-            $relativePath = str_replace('/storage/', '', $imageUrl);
-            if (Storage::disk('public')->exists($relativePath)) {
-                Storage::disk('public')->delete($relativePath);
-            }
+            $this->cloudinaryDelete($imageUrl);
         }
 
         foreach ($product->variants as $variant) {
             if ($variant->image_path) {
-                $rel = str_replace('/storage/', '', $variant->image_path);
-                if (Storage::disk('public')->exists($rel)) {
-                    Storage::disk('public')->delete($rel);
-                }
+                $this->cloudinaryDelete($variant->image_path);
             }
         }
         $product->variants()->delete();
@@ -333,17 +310,11 @@ class ProductController extends Controller
 
         foreach ($products as $product) {
             foreach (($product->image_path ?? []) as $imageUrl) {
-                $relativePath = str_replace('/storage/', '', $imageUrl);
-                if (Storage::disk('public')->exists($relativePath)) {
-                    Storage::disk('public')->delete($relativePath);
-                }
+                $this->cloudinaryDelete($imageUrl);
             }
             foreach ($product->variants as $variant) {
                 if ($variant->image_path) {
-                    $rel = str_replace('/storage/', '', $variant->image_path);
-                    if (Storage::disk('public')->exists($rel)) {
-                        Storage::disk('public')->delete($rel);
-                    }
+                    $this->cloudinaryDelete($variant->image_path);
                 }
             }
             $product->variants()->delete();
@@ -354,5 +325,28 @@ class ProductController extends Controller
             'success' => true,
             'message' => count($validated['ids']) . ' produit(s) supprimé(s).',
         ]);
+    }
+
+    private function cloudinary(): CloudinarySDK
+    {
+        return new CloudinarySDK(config('services.cloudinary.url'));
+    }
+
+    private function cloudinaryUpload($file, string $folder): string
+    {
+        $result = $this->cloudinary()->uploadApi()->upload($file->getRealPath(), [
+            'folder' => $folder,
+            'resource_type' => 'image',
+        ]);
+        return $result['secure_url'];
+    }
+
+    private function cloudinaryDelete(string $url): void
+    {
+        // Extrait le public ID depuis l'URL Cloudinary
+        // Ex: https://res.cloudinary.com/cloud/image/upload/v123/products/file.jpg → products/file
+        if (preg_match('/\/upload\/(?:v\d+\/)?(.+)\.[^.]+$/', $url, $matches)) {
+            $this->cloudinary()->uploadApi()->destroy($matches[1]);
+        }
     }
 }
