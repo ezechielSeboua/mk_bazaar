@@ -39,10 +39,9 @@ class ProductController extends Controller
 
         // Recherche textuelle
         if ($request->filled('search')) {
-            $query->where(function ($q) use ($request) {
-                $q->where('name', 'like', '%' . $request->search . '%')
-                    ->orWhere('description', 'like', '%' . $request->search . '%');
-            });
+            $search = '%' . substr($request->search, 0, 100) . '%';
+            $query->where(fn($q) => $q->where('name', 'like', $search)
+                                      ->orWhere('description', 'like', $search));
         }
 
         // Tri des données

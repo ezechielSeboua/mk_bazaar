@@ -30,9 +30,9 @@ use App\Http\Controllers\ProfileController;
 |   resources/js/pages/Profile/Edit.jsx
 */
 
-// ─── Pages Publiques ────────────────────────────────────────────────
+// ─── Health check ───────────────────────────────────────────────────
 Route::get('/', function () {
-    return inertia('Home');
+    return response()->json(['status' => 'ok']);
 })->name('home');
 
 Route::get('/welcome', function () {

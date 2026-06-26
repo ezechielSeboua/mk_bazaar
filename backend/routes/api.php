@@ -29,7 +29,7 @@ Route::get('/variants', [ProductVariantController::class, 'index']);
 Route::get('/variants/{productVariant}', [ProductVariantController::class, 'show']);
 
 // Tunnel d'achat public
-Route::post('/orders', [OrderController::class, 'store']);
+Route::post('/orders', [OrderController::class, 'store'])->middleware('throttle:10,1');
 
 
 // Configuration de l'application (Hero, Carrousel, etc.)

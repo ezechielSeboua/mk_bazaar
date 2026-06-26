@@ -5,8 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\Category;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Cloudinary\Cloudinary as CloudinarySDK;
 
 class CategoryController extends Controller
 {
@@ -39,8 +39,7 @@ class CategoryController extends Controller
         if ($request->hasFile('image_path')) {
             $file = $request->file('image_path');
             if ($file->isValid()) {
-                $path = $file->store('categories', 'public');
-                $validated['image_path'] = Storage::url($path);
+                $validated['image_path'] = $this->cloudinaryUpload($file, 'categories');
             }
         }
 
@@ -89,16 +88,12 @@ class CategoryController extends Controller
         // 3. Gestion du remplacement de l'image
         if ($request->hasFile('image_path')) {
             if ($category->image_path) {
-                $relativePath = str_replace('/storage/', '', $category->image_path);
-                if (Storage::disk('public')->exists($relativePath)) {
-                    Storage::disk('public')->delete($relativePath);
-                }
+                $this->cloudinaryDelete($category->image_path);
             }
 
             $file = $request->file('image_path');
             if ($file->isValid()) {
-                $path = $file->store('categories', 'public');
-                $validated['image_path'] = Storage::url($path);
+                $validated['image_path'] = $this->cloudinaryUpload($file, 'categories');
             }
         }
 
@@ -127,10 +122,7 @@ class CategoryController extends Controller
 
         // Nettoyage de l'image
         if ($category->image_path) {
-            $relativePath = str_replace('/storage/', '', $category->image_path);
-            if (Storage::disk('public')->exists($relativePath)) {
-                Storage::disk('public')->delete($relativePath);
-            }
+            $this->cloudinaryDelete($category->image_path);
         }
 
         $category->delete();
@@ -138,5 +130,26 @@ class CategoryController extends Controller
         return response()->json([
             'message' => 'La catégorie a été supprimée avec succès.'
         ]);
+    }
+
+    private function cloudinary(): CloudinarySDK
+    {
+        return new CloudinarySDK(config('services.cloudinary.url'));
+    }
+
+    private function cloudinaryUpload($file, string $folder): string
+    {
+        $result = $this->cloudinary()->uploadApi()->upload($file->getRealPath(), [
+            'folder' => $folder,
+            'resource_type' => 'image',
+        ]);
+        return $result['secure_url'];
+    }
+
+    private function cloudinaryDelete(string $url): void
+    {
+        if (preg_match('/\/upload\/(?:v\d+\/)?(.+)\.[^.]+$/', $url, $matches)) {
+            $this->cloudinary()->uploadApi()->destroy($matches[1]);
+        }
     }
 }

@@ -6,7 +6,6 @@ use App\Models\Product;
 use App\Models\Category;
 use App\Models\ProductVariant;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class ProductsSeeder extends Seeder

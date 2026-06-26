@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Setting;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\Storage;
+use Cloudinary\Cloudinary as CloudinarySDK;
 
 class AppSettingController extends Controller
 {
@@ -35,9 +35,12 @@ class AppSettingController extends Controller
             'image' => 'required|image|mimes:jpeg,jpg,png,webp|max:4096',
         ]);
 
-        $path = $request->file('image')->store('settings', 'public');
+        $file = $request->file('image');
+        $result = (new CloudinarySDK(config('services.cloudinary.url')))
+            ->uploadApi()
+            ->upload($file->getRealPath(), ['folder' => 'settings', 'resource_type' => 'image']);
 
-        return response()->json(['url' => Storage::url($path)]);
+        return response()->json(['url' => $result['secure_url']]);
     }
 
     /**
