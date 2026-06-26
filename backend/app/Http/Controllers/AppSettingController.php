@@ -11,6 +11,7 @@ class AppSettingController extends Controller
 {
     private const ALLOWED_KEYS = [
         'hero',
+        'hero_config',
         'hero_banner',
         'carousel',
         'testimonials',

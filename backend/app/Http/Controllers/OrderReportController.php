@@ -32,7 +32,7 @@ class OrderReportController extends Controller
         $salesEvolution = Order::where('status', 'completed')
             ->where('created_at', '>=', $startDate)
             ->select(
-                DB::raw("DATE_FORMAT(created_at, '%Y-%m-%d') as date_formatted"),
+                DB::raw("CAST(created_at AS DATE) as date_formatted"),
                 DB::raw('SUM(total_price) as daily_revenue'),
                 DB::raw('COUNT(id) as daily_orders_count')
             )
