@@ -10,8 +10,10 @@ use Cloudinary\Cloudinary as CloudinarySDK;
 class AppSettingController extends Controller
 {
     private const ALLOWED_KEYS = [
+        'hero',
         'hero_banner',
         'carousel',
+        'testimonials',
         'delivery_zones',
         'shipping_zones',
         'site_name',
