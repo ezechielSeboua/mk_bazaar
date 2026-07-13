@@ -13,6 +13,7 @@ import {
   Heart,
   Share2,
   Copy,
+  RotateCcw,
 } from "lucide-react";
 import Header from "../components/Header";
 import ProductGallery from "../components/ProductGallery";
@@ -24,7 +25,8 @@ import {
   buildProductJsonLd,
   buildBreadcrumbJsonLd,
 } from "../utils/seoStructuredData";
-import { useCatalogData } from "../contexts/CatalogContext";
+import { useCatalogData, useCatalogProducts } from "../contexts/CatalogContext";
+import RelatedProducts from "../components/RelatedProducts";
 import { getWhatsAppLink } from "../config/env";
 import Footer from "../components/Footer";
 import { useAuth } from "../contexts/AuthContext";
@@ -89,6 +91,8 @@ function Toast({ message, type, onClose }) {
 
   return (
     <motion.div
+      role="alert"
+      aria-live={type === "error" ? "assertive" : "polite"}
       initial={{ opacity: 0, y: -10 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -10 }}
@@ -98,6 +102,7 @@ function Toast({ message, type, onClose }) {
       <span className="text-xs font-medium pr-6">{message}</span>
       <button
         onClick={onClose}
+        aria-label="Fermer la notification"
         className="absolute right-2 top-2 text-current opacity-60 hover:opacity-100"
       >
         <X className="w-3 h-3" />
@@ -150,6 +155,13 @@ export default function ProductDetails() {
   };
 
   const [errors, setErrors] = useState({});
+
+  // Produits similaires : même catégorie, produit courant exclu, max 4.
+  const categorySlug = product?.category?.slug ?? null;
+  const { products: relatedRaw } = useCatalogProducts({ page: 1, categorySlug });
+  const relatedProducts = relatedRaw
+    .filter((p) => p.id !== product?.id)
+    .slice(0, 10);
 
   useEffect(() => {
     if (!slug) return;
@@ -217,7 +229,18 @@ export default function ProductDetails() {
     }
     if (!user) {
       if (!customerName.trim()) newErrors.customerName = "Le nom est obligatoire";
-      if (!customerPhone.trim()) newErrors.customerPhone = "Le téléphone est obligatoire";
+      if (!customerPhone.trim()) {
+        newErrors.customerPhone = "Le téléphone est obligatoire";
+      } else {
+        // Format ivoirien : 10 chiffres, préfixe +225 / 225 optionnel
+        const cleanedPhone = customerPhone.replace(/[\s.-]/g, "");
+        if (!/^(\+?225)?[0-9]{10}$/.test(cleanedPhone)) {
+          newErrors.customerPhone = "Numéro invalide (10 chiffres attendus)";
+        }
+      }
+    } else if (!user.phone?.trim()) {
+      newErrors.userPhone =
+        "Aucun téléphone sur votre compte. Ajoutez-en un pour être recontacté.";
     }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -231,6 +254,10 @@ export default function ProductDetails() {
 
     const resolvedName  = user ? user.name  : customerName.trim();
     const resolvedPhone = user ? user.phone : customerPhone.trim();
+
+    // Onglet pré-ouvert DANS le geste utilisateur pour éviter le blocage popup.
+    // On lui affectera l'URL WhatsApp une fois la commande créée.
+    const waWindow = window.open("", "_blank");
 
     setIsSubmitting(true);
     try {
@@ -282,21 +309,29 @@ export default function ProductDetails() {
           "success",
         );
 
-        setTimeout(() => {
-          window.open(getWhatsAppLink(message), "_blank");
-          setQuantity(1);
-          setSelectedZone(null);
-          setAddressDetail("");
-          if (!user) {
-            setCustomerName("");
-            setCustomerPhone("");
-          }
-          setOrderSuccess(false);
-        }, 1500);
+        // Redirection immédiate de l'onglet pré-ouvert (non bloquée par le navigateur).
+        const waLink = getWhatsAppLink(message);
+        if (waWindow) {
+          waWindow.location.href = waLink;
+        } else {
+          // Fallback si l'onglet n'a pas pu être pré-ouvert.
+          window.location.assign(waLink);
+        }
+
+        setQuantity(1);
+        setSelectedZone(null);
+        setAddressDetail("");
+        if (!user) {
+          setCustomerName("");
+          setCustomerPhone("");
+        }
+        setTimeout(() => setOrderSuccess(false), 1500);
       } else {
+        if (waWindow) waWindow.close();
         showToast(response.error || "Erreur lors de la validation. Veuillez réessayer.", "error");
       }
     } catch (error) {
+      if (waWindow) waWindow.close();
       console.error(error);
       showToast("Une erreur est survenue. Veuillez réessayer.", "error");
     } finally {
@@ -631,18 +666,36 @@ export default function ProductDetails() {
 
               {/* Infos client — auto si connecté, saisie sinon */}
               {user ? (
-                <div className="flex items-center gap-3 bg-stone-50 border border-stone-200 rounded-xl px-4 py-3">
-                  <div className="w-7 h-7 rounded-full bg-stone-200 flex items-center justify-center flex-shrink-0">
-                    <span className="text-[10px] font-bold text-stone-600 uppercase">
-                      {user.name?.charAt(0) || "?"}
-                    </span>
+                <div>
+                  <div
+                    className={`flex items-center gap-3 bg-stone-50 border rounded-xl px-4 py-3 ${
+                      errors.userPhone ? "border-rose-300" : "border-stone-200"
+                    }`}
+                  >
+                    <div className="w-7 h-7 rounded-full bg-stone-200 flex items-center justify-center flex-shrink-0">
+                      <span className="text-[10px] font-bold text-stone-600 uppercase">
+                        {user.name?.charAt(0) || "?"}
+                      </span>
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold text-stone-900 truncate">{user.name}</p>
+                      <p className="text-[10px] text-stone-400 truncate">
+                        {user.phone || "Aucun téléphone enregistré"}
+                      </p>
+                    </div>
                   </div>
-                  <div className="min-w-0">
-                    <p className="text-xs font-semibold text-stone-900 truncate">{user.name}</p>
-                    <p className="text-[10px] text-stone-400 truncate">
-                      {user.phone || "Aucun téléphone enregistré"}
+                  {errors.userPhone && (
+                    <p className="text-[9px] text-rose-600 mt-1">
+                      {errors.userPhone}{" "}
+                      <button
+                        type="button"
+                        onClick={() => navigate("/compte")}
+                        className="underline font-semibold hover:text-rose-700"
+                      >
+                        Compléter mon compte
+                      </button>
                     </p>
-                  </div>
+                  )}
                 </div>
               ) : (
                 <>
@@ -899,8 +952,30 @@ export default function ProductDetails() {
           </motion.div>
         </div>
 
-        {/* Politique de retour (maintenant sous la grille) */}
+        {/* Politique de retour */}
+        <motion.div
+          initial={{ opacity: 0, y: 15 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          className="mt-12 bg-white rounded-2xl border border-stone-200 p-6 flex items-start gap-4"
+        >
+          <RotateCcw className="w-5 h-5 text-[#c07b5a] flex-shrink-0 mt-0.5" />
+          <div>
+            <h2 className="text-[12px] uppercase tracking-[0.25em] font-bold text-stone-900 mb-1.5">
+              Retours & échanges
+            </h2>
+            <p className="text-xs text-stone-600 leading-relaxed font-light">
+              Vous disposez de 48 h après réception pour signaler un article
+              défectueux ou non conforme. Contactez-nous sur WhatsApp pour
+              organiser un échange ou un remboursement. Les frais de retour sont
+              à notre charge en cas d’erreur de notre part.
+            </p>
+          </div>
+        </motion.div>
       </main>
+
+      {/* Produits similaires */}
+      <RelatedProducts products={relatedProducts} />
         <Footer />
     </div>
   );
