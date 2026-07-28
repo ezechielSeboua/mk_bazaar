@@ -4,6 +4,7 @@ import Footer from '../components/Footer';
 import { containerVariants, itemVariants } from '../components/AnimationVariants';
 import Seo from '../components/Seo';
 import { getWhatsAppLink } from '../config/env'; // lien WhatsApp préconfiguré
+import { useSiteSettings } from '../contexts/SiteSettingsContext';
 
 /* ---------- Icônes SVG ---------- */
 function TargetIcon() {
@@ -61,7 +62,9 @@ const heroItemVariants = {
 };
 
 export default function AboutPage() {
-  const whatsappLink = getWhatsAppLink(); // récupère le lien configuré (ex: https://wa.me/225...)
+  const { contactInfo } = useSiteSettings();
+  // Numéro du dashboard en priorité, repli sur VITE_WHATSAPP_NUMBER.
+  const whatsappLink = getWhatsAppLink(null, contactInfo.whatsapp);
 
   return (
     <div className="min-h-screen bg-[#F9F9F7] text-black antialiased selection:bg-black selection:text-[#F9F9F7]">

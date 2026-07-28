@@ -28,8 +28,10 @@ import {
 import { useCatalogData, useCatalogProducts } from "../contexts/CatalogContext";
 import RelatedProducts from "../components/RelatedProducts";
 import { getWhatsAppLink } from "../config/env";
+import { buildOrderMessage, formatVariantLabel } from "../utils/whatsappMessage";
 import Footer from "../components/Footer";
 import { useAuth } from "../contexts/AuthContext";
+import { useSiteSettings } from "../contexts/SiteSettingsContext";
 import { useWishlist } from "../contexts/WishlistContext";
 
 // ---------- Composants utilitaires ----------
@@ -118,6 +120,7 @@ export default function ProductDetails() {
   const navigate = useNavigate();
   const { shippingZones } = useCatalogData();
   const { user } = useAuth();
+  const { contactInfo } = useSiteSettings();
 
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -262,9 +265,7 @@ export default function ProductDetails() {
     setIsSubmitting(true);
     try {
       const variantLabel = selectedVariant
-        ? Object.entries(selectedVariant.attributes)
-            .map(([key, val]) => `${key.toUpperCase()}: ${val}`)
-            .join(", ")
+        ? formatVariantLabel(selectedVariant.attributes)
         : "Standard";
 
       const orderData = {
@@ -283,25 +284,14 @@ export default function ProductDetails() {
 
       const response = await createOrder(orderData);
       if (response.success) {
-        const orderReference =
-          response.data?.order?.order_number ||
-          response.data?.reference ||
-          "—";
-
-        const message =
-          `🛍️ *ACHAT INSTANTANÉ — MK BAZAAR*\n\n` +
-          `📌 *Référence :* #${orderReference}\n\n` +
-          `👤 *Client :* ${resolvedName}\n` +
-          `📞 *Téléphone :* ${resolvedPhone}\n\n` +
-          `📦 *Produit :* ${product.name}\n` +
-          `✨ *Option / Taille :* ${variantLabel}\n` +
-          `💰 *Prix unitaire :* ${currentPrice.toLocaleString()} FCFA\n` +
-          `🔢 *Quantité :* ${quantity}\n\n` +
-          `🚚 *Livraison :* ${selectedZone.name}\n` +
-          `💵 *Frais :* ${selectedZone.price.toLocaleString()} FCFA\n` +
-          `📍 *Adresse :* ${addressDetail.trim()}\n` +
-          `💰 *Total :* ${totalAmount.toLocaleString()} FCFA\n\n` +
-          `Merci de me valider la disponibilité.`;
+        // Montants et référence pris sur la réponse serveur.
+        const message = buildOrderMessage({
+          order: response.data?.order,
+          items: [{ name: product.name, variantLabel, quantity }],
+          customerName: resolvedName,
+          customerPhone: resolvedPhone,
+          title: "ACHAT INSTANTANÉ — MK BAZAAR",
+        });
 
         setOrderSuccess(true);
         showToast(
@@ -310,8 +300,15 @@ export default function ProductDetails() {
         );
 
         // Redirection immédiate de l'onglet pré-ouvert (non bloquée par le navigateur).
-        const waLink = getWhatsAppLink(message);
-        if (waWindow) {
+        const waLink = getWhatsAppLink(message, contactInfo.whatsapp);
+        if (!waLink) {
+          if (waWindow) waWindow.close();
+          showToast(
+            `Commande enregistrée (réf. #${response.data?.order?.order_number ?? "—"}), ` +
+            `mais aucun numéro WhatsApp n'est configuré.`,
+            "error",
+          );
+        } else if (waWindow) {
           waWindow.location.href = waLink;
         } else {
           // Fallback si l'onglet n'a pas pu être pré-ouvert.

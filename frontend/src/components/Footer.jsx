@@ -1,15 +1,16 @@
 import { Link } from "react-router-dom";
 import { FaWhatsapp, FaInstagram, FaFacebook, FaTiktok, FaPinterest } from "react-icons/fa";
-import { resolveMediaUrl } from "../config/env";
+import { resolveMediaUrl, getWhatsAppLink } from "../config/env";
 import { useSiteSettings } from "../contexts/SiteSettingsContext";
 
 export default function Footer() {
   const { siteName, contactInfo, socialLinks, logo } = useSiteSettings();
 
   const logoSrc = logo?.url ? resolveMediaUrl(logo.url) : '/mk_bazaar_logo.png';
-  const whatsappHref = contactInfo.whatsapp
-    ? `https://wa.me/${contactInfo.whatsapp}`
-    : null;
+  // getWhatsAppLink applique le repli VITE_WHATSAPP_NUMBER et retourne null si
+  // aucun numéro n'est exploitable : pas de garde supplémentaire ici, sinon le
+  // footer masquerait son lien pendant que le reste du site affiche le sien.
+  const whatsappHref = getWhatsAppLink(null, contactInfo.whatsapp);
 
   const socialItems = [
     { key: 'instagram', icon: FaInstagram, label: 'Instagram' },
@@ -34,22 +35,6 @@ export default function Footer() {
             Sélection d'objets d'art et pièces textiles épurées. L'authenticité
             à l'état pur.
           </p>
-          {socialItems.length > 0 && (
-            <div className="flex items-center gap-3 mt-5">
-              {socialItems.map(({ key, icon: Icon, label }) => (
-                <a
-                  key={key}
-                  href={socialLinks[key]}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label={label}
-                  className="text-stone-400 hover:text-white transition-colors"
-                >
-                  <Icon className="text-lg" />
-                </a>
-              ))}
-            </div>
-          )}
         </div>
 
         {/* Colonne 2 – Navigation */}
@@ -101,6 +86,22 @@ export default function Footer() {
                 Échanger sur WhatsApp
               </span>
             </a>
+          )}
+          {socialItems.length > 0 && (
+            <div className="flex items-center gap-3 mt-5">
+              {socialItems.map(({ key, icon: Icon, label }) => (
+                <a
+                  key={key}
+                  href={socialLinks[key]}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={label}
+                  className="text-stone-400 hover:text-white transition-colors"
+                >
+                  <Icon className="text-lg" />
+                </a>
+              ))}
+            </div>
           )}
         </div>
       </div>

@@ -22,11 +22,76 @@ class AppSettingController extends Controller
         'promo_banner',  // Bannière promotionnelle sticky (toggle + texte)
     ];
 
+    /**
+     * Règles de validation par clé, appliquées à la valeur décodée.
+     *
+     * Ces valeurs sont servies publiquement et réinjectées dans des URLs côté
+     * front (lien wa.me, liens sociaux) : une saisie libre y ferait passer des
+     * paramètres arbitraires. Les clés absentes de cette table ne sont pas
+     * validées structurellement — elles portent du contenu éditorial libre.
+     */
+    private const VALUE_RULES = [
+        'contact_info' => [
+            'whatsapp' => ['nullable', 'string', 'regex:/^\d{8,15}$/'],
+            'email'    => ['nullable', 'email', 'max:255'],
+            'address'  => ['nullable', 'string', 'max:255'],
+        ],
+    ];
+
     private function validateKey(string $key): void
     {
         if (!in_array($key, self::ALLOWED_KEYS, true)) {
             abort(422, "Clé de configuration invalide : {$key}");
         }
+    }
+
+    /**
+     * Normalise puis valide la valeur, et retourne la version à stocker.
+     *
+     * Les clés absentes de VALUE_RULES portent du contenu éditorial libre et
+     * traversent sans contrainte de structure.
+     */
+    private function sanitizeValue(string $key, mixed $value): mixed
+    {
+        if ($key === 'site_name') {
+            if (!is_string($value) || trim($value) === '' || mb_strlen($value) > 100) {
+                abort(422, 'Le nom du site doit être une chaîne de 1 à 100 caractères.');
+            }
+
+            return trim($value);
+        }
+
+        $rules = self::VALUE_RULES[$key] ?? null;
+
+        if ($rules === null) {
+            return $value;
+        }
+
+        if (!is_array($value)) {
+            abort(422, "La configuration « {$key} » doit être un objet.");
+        }
+
+        if ($key === 'contact_info' && isset($value['whatsapp'])) {
+            $raw = (string) $value['whatsapp'];
+
+            // L'admin saisit volontiers « +225 01 41 64 94 64 » : on tolère les
+            // séparateurs usuels. Tout autre caractère est refusé plutôt que
+            // silencieusement retiré — sinon « 225…?text=… » deviendrait un
+            // numéro erroné en base au lieu d'une erreur visible.
+            if ($raw !== '' && preg_match('/[^\d\s+()\-.]/', $raw)) {
+                abort(422, 'Le numéro WhatsApp ne doit contenir que des chiffres et des séparateurs (+, -, espace, parenthèses).');
+            }
+
+            $value['whatsapp'] = preg_replace('/\D/', '', $raw);
+        }
+
+        $validator = validator($value, $rules);
+
+        if ($validator->fails()) {
+            abort(422, $validator->errors()->first());
+        }
+
+        return $value;
     }
 
     /**
@@ -82,6 +147,8 @@ class AppSettingController extends Controller
                 $value = $decoded;
             }
         }
+
+        $value = $this->sanitizeValue($key, $value);
 
         $setting = Setting::updateOrCreate(
             ['key' => $key],

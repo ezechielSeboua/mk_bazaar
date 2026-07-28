@@ -5,9 +5,11 @@ import { MapPin, AlertCircle, Eye, Trash2 } from "lucide-react";
 import Header from "../components/Header";
 import { useCatalogData } from "../contexts/CatalogContext";
 import { getWhatsAppLink, resolveMediaUrl } from "../config/env";
+import { buildOrderMessage, formatVariantLabel } from "../utils/whatsappMessage";
 import { createOrder } from "../services/order";
 import Footer from "../components/Footer";
 import { useAuth } from "../contexts/AuthContext";
+import { useSiteSettings } from "../contexts/SiteSettingsContext";
 
 /* ---------- Icône WhatsApp ---------- */
 function WhatsAppIcon() {
@@ -23,6 +25,7 @@ function WhatsAppIcon() {
 export default function BasketPage() {
   const { shippingZones } = useCatalogData();
   const { user } = useAuth();
+  const { contactInfo } = useSiteSettings();
 
   const [cartItems, setCartItems] = useState(() => {
     const savedCart = localStorage.getItem("mk_bazaar_cart");
@@ -111,6 +114,11 @@ export default function BasketPage() {
     const resolvedName  = user ? user.name  : customerName.trim();
     const resolvedPhone = user ? user.phone : customerPhone.trim();
 
+    // Onglet pré-ouvert DANS le geste utilisateur : après l'await de création de
+    // commande, l'activation transitoire est consommée et window.open serait
+    // bloqué (systématiquement sur Safari, au-delà de ~5 s sur Chrome).
+    const waWindow = window.open("", "_blank");
+
     setIsSubmitting(true);
     try {
       setOrderError(null);
@@ -128,31 +136,18 @@ export default function BasketPage() {
 
       const response = await createOrder(orderData);
       if (response.success) {
-        const orderReference =
-          response.data?.order?.order_number ||
-          response.data?.reference ||
-          "—";
-
-        let message = `🛍️ *NOUVELLE COMMANDE — MK BAZAAR*\n\n`;
-        message += `📌 *Référence :* #${orderReference}\n\n`;
-        message += `👤 *Client :* ${resolvedName}\n`;
-        message += `📞 *Téléphone :* ${resolvedPhone}\n\n`;
-        message += `Bonjour, je souhaite valider mon panier :\n\n`;
-        cartItems.forEach((item, index) => {
-          const variantText = item.attributes
-            ? ` (${Object.values(item.attributes).join(" - ")})`
-            : "";
-          message += `${index + 1}. *${item.name}${variantText}*\n`;
-          message += `   Quantité : ${item.quantity}\n`;
-          message += `   Prix : ${(item.price * item.quantity).toLocaleString()} FCFA\n\n`;
+        // Montants et référence pris sur la réponse serveur : les totaux locaux
+        // ne servent qu'à l'affichage de la page.
+        const message = buildOrderMessage({
+          order: response.data?.order,
+          items: cartItems.map((item) => ({
+            name: item.name,
+            variantLabel: formatVariantLabel(item.attributes),
+            quantity: item.quantity,
+          })),
+          customerName: resolvedName,
+          customerPhone: resolvedPhone,
         });
-        message += `---------------------------------\n`;
-        message += `📦 *Sous-total :* ${calculateSubtotal().toLocaleString()} FCFA\n`;
-        message += `🚚 *Livraison :* ${selectedZone.name}\n`;
-        message += `💵 *Frais d'expédition :* ${deliveryPrice.toLocaleString()} FCFA\n`;
-        message += `📍 *Adresse :* ${addressDetail.trim()}\n`;
-        message += `💰 *Total à régler :* ${totalAmount.toLocaleString()} FCFA\n\n`;
-        message += `Merci de prendre en compte ma commande.`;
 
         setCartItems([]);
         setSelectedZone(null);
@@ -161,11 +156,29 @@ export default function BasketPage() {
           setCustomerName("");
           setCustomerPhone("");
         }
-        window.open(getWhatsAppLink(message), "_blank");
+
+        const waLink = getWhatsAppLink(message, contactInfo.whatsapp);
+        if (!waLink) {
+          // Aucun numéro configuré : la commande existe, on donne sa référence
+          // au client plutôt que de le laisser sans retour.
+          if (waWindow) waWindow.close();
+          setOrderError(
+            `Commande enregistrée sous la référence #${response.data?.order?.order_number ?? "—"}, ` +
+            `mais aucun numéro WhatsApp n'est configuré. Contactez-nous avec cette référence.`
+          );
+        } else if (waWindow) {
+          waWindow.location.href = waLink;
+        } else {
+          // L'onglet a été bloqué : on bascule dans l'onglet courant plutôt que
+          // de laisser le client sans redirection après une commande créée.
+          window.location.assign(waLink);
+        }
       } else {
+        if (waWindow) waWindow.close();
         setOrderError(response.error || "Erreur lors de la validation. Veuillez réessayer.");
       }
     } catch (error) {
+      if (waWindow) waWindow.close();
       console.error("Erreur de commande:", error);
       setOrderError("Une erreur réseau est survenue. Veuillez réessayer.");
     } finally {

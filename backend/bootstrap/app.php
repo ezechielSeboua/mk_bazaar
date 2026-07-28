@@ -10,7 +10,7 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function ($middleware) {
-        $middleware->prepend(\Illuminate\Http\Middleware\HandleCors::class);
+        // HandleCors fait déjà partie du stack global par défaut de Laravel.
         $middleware->alias([
             'admin' => \App\Http\Middleware\AdminMiddleware::class,
         ]);
