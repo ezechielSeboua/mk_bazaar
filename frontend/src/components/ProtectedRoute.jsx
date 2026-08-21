@@ -2,7 +2,8 @@ import { Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function ProtectedRoute({ children, requireAdmin = false }) {
-    const { user, isLoading, isAuthenticated } = useAuth();
+    // S-05 : utiliser isAdmin du contexte (couvre is_admin, role, roles[])
+    const { isLoading, isAuthenticated, isAdmin } = useAuth();
 
     if (isLoading) {
         return (
@@ -15,13 +16,11 @@ export default function ProtectedRoute({ children, requireAdmin = false }) {
         );
     }
 
-    // Vérifier l'authentification
     if (!isAuthenticated) {
         return <Navigate to="/login" replace />;
     }
 
-    // Vérifier les permissions admin si requis
-    if (requireAdmin && !user?.is_admin) {
+    if (requireAdmin && !isAdmin) {
         return <Navigate to="/" replace />;
     }
 

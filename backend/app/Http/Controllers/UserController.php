@@ -63,6 +63,16 @@ class UserController extends Controller
         $isAdmin = $validated['is_admin'] ?? null;
         unset($validated['is_admin']);
 
+        // Prevent removing admin rights from the last administrator
+        if ($isAdmin === false && $user->is_admin) {
+            $adminCount = User::where('is_admin', true)->count();
+            if ($adminCount <= 1) {
+                return response()->json([
+                    'message' => 'Impossible de rétrograder le dernier administrateur.'
+                ], 403);
+            }
+        }
+
         $user->update($validated);
 
         if (!is_null($isAdmin)) {

@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Star, ShoppingBag } from "lucide-react";
+import { Star, ShoppingBag, Heart } from "lucide-react";
 import { resolveMediaUrl, DEFAULT_PLACEHOLDER_IMAGE } from "../config/env";
 import VariantPickerModal from "./VariantPickerModal";
+import { useWishlist } from "../contexts/WishlistContext";
 
 /* ---------- Icônes ---------- */
 const CategoryIcon = () => (
@@ -36,6 +37,8 @@ const WhatsAppIcon = () => (
 
 export default function ProductCard({ product, delay = 0 }) {
   const [showVariantModal, setShowVariantModal] = useState(false);
+  const { toggleWishlist, isInWishlist } = useWishlist();
+  const loved = isInWishlist(product.id);
 
   const backgroundImage = product.image_path?.[0]
     ? resolveMediaUrl(product.image_path[0])
@@ -121,6 +124,15 @@ export default function ProductCard({ product, delay = 0 }) {
             </span>
           </div>
         )}
+
+        {/* Bouton favori */}
+        <button
+          onClick={(e) => { e.preventDefault(); toggleWishlist(product); }}
+          className="absolute top-2 right-2 z-10 p-1.5 rounded-full bg-white/80 backdrop-blur-sm shadow-sm transition-all hover:scale-110"
+          aria-label={loved ? "Retirer des favoris" : "Ajouter aux favoris"}
+        >
+          <Heart className={`w-3.5 h-3.5 transition-colors ${loved ? "fill-rose-500 text-rose-500" : "text-stone-400"}`} />
+        </button>
         {!isAvailable && (
           <div className="absolute inset-0 bg-white/80 flex items-center justify-center">
             <span className="text-[10px] font-bold uppercase text-stone-600 tracking-widest">

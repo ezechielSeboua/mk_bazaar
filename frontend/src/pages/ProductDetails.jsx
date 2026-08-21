@@ -10,6 +10,10 @@ import {
   X,
   CheckCircle,
   AlertCircle,
+  Heart,
+  Share2,
+  Copy,
+  RotateCcw,
 } from "lucide-react";
 import Header from "../components/Header";
 import ProductGallery from "../components/ProductGallery";
@@ -21,10 +25,14 @@ import {
   buildProductJsonLd,
   buildBreadcrumbJsonLd,
 } from "../utils/seoStructuredData";
-import { useCatalogData } from "../contexts/CatalogContext";
+import { useCatalogData, useCatalogProducts } from "../contexts/CatalogContext";
+import RelatedProducts from "../components/RelatedProducts";
 import { getWhatsAppLink } from "../config/env";
+import { buildOrderMessage, formatVariantLabel } from "../utils/whatsappMessage";
 import Footer from "../components/Footer";
 import { useAuth } from "../contexts/AuthContext";
+import { useSiteSettings } from "../contexts/SiteSettingsContext";
+import { useWishlist } from "../contexts/WishlistContext";
 
 // ---------- Composants utilitaires ----------
 
@@ -85,6 +93,8 @@ function Toast({ message, type, onClose }) {
 
   return (
     <motion.div
+      role="alert"
+      aria-live={type === "error" ? "assertive" : "polite"}
       initial={{ opacity: 0, y: -10 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -10 }}
@@ -94,6 +104,7 @@ function Toast({ message, type, onClose }) {
       <span className="text-xs font-medium pr-6">{message}</span>
       <button
         onClick={onClose}
+        aria-label="Fermer la notification"
         className="absolute right-2 top-2 text-current opacity-60 hover:opacity-100"
       >
         <X className="w-3 h-3" />
@@ -109,6 +120,7 @@ export default function ProductDetails() {
   const navigate = useNavigate();
   const { shippingZones } = useCatalogData();
   const { user } = useAuth();
+  const { contactInfo } = useSiteSettings();
 
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -123,13 +135,36 @@ export default function ProductDetails() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [orderSuccess, setOrderSuccess] = useState(false);
 
+  const { toggleWishlist, isInWishlist } = useWishlist();
+
   const [toast, setToast] = useState(null);
   const showToast = (message, type = "info") => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 5000);
   };
 
+  const handleShare = async () => {
+    const shareData = {
+      title: product?.name,
+      text: `${product?.name} — ${currentPrice?.toLocaleString()} FCFA`,
+      url: window.location.href,
+    };
+    if (navigator.share) {
+      try { await navigator.share(shareData); } catch {}
+    } else {
+      await navigator.clipboard.writeText(window.location.href);
+      showToast("Lien copié dans le presse-papier", "success");
+    }
+  };
+
   const [errors, setErrors] = useState({});
+
+  // Produits similaires : même catégorie, produit courant exclu, max 4.
+  const categorySlug = product?.category?.slug ?? null;
+  const { products: relatedRaw } = useCatalogProducts({ page: 1, categorySlug });
+  const relatedProducts = relatedRaw
+    .filter((p) => p.id !== product?.id)
+    .slice(0, 10);
 
   useEffect(() => {
     if (!slug) return;
@@ -197,7 +232,18 @@ export default function ProductDetails() {
     }
     if (!user) {
       if (!customerName.trim()) newErrors.customerName = "Le nom est obligatoire";
-      if (!customerPhone.trim()) newErrors.customerPhone = "Le téléphone est obligatoire";
+      if (!customerPhone.trim()) {
+        newErrors.customerPhone = "Le téléphone est obligatoire";
+      } else {
+        // Format ivoirien : 10 chiffres, préfixe +225 / 225 optionnel
+        const cleanedPhone = customerPhone.replace(/[\s.-]/g, "");
+        if (!/^(\+?225)?[0-9]{10}$/.test(cleanedPhone)) {
+          newErrors.customerPhone = "Numéro invalide (10 chiffres attendus)";
+        }
+      }
+    } else if (!user.phone?.trim()) {
+      newErrors.userPhone =
+        "Aucun téléphone sur votre compte. Ajoutez-en un pour être recontacté.";
     }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -212,12 +258,14 @@ export default function ProductDetails() {
     const resolvedName  = user ? user.name  : customerName.trim();
     const resolvedPhone = user ? user.phone : customerPhone.trim();
 
+    // Onglet pré-ouvert DANS le geste utilisateur pour éviter le blocage popup.
+    // On lui affectera l'URL WhatsApp une fois la commande créée.
+    const waWindow = window.open("", "_blank");
+
     setIsSubmitting(true);
     try {
       const variantLabel = selectedVariant
-        ? Object.entries(selectedVariant.attributes)
-            .map(([key, val]) => `${key.toUpperCase()}: ${val}`)
-            .join(", ")
+        ? formatVariantLabel(selectedVariant.attributes)
         : "Standard";
 
       const orderData = {
@@ -236,25 +284,14 @@ export default function ProductDetails() {
 
       const response = await createOrder(orderData);
       if (response.success) {
-        const orderReference =
-          response.data?.order?.order_number ||
-          response.data?.reference ||
-          "—";
-
-        const message =
-          `🛍️ *ACHAT INSTANTANÉ — MK BAZAAR*\n\n` +
-          `📌 *Référence :* #${orderReference}\n\n` +
-          `👤 *Client :* ${resolvedName}\n` +
-          `📞 *Téléphone :* ${resolvedPhone}\n\n` +
-          `📦 *Produit :* ${product.name}\n` +
-          `✨ *Option / Taille :* ${variantLabel}\n` +
-          `💰 *Prix unitaire :* ${currentPrice.toLocaleString()} FCFA\n` +
-          `🔢 *Quantité :* ${quantity}\n\n` +
-          `🚚 *Livraison :* ${selectedZone.name}\n` +
-          `💵 *Frais :* ${selectedZone.price.toLocaleString()} FCFA\n` +
-          `📍 *Adresse :* ${addressDetail.trim()}\n` +
-          `💰 *Total :* ${totalAmount.toLocaleString()} FCFA\n\n` +
-          `Merci de me valider la disponibilité.`;
+        // Montants et référence pris sur la réponse serveur.
+        const message = buildOrderMessage({
+          order: response.data?.order,
+          items: [{ name: product.name, variantLabel, quantity }],
+          customerName: resolvedName,
+          customerPhone: resolvedPhone,
+          title: "ACHAT INSTANTANÉ — MK BAZAAR",
+        });
 
         setOrderSuccess(true);
         showToast(
@@ -262,21 +299,36 @@ export default function ProductDetails() {
           "success",
         );
 
-        setTimeout(() => {
-          window.open(getWhatsAppLink(message), "_blank");
-          setQuantity(1);
-          setSelectedZone(null);
-          setAddressDetail("");
-          if (!user) {
-            setCustomerName("");
-            setCustomerPhone("");
-          }
-          setOrderSuccess(false);
-        }, 1500);
+        // Redirection immédiate de l'onglet pré-ouvert (non bloquée par le navigateur).
+        const waLink = getWhatsAppLink(message, contactInfo.whatsapp);
+        if (!waLink) {
+          if (waWindow) waWindow.close();
+          showToast(
+            `Commande enregistrée (réf. #${response.data?.order?.order_number ?? "—"}), ` +
+            `mais aucun numéro WhatsApp n'est configuré.`,
+            "error",
+          );
+        } else if (waWindow) {
+          waWindow.location.href = waLink;
+        } else {
+          // Fallback si l'onglet n'a pas pu être pré-ouvert.
+          window.location.assign(waLink);
+        }
+
+        setQuantity(1);
+        setSelectedZone(null);
+        setAddressDetail("");
+        if (!user) {
+          setCustomerName("");
+          setCustomerPhone("");
+        }
+        setTimeout(() => setOrderSuccess(false), 1500);
       } else {
+        if (waWindow) waWindow.close();
         showToast(response.error || "Erreur lors de la validation. Veuillez réessayer.", "error");
       }
     } catch (error) {
+      if (waWindow) waWindow.close();
       console.error(error);
       showToast("Une erreur est survenue. Veuillez réessayer.", "error");
     } finally {
@@ -454,11 +506,33 @@ export default function ProductDetails() {
             </motion.div>
 
             <motion.p
-              className="text-xs md:text-sm text-stone-600 leading-relaxed mb-8 font-light"
+              className="text-xs md:text-sm text-stone-600 leading-relaxed mb-5 font-light"
               variants={fadeInUp}
             >
               {product.description}
             </motion.p>
+
+            {/* Actions : Favori + Partage */}
+            <motion.div className="flex items-center gap-3 mb-6" variants={fadeInUp}>
+              <button
+                onClick={() => toggleWishlist(product)}
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-full border text-xs font-medium transition-all ${
+                  isInWishlist(product.id)
+                    ? "border-rose-300 bg-rose-50 text-rose-600"
+                    : "border-stone-200 text-stone-500 hover:border-stone-400"
+                }`}
+              >
+                <Heart className={`w-3.5 h-3.5 ${isInWishlist(product.id) ? "fill-rose-500 text-rose-500" : ""}`} />
+                {isInWishlist(product.id) ? "Dans vos favoris" : "Ajouter aux favoris"}
+              </button>
+              <button
+                onClick={handleShare}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-full border border-stone-200 text-stone-500 text-xs font-medium hover:border-stone-400 transition-all"
+              >
+                <Share2 className="w-3.5 h-3.5" />
+                Partager
+              </button>
+            </motion.div>
 
             <motion.div
               className="space-y-6 mb-6 pb-6 border-b border-stone-200/80"
@@ -589,18 +663,36 @@ export default function ProductDetails() {
 
               {/* Infos client — auto si connecté, saisie sinon */}
               {user ? (
-                <div className="flex items-center gap-3 bg-stone-50 border border-stone-200 rounded-xl px-4 py-3">
-                  <div className="w-7 h-7 rounded-full bg-stone-200 flex items-center justify-center flex-shrink-0">
-                    <span className="text-[10px] font-bold text-stone-600 uppercase">
-                      {user.name?.charAt(0) || "?"}
-                    </span>
+                <div>
+                  <div
+                    className={`flex items-center gap-3 bg-stone-50 border rounded-xl px-4 py-3 ${
+                      errors.userPhone ? "border-rose-300" : "border-stone-200"
+                    }`}
+                  >
+                    <div className="w-7 h-7 rounded-full bg-stone-200 flex items-center justify-center flex-shrink-0">
+                      <span className="text-[10px] font-bold text-stone-600 uppercase">
+                        {user.name?.charAt(0) || "?"}
+                      </span>
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold text-stone-900 truncate">{user.name}</p>
+                      <p className="text-[10px] text-stone-400 truncate">
+                        {user.phone || "Aucun téléphone enregistré"}
+                      </p>
+                    </div>
                   </div>
-                  <div className="min-w-0">
-                    <p className="text-xs font-semibold text-stone-900 truncate">{user.name}</p>
-                    <p className="text-[10px] text-stone-400 truncate">
-                      {user.phone || "Aucun téléphone enregistré"}
+                  {errors.userPhone && (
+                    <p className="text-[9px] text-rose-600 mt-1">
+                      {errors.userPhone}{" "}
+                      <button
+                        type="button"
+                        onClick={() => navigate("/compte")}
+                        className="underline font-semibold hover:text-rose-700"
+                      >
+                        Compléter mon compte
+                      </button>
                     </p>
-                  </div>
+                  )}
                 </div>
               ) : (
                 <>
@@ -857,8 +949,30 @@ export default function ProductDetails() {
           </motion.div>
         </div>
 
-        {/* Politique de retour (maintenant sous la grille) */}
+        {/* Politique de retour */}
+        <motion.div
+          initial={{ opacity: 0, y: 15 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          className="mt-12 bg-white rounded-2xl border border-stone-200 p-6 flex items-start gap-4"
+        >
+          <RotateCcw className="w-5 h-5 text-[#c07b5a] flex-shrink-0 mt-0.5" />
+          <div>
+            <h2 className="text-[12px] uppercase tracking-[0.25em] font-bold text-stone-900 mb-1.5">
+              Retours & échanges
+            </h2>
+            <p className="text-xs text-stone-600 leading-relaxed font-light">
+              Vous disposez de 48 h après réception pour signaler un article
+              défectueux ou non conforme. Contactez-nous sur WhatsApp pour
+              organiser un échange ou un remboursement. Les frais de retour sont
+              à notre charge en cas d’erreur de notre part.
+            </p>
+          </div>
+        </motion.div>
       </main>
+
+      {/* Produits similaires */}
+      <RelatedProducts products={relatedProducts} />
         <Footer />
     </div>
   );

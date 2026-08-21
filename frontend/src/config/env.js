@@ -12,11 +12,35 @@ export const getApiOrigin = () =>
 /** URL de base de l'API (avec suffixe /api) */
 export const API_URL = getApiUrl();
 
-export const getWhatsAppNumber = () =>
-    String(import.meta.env.VITE_WHATSAPP_NUMBER).replace(/\D/g, '');
+/**
+ * Ne garde que les chiffres d'un numéro.
+ *
+ * Indispensable avant toute interpolation dans une URL wa.me : une valeur
+ * contenant `?`, `#` ou `/` détournerait le lien (ajout d'un `?text=` arbitraire,
+ * changement de destination). Le numéro vient de la table `settings`, donc d'une
+ * saisie admin non validée côté serveur.
+ */
+export const normalizeWhatsAppNumber = (value) =>
+    String(value ?? '').replace(/\D/g, '');
 
-export const getWhatsAppLink = (message) => {
-    const base = `https://wa.me/${getWhatsAppNumber()}`;
+/**
+ * Numéro WhatsApp effectif.
+ * `override` (valeur configurée au dashboard) prime sur VITE_WHATSAPP_NUMBER,
+ * qui est figé à la compilation et ne sert plus que de repli.
+ */
+export const getWhatsAppNumber = (override) =>
+    normalizeWhatsAppNumber(override)
+    || normalizeWhatsAppNumber(import.meta.env.VITE_WHATSAPP_NUMBER);
+
+/**
+ * Lien wa.me. Retourne null si aucun numéro exploitable n'est disponible,
+ * pour que l'appelant puisse masquer le bouton plutôt qu'afficher un lien mort.
+ */
+export const getWhatsAppLink = (message, number) => {
+    const target = getWhatsAppNumber(number);
+    if (!target) return null;
+
+    const base = `https://wa.me/${target}`;
     return message ? `${base}?text=${encodeURIComponent(message)}` : base;
 };
 

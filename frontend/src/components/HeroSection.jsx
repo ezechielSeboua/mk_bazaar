@@ -11,6 +11,9 @@ export default function HeroSection({ hero = {} }) {
     ? resolveMediaUrl(d.image_url)
     : d.image_url;
 
+  // S-03 : n'autoriser que les URLs relatives pour éviter les open redirects
+  const safeCta = /^\/[^/]/.test(d.cta_link) ? d.cta_link : '/products';
+
   return (
     <section className="px-6 py-12 md:py-24 max-w-7xl mx-auto grid md:grid-cols-2 gap-12 items-center">
       <div className="space-y-6 md:space-y-8 order-2 md:order-1">
@@ -26,7 +29,7 @@ export default function HeroSection({ hero = {} }) {
         </p>
         <div className="pt-2">
           <Link
-            to={d.cta_link}
+            to={safeCta}
             className="inline-flex items-center gap-4 bg-black text-[#F9F9F7] hover:bg-stone-900 transition-colors px-8 py-4 uppercase text-[11px] tracking-widest font-bold shadow-sm"
           >
             {d.cta_text}

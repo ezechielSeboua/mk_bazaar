@@ -1,8 +1,14 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
+import { Home, LayoutGrid, Info, LayoutDashboard, Heart, ShoppingCart, LogIn } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
+import { useWishlist } from "../contexts/WishlistContext";
+import { resolveMediaUrl } from "../config/env";
+import { useSiteSettings } from "../contexts/SiteSettingsContext";
+import PromoBanner from "./PromoBanner";
 import LogoutFip from "./LogoutFip";
+
 
 /* ---------- Icônes SVG ---------- */
 function HamburgerIcon() {
@@ -100,6 +106,14 @@ function LogoutIcon({ className = "w-4 h-4" }) {
   );
 }
 
+function HeartIcon({ className = "w-5 h-5" }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z" />
+    </svg>
+  );
+}
+
 function CartIcon({ className = "w-5 h-5" }) {
   return (
     <svg
@@ -130,15 +144,27 @@ const navItemVariants = {
   },
 };
 
+const NAV_ICONS = {
+  "/accueil":  Home,
+  "/products": LayoutGrid,
+  "/about":    Info,
+  "/dashboard": LayoutDashboard,
+};
+
 export default function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [cartCount, setCartCount] = useState(0);
 
-  const { user, handleLogout: logoutFromContext } = useAuth();
+  const { user, isAdmin, handleLogout: logoutFromContext } = useAuth();
+  const { wishlist } = useWishlist();
+  const { logo } = useSiteSettings();
+  const logoSrc = logo?.url ? resolveMediaUrl(logo.url) : '/mk_bazaar_logo.png';
+  const wishlistCount = wishlist.length;
   const { pathname } = useLocation();
   const navigate = useNavigate();
+  const touchStartX = useRef(null);
 
   const calculateCartCount = () => {
     try {
@@ -176,6 +202,18 @@ export default function Header() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  useEffect(() => {
+    document.body.style.overflow = mobileMenuOpen ? "hidden" : "";
+    return () => { document.body.style.overflow = ""; };
+  }, [mobileMenuOpen]);
+
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+    const handler = (e) => { if (e.key === "Escape") setMobileMenuOpen(false); };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [mobileMenuOpen]);
+
   const handleLogout = async () => {
     setMobileMenuOpen(false);
     setIsLoggingOut(true);
@@ -199,10 +237,10 @@ export default function Header() {
     : "AD";
 
   const navigationLinks = [
-    { to: "/accueil", label: "Accueil" },
+    { to: "/accueil",  label: "Accueil" },
     { to: "/products", label: "Collections" },
-    { to: "/about", label: "A propos" },
-    ...(user ? [{ to: "/dashboard", label: "Mon tableau de bord" }] : []),
+    { to: "/about",    label: "À propos" },
+    ...(isAdmin ? [{ to: "/dashboard", label: "Dashboard" }] : []),
   ];
 
   const logoHeight = scrolled ? "h-12 sm:h-16 md:h-20" : "h-14 sm:h-20 md:h-24";
@@ -225,10 +263,12 @@ export default function Header() {
       <header
         className={`sticky top-0 z-40 transition-all duration-300 ${
           scrolled
-            ? "shadow-md bg-[#F9F9F7]/95 backdrop-blur-lg py-2"
-            : "bg-[#F9F9F7]/80 backdrop-blur-md py-3"
-        } border-b border-stone-200/60 px-4 sm:px-8 md:px-12`}
+            ? "shadow-md bg-[#F9F9F7]/95 backdrop-blur-lg"
+            : "bg-[#F9F9F7]/80 backdrop-blur-md"
+        } border-b border-stone-200/60`}
       >
+        <PromoBanner />
+        <div className={`px-4 sm:px-8 md:px-12 ${scrolled ? 'py-2' : 'py-3'}`}>
         <div className="max-w-7xl mx-auto">
           {/* Grille responsive */}
           <div className="grid grid-cols-[auto_1fr_auto] md:flex md:items-center md:justify-between">
@@ -251,7 +291,7 @@ export default function Header() {
                 aria-label="MK Bazaar – retour à l'accueil"
               >
                 <img
-                  src="/mk_bazaar_logo.png"
+                  src={logoSrc}
                   alt="MK Bazaar"
                   className={`${logoHeight} w-auto object-contain transition-all duration-300`}
                 />
@@ -284,7 +324,32 @@ export default function Header() {
 
             {/* Actions (droite) */}
             <div className="flex items-center justify-end gap-1 sm:gap-3">
-              {/* Panier en marron/or */}
+              {/* Favoris */}
+              <Link
+                to="/compte?tab=favorites"
+                className={`relative p-2 rounded-full transition-all duration-200 ${
+                  pathname === "/compte" ? "text-rose-500 bg-rose-50" : "text-stone-400 hover:text-rose-500 hover:bg-rose-50"
+                }`}
+                aria-label="Mes favoris"
+                title="Mes favoris"
+              >
+                <HeartIcon className="w-5 h-5 md:w-6 md:h-6" />
+                <AnimatePresence>
+                  {wishlistCount > 0 && (
+                    <motion.span
+                      key={wishlistCount}
+                      initial={{ scale: 0.6, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      exit={{ scale: 0.6, opacity: 0 }}
+                      className="absolute -top-0.5 -right-0.5 bg-rose-500 text-white text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center border border-[#F9F9F7]"
+                    >
+                      {wishlistCount}
+                    </motion.span>
+                  )}
+                </AnimatePresence>
+              </Link>
+
+              {/* Panier */}
               <Link
                 to="/panier"
                 className={`relative p-2 rounded-full transition-all duration-200 ${
@@ -315,12 +380,21 @@ export default function Header() {
 
               {user ? (
                 <div className="hidden md:flex items-center gap-2 sm:gap-3">
-                  <span className="hidden lg:inline text-xs uppercase tracking-wider text-stone-500 font-medium">
-                    Bonjour, {user.name?.split(" ")[0] || "vous"}
-                  </span>
-                  <div className="w-8 h-8 md:w-9 md:h-9 rounded-full bg-black text-white flex items-center justify-center text-xs font-bold uppercase tracking-wider shadow-sm select-none">
-                    {userInitials}
-                  </div>
+                  <Link
+                    to="/compte"
+                    className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+                    title="Mon compte"
+                  >
+                    <span className="hidden lg:inline text-xs uppercase tracking-wider text-stone-500 font-medium">
+                      {user.name?.split(" ")[0] || "Mon compte"}
+                    </span>
+                    <div className="w-8 h-8 md:w-9 md:h-9 rounded-full overflow-hidden bg-black text-white flex items-center justify-center text-xs font-bold uppercase tracking-wider shadow-sm select-none shrink-0">
+                      {user.avatar
+                        ? <img src={resolveMediaUrl(user.avatar)} alt={user.name} className="w-full h-full object-cover" />
+                        : userInitials
+                      }
+                    </div>
+                  </Link>
                   <div className="hidden sm:block h-4 w-[1px] bg-stone-300 mx-0.5" />
                   <button
                     onClick={handleLogout}
@@ -347,6 +421,7 @@ export default function Header() {
             </div>
           </div>
         </div>
+        </div>
 
         {/* ---------- MENU MOBILE ---------- */}
         <AnimatePresence>
@@ -361,19 +436,22 @@ export default function Header() {
               />
 
               <motion.div
-                className="fixed top-0 left-0 h-full w-full sm:w-80 bg-[#F9F9F7] z-50 shadow-2xl flex flex-col"
+                className="fixed top-0 left-0 h-dvh w-[85vw] max-w-xs sm:w-80 bg-[#F9F9F7] z-50 shadow-2xl flex flex-col"
                 initial={{ x: "-100%" }}
                 animate={{ x: 0 }}
                 exit={{ x: "-100%" }}
                 transition={{ type: "spring", stiffness: 350, damping: 35 }}
+                onTouchStart={(e) => { touchStartX.current = e.touches[0].clientX; }}
+                onTouchEnd={(e) => {
+                  if (touchStartX.current === null) return;
+                  if (touchStartX.current - e.changedTouches[0].clientX > 60) setMobileMenuOpen(false);
+                  touchStartX.current = null;
+                }}
               >
-                <div className="flex items-center justify-between p-5 border-b border-stone-200 bg-white">
-                  <Link to="/" onClick={() => setMobileMenuOpen(false)}>
-                    <img
-                      src="/mk_bazaar_logo.png"
-                      alt="MK Bazaar"
-                      className="h-8 w-auto object-contain"
-                    />
+                {/* Logo + fermer */}
+                <div className="flex items-center justify-between px-5 py-4 border-b border-stone-200 bg-white shrink-0">
+                  <Link to="/accueil" onClick={() => setMobileMenuOpen(false)}>
+                    <img src={logoSrc} alt="MK Bazaar" className="h-8 w-auto object-contain" />
                   </Link>
                   <button
                     onClick={() => setMobileMenuOpen(false)}
@@ -384,81 +462,112 @@ export default function Header() {
                   </button>
                 </div>
 
+                {/* Carte utilisateur / CTA connexion */}
+                {user ? (
+                  <Link
+                    to="/compte"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center gap-3 px-5 py-4 bg-stone-50 border-b border-stone-100 hover:bg-stone-100 transition-colors shrink-0"
+                  >
+                    <div className="w-10 h-10 rounded-full bg-stone-950 text-white flex items-center justify-center text-sm font-bold uppercase shrink-0 select-none overflow-hidden">
+                      {user.avatar
+                        ? <img src={resolveMediaUrl(user.avatar)} alt={user.name} className="w-full h-full object-cover" />
+                        : userInitials
+                      }
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-bold text-stone-900 truncate leading-tight">{user.name}</p>
+                      <p className="text-xs text-stone-400 truncate">{user.email}</p>
+                    </div>
+                    <ArrowRightIcon className="w-4 h-4 text-stone-400 shrink-0" />
+                  </Link>
+                ) : (
+                  <div className="px-4 py-3 border-b border-stone-100 bg-stone-50 shrink-0">
+                    <Link
+                      to="/login"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center justify-center gap-2 py-3 bg-stone-950 text-white rounded-xl text-xs font-bold uppercase tracking-wider hover:bg-stone-800 transition-colors"
+                    >
+                      <LogIn className="w-4 h-4" />
+                      Se connecter
+                    </Link>
+                  </div>
+                )}
+
+                {/* Navigation scrollable */}
                 <motion.nav
-                  className="flex-1 flex flex-col p-4 space-y-2 text-sm uppercase tracking-[0.15em] font-semibold bg-white"
+                  className="flex-1 min-h-0 overflow-y-auto px-3 py-4 space-y-1"
                   initial="hidden"
                   animate="visible"
                   exit="hidden"
-                  variants={{
-                    visible: { transition: { staggerChildren: 0.06 } },
-                  }}
+                  variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.05 } } }}
                 >
+                  {/* Section Navigation */}
+                  <p className="px-3 pb-2 text-[10px] uppercase tracking-widest font-bold text-stone-400">Navigation</p>
                   {navigationLinks.map((link) => {
                     const isActive = pathname === link.to;
+                    const Icon = NAV_ICONS[link.to];
                     return (
                       <MotionLink
                         key={link.to}
                         to={link.to}
                         variants={navItemVariants}
                         onClick={() => setMobileMenuOpen(false)}
-                        className={`flex items-center justify-between py-3.5 px-4 rounded-xl transition-all duration-200 ${
-                          isActive
-                            ? "bg-stone-900 text-white pl-6"
-                            : "text-stone-600 hover:bg-stone-100 hover:text-black"
+                        className={`flex items-center gap-3 py-3 px-4 rounded-xl text-sm font-semibold uppercase tracking-[0.1em] transition-all duration-200 ${
+                          isActive ? "bg-stone-900 text-white" : "text-stone-600 hover:bg-stone-100 hover:text-black"
                         }`}
                       >
-                        <span>{link.label}</span>
-                        <ArrowRightIcon
-                          className={`w-4 h-4 transition-transform ${isActive ? "translate-x-1" : "opacity-70"}`}
-                        />
+                        {Icon && <Icon className="w-4 h-4 shrink-0" />}
+                        <span className="flex-1">{link.label}</span>
+                        <ArrowRightIcon className={`w-4 h-4 transition-transform ${isActive ? "translate-x-0.5" : "opacity-50"}`} />
                       </MotionLink>
                     );
                   })}
 
-                  {/* Panier dans le menu mobile (marron/or) */}
-                  <MotionLink
-                    to="/panier"
-                    variants={navItemVariants}
-                    onClick={() => setMobileMenuOpen(false)}
-                    className={`flex items-center justify-between py-3.5 px-4 rounded-xl transition-all duration-200 ${
-                      pathname === "/panier"
-                        ? "bg-[#c07b5a]/20 text-[#c07b5a] pl-6"
-                        : "text-stone-600 hover:bg-stone-100 hover:text-black"
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <span>Mon Panier</span>
-                      {cartCount > 0 && (
-                        <span className="bg-[#c07b5a] text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
-                          {cartCount}
-                        </span>
-                      )}
-                    </div>
-                    <ArrowRightIcon className="w-4 h-4 opacity-70" />
-                  </MotionLink>
-
-                  {!user && (
+                  {/* Section Mon espace */}
+                  <div className="pt-3">
+                    <p className="px-3 pb-2 text-[10px] uppercase tracking-widest font-bold text-stone-400">Mon espace</p>
                     <MotionLink
-                      to="/login"
+                      to="/compte?tab=favorites"
                       variants={navItemVariants}
                       onClick={() => setMobileMenuOpen(false)}
-                      className="flex items-center justify-between py-3.5 px-4 rounded-xl text-stone-600 hover:bg-stone-100 hover:text-black transition-all duration-200"
+                      className="flex items-center gap-3 py-3 px-4 rounded-xl text-sm font-semibold uppercase tracking-[0.1em] text-stone-600 hover:bg-rose-50 hover:text-rose-500 transition-all duration-200"
                     >
-                      <span>Se connecter</span>
-                      <ArrowRightIcon className="w-4 h-4 opacity-70" />
+                      <Heart className="w-4 h-4 shrink-0" />
+                      <span className="flex-1">Mes Favoris</span>
+                      {wishlistCount > 0 && (
+                        <span className="bg-rose-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">{wishlistCount}</span>
+                      )}
                     </MotionLink>
-                  )}
+                    <MotionLink
+                      to="/panier"
+                      variants={navItemVariants}
+                      onClick={() => setMobileMenuOpen(false)}
+                      className={`flex items-center gap-3 py-3 px-4 rounded-xl text-sm font-semibold uppercase tracking-[0.1em] transition-all duration-200 ${
+                        pathname === "/panier" ? "bg-[#c07b5a]/15 text-[#c07b5a]" : "text-stone-600 hover:bg-stone-100 hover:text-black"
+                      }`}
+                    >
+                      <ShoppingCart className="w-4 h-4 shrink-0" />
+                      <span className="flex-1">Mon Panier</span>
+                      {cartCount > 0 && (
+                        <span className="bg-[#c07b5a] text-white text-[10px] font-bold px-2 py-0.5 rounded-full">{cartCount}</span>
+                      )}
+                    </MotionLink>
+                  </div>
+                </motion.nav>
 
-                  {user && (
+                {/* Déconnexion ancrée en bas */}
+                {user && (
+                  <div className="shrink-0 px-3 py-3 border-t border-stone-200 bg-white">
                     <button
                       onClick={handleLogout}
-                      className="flex items-center justify-between py-3.5 px-4 rounded-xl text-red-600 hover:bg-red-50 transition-all duration-200 mt-auto border border-red-200/60"
+                      className="w-full flex items-center gap-3 py-3 px-4 rounded-xl text-sm font-semibold uppercase tracking-[0.1em] text-red-600 hover:bg-red-50 transition-all"
                     >
+                      <LogoutIcon className="w-4 h-4 shrink-0" />
                       <span>Se déconnecter</span>
-                      <LogoutIcon className="w-4 h-4" />
                     </button>
-                  )}
-                </motion.nav>
+                  </div>
+                )}
               </motion.div>
             </>
           )}

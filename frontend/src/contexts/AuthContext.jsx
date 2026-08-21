@@ -15,8 +15,7 @@ export const AuthProvider = ({ children }) => {
                 if (res.success && res.data) {
                     setUser(res.data);
                 } else {
-                    localStorage.removeItem('token');
-                    localStorage.removeItem('user');
+                    sessionStorage.removeItem('token'); // S-02
                     setUser(null);
                 }
             } else {
@@ -29,6 +28,7 @@ export const AuthProvider = ({ children }) => {
 
         const handleUnauthorized = () => {
             clearDashboardCache();
+            sessionStorage.removeItem('token'); // S-02
             setUser(null);
         };
         window.addEventListener('auth:unauthorized', handleUnauthorized);

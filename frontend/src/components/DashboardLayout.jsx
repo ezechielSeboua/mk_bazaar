@@ -239,7 +239,7 @@ export default function DashboardLayout({ children }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, handleLogout } = useAuth();
+  const { user, isAdmin, handleLogout } = useAuth();
 
   // 2. Récupération de l'état de chargement initial (adapte la clé si ton contexte utilise un autre nom comme 'loading')
   const { isLoading, isRefreshing } = useDashboardData();
@@ -251,12 +251,14 @@ export default function DashboardLayout({ children }) {
 
   useEffect(() => {
     if (!user) {
-      // L'utilisateur n'est pas authentifié, redirection immédiate
       navigate("/login", { replace: true });
+    } else if (!isAdmin) {
+      // S-05 : défense en profondeur — bloquer les non-admins même si ProtectedRoute est contourné
+      navigate("/", { replace: true });
     } else {
       setIsAuthCheckComplete(true);
     }
-  }, [user, navigate]);
+  }, [user, isAdmin, navigate]);
 
   if (!isAuthCheckComplete) {
     return <LoadingScreen isLoading={true} />;

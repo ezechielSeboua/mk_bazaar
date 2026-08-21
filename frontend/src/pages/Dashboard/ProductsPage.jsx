@@ -33,6 +33,11 @@ import { resolveMediaUrl } from "../../config/env";
 
 /* ─── Constantes ────────────────────────────────────────────────── */
 
+// S-07 : liste blanche explicite — exclut image/svg+xml (vecteur XSS)
+const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+// S-06 : limite de taille fichier côté client (4 Mo)
+const MAX_FILE_SIZE = 4 * 1024 * 1024;
+
 const EMPTY_VARIANT = {
   id: null,
   price: "",
@@ -312,6 +317,7 @@ export default function ProductsPage() {
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [previewUrls, setPreviewUrls] = useState([]);
   const [existingImages, setExistingImages] = useState([]);
+  const [isDragging, setIsDragging] = useState(false);
 
   // Variantes
   const [variants, setVariants] = useState([]);
@@ -327,6 +333,7 @@ export default function ProductsPage() {
   }, [previewUrls]);
 
   const nameInputRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   // Menu contextuel (portail)
   const [openMenuId, setOpenMenuId] = useState(null);
@@ -409,21 +416,23 @@ export default function ProductsPage() {
 
   const filteredProducts = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    return products.filter((p) => {
-      if (
-        q &&
-        !p.name?.toLowerCase().includes(q) &&
-        !p.slug?.toLowerCase().includes(q)
-      )
-        return false;
-      if (categoryFilter && String(p.category_id) !== categoryFilter)
-        return false;
-      if (activeFilter === "yes" && !p.is_active) return false;
-      if (activeFilter === "no" && p.is_active) return false;
-      if (featuredFilter === "yes" && !p.featured) return false;
-      if (featuredFilter === "no" && p.featured) return false;
-      return true;
-    });
+    return products
+      .filter((p) => {
+        if (
+          q &&
+          !p.name?.toLowerCase().includes(q) &&
+          !p.slug?.toLowerCase().includes(q)
+        )
+          return false;
+        if (categoryFilter && String(p.category_id) !== categoryFilter)
+          return false;
+        if (activeFilter === "yes" && !p.is_active) return false;
+        if (activeFilter === "no" && p.is_active) return false;
+        if (featuredFilter === "yes" && !p.featured) return false;
+        if (featuredFilter === "no" && p.featured) return false;
+        return true;
+      })
+      .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
   }, [products, searchQuery, categoryFilter, activeFilter, featuredFilter]);
 
   useEffect(() => {
@@ -509,13 +518,28 @@ export default function ProductsPage() {
     setErrors((prev) => (prev[name] ? { ...prev, [name]: "" } : prev));
   }, []);
 
-  const handleFilesChange = useCallback((e) => {
-    const files = Array.from(e.target.files);
-    setPreviewUrls((prev) => {
-      prev.forEach(URL.revokeObjectURL);
-      return files.map(URL.createObjectURL);
+  const handleDropFiles = useCallback((newFiles) => {
+    const rejected = [];
+    const valid = newFiles.filter((f) => {
+      if (!ALLOWED_IMAGE_TYPES.includes(f.type)) { rejected.push(`${f.name} (type non autorisé)`); return false; } // S-07
+      if (f.size > MAX_FILE_SIZE) { rejected.push(`${f.name} (max 4 Mo)`); return false; } // S-06
+      return true;
     });
-    setSelectedFiles(files);
+    if (rejected.length) {
+      setErrors((prev) => ({ ...prev, images: `Fichiers refusés : ${rejected.join(', ')}` }));
+    }
+    if (!valid.length) return;
+    setSelectedFiles((prev) => [...prev, ...valid]);
+    setPreviewUrls((prev) => [...prev, ...valid.map(URL.createObjectURL)]);
+    setErrors((prev) => ({ ...prev, images: rejected.length ? prev.images : '' }));
+  }, []);
+
+  const handleRemoveNewImage = useCallback((index) => {
+    setPreviewUrls((prev) => {
+      URL.revokeObjectURL(prev[index]);
+      return prev.filter((_, i) => i !== index);
+    });
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
   }, []);
 
   const validateForm = useCallback(() => {
@@ -1213,27 +1237,77 @@ export default function ProductsPage() {
                     </div>
                   )}
 
-                  {/* Upload */}
+                  {/* Upload — zone drag & drop */}
                   <Field
                     label={editingId ? "Ajouter des images" : "Images *"}
                     error={errors.images}
                   >
                     <input
+                      ref={fileInputRef}
                       type="file"
                       multiple
-                      accept="image/*"
-                      onChange={handleFilesChange}
-                      className="w-full px-3 py-2 border border-stone-300 text-sm text-stone-600 file:mr-3 file:py-1 file:px-3 file:border-0 file:text-[10px] file:uppercase file:tracking-wider file:font-bold file:bg-stone-100 file:text-stone-700 hover:file:bg-stone-200 cursor-pointer"
+                      accept="image/jpeg,image/jpg,image/png,image/webp"
+                      className="hidden"
+                      onChange={(e) => handleDropFiles(Array.from(e.target.files))}
                     />
+                    <div
+                      onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                      onDragEnter={(e) => { e.preventDefault(); setIsDragging(true); }}
+                      onDragLeave={() => setIsDragging(false)}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        setIsDragging(false);
+                        handleDropFiles(Array.from(e.dataTransfer.files));
+                      }}
+                      onClick={() => fileInputRef.current?.click()}
+                      className={`border-2 border-dashed rounded-xl p-5 text-center cursor-pointer select-none transition-all duration-200 ${
+                        isDragging
+                          ? "border-[#c07b5a] bg-[#c07b5a]/5"
+                          : errors.images
+                          ? "border-red-300 hover:border-red-400"
+                          : "border-stone-300 hover:border-[#c07b5a]/60 hover:bg-stone-50"
+                      }`}
+                    >
+                      <div className="flex flex-col items-center gap-1.5 pointer-events-none">
+                        <svg
+                          className={`w-7 h-7 transition-colors ${isDragging ? "text-[#c07b5a]" : "text-stone-400"}`}
+                          viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
+                        >
+                          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                          <polyline points="17 8 12 3 7 8" />
+                          <line x1="12" y1="3" x2="12" y2="15" />
+                        </svg>
+                        <p className="text-sm text-stone-500">
+                          <span className="font-semibold text-stone-700">Glissez vos images ici</span>
+                          {" "}ou{" "}
+                          <span className="text-[#c07b5a] font-semibold">parcourez</span>
+                        </p>
+                        <p className="text-[11px] text-stone-400">PNG, JPG, WEBP — sélection multiple</p>
+                      </div>
+                    </div>
+
                     {previewUrls.length > 0 && (
-                      <div className="flex flex-wrap gap-2 mt-2">
+                      <div className="grid grid-cols-4 sm:grid-cols-5 gap-2 mt-3">
                         {previewUrls.map((url, i) => (
-                          <img
-                            key={i}
-                            src={url}
-                            alt=""
-                            className="w-16 h-16 sm:w-20 sm:h-20 object-cover rounded border border-stone-200"
-                          />
+                          <div key={i} className="relative group aspect-square">
+                            <img
+                              src={url}
+                              alt=""
+                              className="w-full h-full object-cover rounded-lg border border-stone-200"
+                            />
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); handleRemoveNewImage(i); }}
+                              className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
+                            >
+                              ×
+                            </button>
+                            {i === 0 && (
+                              <span className="absolute bottom-1 left-1 text-[8px] font-black uppercase bg-black/60 text-white px-1 py-0.5 rounded pointer-events-none">
+                                Cover
+                              </span>
+                            )}
+                          </div>
                         ))}
                       </div>
                     )}

@@ -128,6 +128,8 @@ export default function LoginPage() {
     if (result.success) {
       const user = result.data?.user;
       if (user) setAuthUser(user);
+
+      navigate(user?.is_admin ? '/dashboard' : '/compte');
     } else {
       setErrors({ submit: result.error || 'Email ou mot de passe incorrect.' });
       setIsLoading(false);
@@ -311,9 +313,12 @@ export default function LoginPage() {
             </form>
           </div>
 
-          {/* Mentions légales */}
-          <p className="mt-6 text-center text-[9px] text-stone-400 uppercase tracking-[0.15em] px-4">
-            Connectez-vous pour accéder à votre compte MK BAZAAR.
+          {/* Lien inscription */}
+          <p className="mt-6 text-center text-[10px] text-stone-500 uppercase tracking-wider">
+            Pas encore de compte ?{' '}
+            <Link to="/register" className="font-bold text-black hover:underline underline-offset-4">
+              Créer un compte
+            </Link>
           </p>
         </motion.div>
       </main>
