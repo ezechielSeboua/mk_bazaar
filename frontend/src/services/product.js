@@ -151,7 +151,17 @@ import { fetchAllPages } from '../utils/pagination';
 const DASHBOARD_PER_PAGE = 500;
 
 // Une page de produits (boutique publique, filtres optionnels)
-export const getProducts = async (page = 1, categorySlug = null, sort = null, search = null, inStock = null) => {
+export const getProducts = async (
+    page = 1,
+    categorySlug = null,
+    sort = null,
+    search = null,
+    inStock = null,
+    minPrice = null,
+    maxPrice = null,
+    size = null,
+    color = null,
+) => {
     let url = `/products?page=${page}&per_page=12`;
 
     if (categorySlug) {
@@ -171,8 +181,24 @@ export const getProducts = async (page = 1, categorySlug = null, sort = null, se
     }
 
     // Adapté pour correspondre à la logique de variantes (le backend interceptera in_stock)
-    if (inStock !== null) {
-        url += `&in_stock=${inStock}`;   // envoie 1 ou 0
+    if (inStock !== null && inStock !== undefined && inStock !== '') {
+        url += `&in_stock=${inStock ? 1 : 0}`;
+    }
+
+    if (minPrice !== null && minPrice !== undefined && minPrice !== '') {
+        url += `&min_price=${minPrice}`;
+    }
+
+    if (maxPrice !== null && maxPrice !== undefined && maxPrice !== '') {
+        url += `&max_price=${maxPrice}`;
+    }
+
+    if (size) {
+        url += `&size=${encodeURIComponent(size)}`;
+    }
+
+    if (color) {
+        url += `&color=${encodeURIComponent(color)}`;
     }
 
     return fetchAPI(url, { method: 'GET' });

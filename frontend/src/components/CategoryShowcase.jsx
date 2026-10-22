@@ -21,8 +21,8 @@ export default function CategoryShowcase() {
                     <span className="text-[10px] uppercase tracking-[0.3em] text-stone-400 font-bold block mb-2">
                         Nos univers
                     </span>
-                    <h2 className="text-2xl md:text-3xl font-light uppercase tracking-tight text-stone-950">
-                        Explorez par <span className="font-normal">catégorie</span>
+                    <h2 className="font-serif text-2xl md:text-3xl font-light text-stone-950">
+                        Explorez par <span className="italic font-normal">catégorie</span>
                     </h2>
                 </div>
 

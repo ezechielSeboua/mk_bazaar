@@ -37,6 +37,34 @@ class ProductController extends Controller
             }
         }
 
+        // Filtrage par prix minimum et maximum
+        if ($request->filled('min_price')) {
+            $query->where('price', '>=', (float) $request->min_price);
+        }
+        if ($request->filled('max_price')) {
+            $query->where('price', '<=', (float) $request->max_price);
+        }
+
+        // Filtrage par taille / pointure (variantes en stock)
+        if ($request->filled('size')) {
+            $size = $request->size;
+            $query->whereHas('variants', function ($q) use ($size) {
+                $q->where('stock', '>', 0)
+                  ->where(function ($sub) use ($size) {
+                      $sub->where('attributes->taille', $size)
+                          ->orWhere('attributes->pointure', $size);
+                  });
+            });
+        }
+
+        // Filtrage par couleur
+        if ($request->filled('color')) {
+            $color = $request->color;
+            $query->whereHas('variants', function ($q) use ($color) {
+                $q->where('attributes->couleur', $color);
+            });
+        }
+
         // Recherche textuelle
         if ($request->filled('search')) {
             $search = '%' . substr($request->search, 0, 100) . '%';

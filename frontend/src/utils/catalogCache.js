@@ -24,7 +24,21 @@ export const buildProductsCacheKey = ({
     sort = 'nouveautes',
     search = '',
     inStock = null,
-}) => JSON.stringify({ page, categorySlug, sort, search: search.trim(), inStock });
+    minPrice = null,
+    maxPrice = null,
+    size = null,
+    color = null,
+}) => JSON.stringify({
+    page,
+    categorySlug,
+    sort,
+    search: (search || '').trim(),
+    inStock,
+    minPrice,
+    maxPrice,
+    size,
+    color,
+});
 
 export const getCatalogCache = () => memoryCache;
 

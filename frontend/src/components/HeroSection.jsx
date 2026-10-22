@@ -15,36 +15,46 @@ export default function HeroSection({ hero = {} }) {
   const safeCta = /^\/[^/]/.test(d.cta_link) ? d.cta_link : '/products';
 
   return (
-    <section className="px-6 py-12 md:py-24 max-w-7xl mx-auto grid md:grid-cols-2 gap-12 items-center">
-      <div className="space-y-6 md:space-y-8 order-2 md:order-1">
-        <span className="text-[10px] uppercase tracking-[0.3em] text-stone-400 font-bold block">
-          {d.badge}
-        </span>
-        <h1 className="text-4xl sm:text-6xl md:text-7xl font-extralight tracking-tight uppercase text-black leading-[0.95]">
+    <section className="px-4 sm:px-6 py-10 md:py-20 max-w-7xl mx-auto grid md:grid-cols-2 gap-10 lg:gap-16 items-center">
+      {/* Contenu textuel - Toujours en premier sur mobile pour un impact immédiat */}
+      <div className="space-y-6 md:space-y-8 order-1">
+        <div className="inline-flex items-center gap-2 px-3 py-1 bg-stone-100 rounded-full border border-stone-200/60">
+          <span className="w-1.5 h-1.5 rounded-full bg-terracotta animate-pulse" />
+          <span className="text-[10px] uppercase tracking-[0.25em] text-stone-600 font-bold">
+            {d.badge}
+          </span>
+        </div>
+
+        <h1 className="font-serif text-4xl sm:text-6xl lg:text-7xl font-normal tracking-tight text-charcoal leading-[1.08]">
           {d.title} <br />
-          <span className="font-normal">{d.title_bold}</span>
+          <span className="italic font-light text-stone-700">{d.title_bold}</span>
         </h1>
-        <p className="text-stone-600 max-w-md text-sm md:text-base leading-relaxed font-light">
+
+        <p className="text-stone-600 max-w-lg text-sm sm:text-base leading-relaxed font-light">
           {d.subtitle}
         </p>
+
         <div className="pt-2">
           <Link
             to={safeCta}
-            className="inline-flex items-center gap-4 bg-black text-[#F9F9F7] hover:bg-stone-900 transition-colors px-8 py-4 uppercase text-[11px] tracking-widest font-bold shadow-sm"
+            className="group inline-flex items-center gap-3 bg-stone-950 text-white hover:bg-stone-800 transition-all duration-300 px-8 py-4 uppercase text-[11px] tracking-widest font-semibold rounded-full shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0"
           >
-            {d.cta_text}
-            <FiArrowRight className="text-sm" />
+            <span>{d.cta_text}</span>
+            <FiArrowRight className="text-sm transition-transform duration-300 group-hover:translate-x-1" />
           </Link>
         </div>
       </div>
 
-      <div className="order-1 md:order-2 aspect-[3/4] bg-stone-100 relative overflow-hidden group shadow-sm">
+      {/* Visuel Lookbook */}
+      <div className="order-2 aspect-[3/4] max-w-md md:max-w-none mx-auto w-full bg-stone-100 relative rounded-2xl overflow-hidden group shadow-xl border border-stone-200/50">
         <img
           src={imageUrl}
           alt="Lookbook MK BAZAAR"
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-[1500ms] ease-out"
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-[1200ms] ease-out"
+          loading="eager"
         />
-        <div className="absolute bottom-4 right-4 text-[10px] uppercase tracking-widest text-stone-500 bg-[#F9F9F7]/60 backdrop-blur-sm px-3 py-1.5 font-medium">
+        <div className="absolute inset-0 bg-gradient-to-t from-stone-950/40 via-transparent to-transparent opacity-60 pointer-events-none" />
+        <div className="absolute bottom-5 right-5 text-[10px] uppercase tracking-widest text-stone-800 bg-white/90 backdrop-blur-md px-3.5 py-1.5 rounded-full font-semibold shadow-sm">
           Lookbook 2026
         </div>
       </div>

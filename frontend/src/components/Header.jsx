@@ -145,7 +145,7 @@ const navItemVariants = {
 };
 
 const NAV_ICONS = {
-  "/accueil":  Home,
+  "/":         Home,
   "/products": LayoutGrid,
   "/about":    Info,
   "/dashboard": LayoutDashboard,
@@ -237,7 +237,7 @@ export default function Header() {
     : "AD";
 
   const navigationLinks = [
-    { to: "/accueil",  label: "Accueil" },
+    { to: "/",         label: "Accueil" },
     { to: "/products", label: "Collections" },
     { to: "/about",    label: "À propos" },
     ...(isAdmin ? [{ to: "/dashboard", label: "Dashboard" }] : []),
@@ -286,7 +286,7 @@ export default function Header() {
             {/* Logo centré */}
             <div className="flex items-center justify-center md:justify-start">
               <Link
-                to="/accueil"
+                to="/"
                 className="hover:opacity-80 transition-opacity duration-200 inline-flex"
                 aria-label="MK Bazaar – retour à l'accueil"
               >
@@ -326,9 +326,9 @@ export default function Header() {
             <div className="flex items-center justify-end gap-1 sm:gap-3">
               {/* Favoris */}
               <Link
-                to="/compte?tab=favorites"
+                to="/favoris"
                 className={`relative p-2 rounded-full transition-all duration-200 ${
-                  pathname === "/compte" ? "text-rose-500 bg-rose-50" : "text-stone-400 hover:text-rose-500 hover:bg-rose-50"
+                  pathname === "/favoris" ? "text-rose-500 bg-rose-50" : "text-stone-400 hover:text-rose-500 hover:bg-rose-50"
                 }`}
                 aria-label="Mes favoris"
                 title="Mes favoris"
@@ -349,13 +349,17 @@ export default function Header() {
                 </AnimatePresence>
               </Link>
 
-              {/* Panier */}
-              <Link
-                to="/panier"
-                className={`relative p-2 rounded-full transition-all duration-200 ${
+              {/* Panier - Ouvre le tiroir BasketPreview */}
+              <button
+                type="button"
+                onClick={() => {
+                  if (pathname === "/panier") return;
+                  window.dispatchEvent(new Event("show-basket-preview"));
+                }}
+                className={`relative p-2 rounded-full transition-all duration-200 cursor-pointer ${
                   pathname === "/panier"
-                    ? "text-[#c07b5a] bg-[#c07b5a]/10" // actif : texte marron, fond léger marron
-                    : "text-[#c07b5a] hover:text-[#a0523d] hover:bg-[#c07b5a]/10" // normal : marron, hover plus foncé
+                    ? "text-[#c07b5a] bg-[#c07b5a]/10"
+                    : "text-[#c07b5a] hover:text-[#a0523d] hover:bg-[#c07b5a]/10"
                 }`}
                 aria-label="Voir le panier"
                 title="Mon panier"
@@ -374,7 +378,7 @@ export default function Header() {
                     </motion.span>
                   )}
                 </AnimatePresence>
-              </Link>
+              </button>
 
               <div className="hidden md:block h-4 w-[1px] bg-stone-300/80 mx-0.5" />
 
@@ -450,7 +454,7 @@ export default function Header() {
               >
                 {/* Logo + fermer */}
                 <div className="flex items-center justify-between px-5 py-4 border-b border-stone-200 bg-white shrink-0">
-                  <Link to="/accueil" onClick={() => setMobileMenuOpen(false)}>
+                  <Link to="/" onClick={() => setMobileMenuOpen(false)}>
                     <img src={logoSrc} alt="MK Bazaar" className="h-8 w-auto object-contain" />
                   </Link>
                   <button
@@ -528,7 +532,7 @@ export default function Header() {
                   <div className="pt-3">
                     <p className="px-3 pb-2 text-[10px] uppercase tracking-widest font-bold text-stone-400">Mon espace</p>
                     <MotionLink
-                      to="/compte?tab=favorites"
+                      to="/favoris"
                       variants={navItemVariants}
                       onClick={() => setMobileMenuOpen(false)}
                       className="flex items-center gap-3 py-3 px-4 rounded-xl text-sm font-semibold uppercase tracking-[0.1em] text-stone-600 hover:bg-rose-50 hover:text-rose-500 transition-all duration-200"

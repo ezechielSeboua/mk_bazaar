@@ -143,7 +143,7 @@ function BackToTop() {
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.8 }}
       onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-      className="fixed bottom-6 right-6 z-50 bg-stone-900 text-white p-3 rounded-full shadow-xl hover:bg-stone-700 transition-colors focus:outline-none focus-visible:ring-2 ring-offset-2 ring-stone-400"
+      className="fixed bottom-24 right-6 z-40 bg-white/90 backdrop-blur-md text-stone-800 hover:text-black border border-stone-200/80 p-3 rounded-full shadow-lg hover:shadow-xl transition-all focus:outline-none focus-visible:ring-2 ring-stone-400"
       aria-label="Retour en haut de la page"
     >
       <svg
@@ -227,8 +227,8 @@ export default function Home() {
             <span className="text-[10px] uppercase tracking-[0.3em] text-stone-400 font-bold block mb-3">
               Collections
             </span>
-            <h2 className="text-2xl md:text-3xl font-light uppercase tracking-tight">
-              Galerie <span className="font-normal">éditoriale</span>
+            <h2 className="font-serif text-2xl md:text-3xl font-light text-stone-950">
+              Galerie <span className="italic font-normal">éditoriale</span>
             </h2>
           </div>
           {/* Carrousel amélioré avec flèches, dots et pause */}

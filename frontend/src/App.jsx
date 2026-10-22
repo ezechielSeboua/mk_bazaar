@@ -4,10 +4,10 @@ import { AuthProvider } from './contexts/AuthContext';
 import { WishlistProvider } from './contexts/WishlistContext';
 import { SiteSettingsProvider } from './contexts/SiteSettingsContext';
 
-// Les Wrappers restent importés normalement car ils gèrent la structure et les contextes vitaux
+// Wrappers vitaux
 import DashboardWrapper from './components/DashboardWrapper';
 import StorefrontWrapper from './components/StorefrontWrapper';
-import LoadingScreen from './components/LoadingScreen'; // <-- 2. Ton écran de chargement global
+import LoadingScreen from './components/LoadingScreen';
 import BasketPage from './pages/BasketPage';
 
 /* ---------- Chargement paresseux (Lazy Loading) des pages ---------- */
@@ -16,6 +16,7 @@ const Home = lazy(() => import('./pages/HomePage'));
 const ProductList = lazy(() => import('./pages/ProductsList'));
 const ProductPage = lazy(() => import('./pages/ProductDetails'));
 const AboutPage = lazy(() => import('./pages/AboutPage'));
+const FavoritesPage = lazy(() => import('./pages/FavoritesPage'));
 
 // Pages d'Authentification
 const LoginPage    = lazy(() => import('./pages/Auth/LoginPage'));
@@ -37,37 +38,38 @@ function App() {
   return (
     <AuthProvider>
       <SiteSettingsProvider>
-      <WishlistProvider>
-      <Suspense fallback={<LoadingScreen isLoading={true} />}>
-        <Routes>
-          {/* Vitrine */}
-          <Route element={<StorefrontWrapper />}>
-            <Route path="/" element={<Navigate to="/products" replace />} />
-            <Route path="/accueil" element={<Home />} />
-            <Route index path="/products" element={<ProductList />} />
-            <Route path="/products/:slug" element={<ProductPage />} />
-            <Route path="/panier" element={<BasketPage />} />
-          </Route>
+        <WishlistProvider>
+          <Suspense fallback={<LoadingScreen isLoading={true} />}>
+            <Routes>
+              {/* Vitrine */}
+              <Route element={<StorefrontWrapper />}>
+                <Route path="/" element={<Home />} />
+                <Route path="/accueil" element={<Navigate to="/" replace />} />
+                <Route path="/products" element={<ProductList />} />
+                <Route path="/products/:slug" element={<ProductPage />} />
+                <Route path="/panier" element={<BasketPage />} />
+                <Route path="/favoris" element={<FavoritesPage />} />
+              </Route>
 
-          {/* Hors layout */}
-          <Route path="/login"    element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
-          <Route path="/about"    element={<AboutPage />} />
-          <Route path="/compte"   element={<AccountPage />} />
+              {/* Hors layout vitrine */}
+              <Route path="/login"    element={<LoginPage />} />
+              <Route path="/register" element={<RegisterPage />} />
+              <Route path="/about"    element={<AboutPage />} />
+              <Route path="/compte"   element={<AccountPage />} />
 
-          {/* Dashboard — Données chargées à la demande */}
-          <Route path="/dashboard" element={<DashboardWrapper />}>
-            <Route index element={<DashboardHome />} />
-            <Route path="commands" element={<CommandsPage />} />
-            <Route path="categories" element={<CategoriesPage />} />
-            <Route path="products" element={<ProductsPage />} />
-            <Route path="users" element={<UsersPage />} />
-            <Route path="configurations" element={<ConfigurationsPage />} />
-            <Route path="finances" element={<FinancesPage />} />
-          </Route>
-        </Routes>
-      </Suspense>
-      </WishlistProvider>
+              {/* Dashboard */}
+              <Route path="/dashboard" element={<DashboardWrapper />}>
+                <Route index element={<DashboardHome />} />
+                <Route path="commands" element={<CommandsPage />} />
+                <Route path="categories" element={<CategoriesPage />} />
+                <Route path="products" element={<ProductsPage />} />
+                <Route path="users" element={<UsersPage />} />
+                <Route path="configurations" element={<ConfigurationsPage />} />
+                <Route path="finances" element={<FinancesPage />} />
+              </Route>
+            </Routes>
+          </Suspense>
+        </WishlistProvider>
       </SiteSettingsProvider>
     </AuthProvider>
   );

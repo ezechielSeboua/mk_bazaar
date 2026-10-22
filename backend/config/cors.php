@@ -28,7 +28,7 @@ $list = static fn (?string $value): array => array_values(array_filter(
  */
 $origins = array_map(
     static fn (string $origin): string => rtrim($origin, '/'),
-    $list(env('CORS_ALLOWED_ORIGINS') ?: env('FRONTEND_URL', 'http://localhost:5174')),
+    $list(env('CORS_ALLOWED_ORIGINS') ?: env('FRONTEND_URL', 'http://localhost:5173')),
 );
 
 return [

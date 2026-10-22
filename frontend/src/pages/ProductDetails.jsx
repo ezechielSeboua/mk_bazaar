@@ -1,24 +1,30 @@
-import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useState, useEffect, useRef } from "react";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ChevronLeft,
   Truck,
-  Shield,
-  Headphones,
-  Award,
+  ShieldCheck,
+  RotateCcw,
+  Heart,
+  Share2,
+  ShoppingBag,
+  Sparkles,
   X,
   CheckCircle,
   AlertCircle,
-  Heart,
-  Share2,
-  Copy,
-  RotateCcw,
+  Clock,
 } from "lucide-react";
 import Header from "../components/Header";
+import Footer from "../components/Footer";
 import ProductGallery from "../components/ProductGallery";
+import RelatedProducts from "../components/RelatedProducts";
+import ProductVariantSelector from "../components/ProductVariantSelector";
+import SizeGuideModal from "../components/SizeGuideModal";
+import WhatsAppOrderDrawer from "../components/WhatsAppOrderDrawer";
+import StickyMobileBar from "../components/StickyMobileBar";
+import ProductAccordions from "../components/ProductAccordions";
 import { getProductBySlug } from "../services/product";
-import { createOrder } from "../services/order";
 import Seo from "../components/Seo";
 import { absoluteImageUrl } from "../config/seo";
 import {
@@ -26,51 +32,35 @@ import {
   buildBreadcrumbJsonLd,
 } from "../utils/seoStructuredData";
 import { useCatalogData, useCatalogProducts } from "../contexts/CatalogContext";
-import RelatedProducts from "../components/RelatedProducts";
-import { getWhatsAppLink } from "../config/env";
-import { buildOrderMessage, formatVariantLabel } from "../utils/whatsappMessage";
-import Footer from "../components/Footer";
-import { useAuth } from "../contexts/AuthContext";
-import { useSiteSettings } from "../contexts/SiteSettingsContext";
+import { resolveMediaUrl, DEFAULT_PLACEHOLDER_IMAGE } from "../config/env";
 import { useWishlist } from "../contexts/WishlistContext";
 
-// ---------- Composants utilitaires ----------
-
-function SpinnerIcon() {
-  return (
-    <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
-      <circle
-        className="opacity-25"
-        cx="12"
-        cy="12"
-        r="10"
-        stroke="currentColor"
-        strokeWidth="4"
-      />
-      <path
-        className="opacity-75"
-        fill="currentColor"
-        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-      />
-    </svg>
-  );
-}
+const WhatsAppIcon = () => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 24 24"
+    fill="currentColor"
+    className="w-4 h-4 shrink-0"
+  >
+    <path d="M12.032 2.002c-5.52 0-10 4.48-10 10 0 1.832.5 3.544 1.344 5.02l-1.344 4.978 5.104-1.312c1.408.832 3.008 1.312 4.896 1.312 5.52 0 10-4.48 10-10s-4.48-10-10-10zm0 18c-1.632 0-3.2-.416-4.576-1.184l-.336-.192-3.024.784.784-3.008-.208-.336a7.955 7.955 0 0 1-1.216-4.064c0-4.416 3.584-8 8-8s8 3.584 8 8-3.584 8-8 8zm4.288-5.664c-.24-.12-1.424-.704-1.648-.784-.224-.08-.384-.12-.544.12-.16.24-.624.784-.768.944-.144.16-.288.184-.528.064-.24-.12-1.024-.376-1.952-1.2-.72-.64-1.2-1.424-1.344-1.664-.144-.24-.016-.376.112-.496.112-.112.24-.288.36-.432.12-.144.16-.24.24-.4.08-.16.04-.304-.016-.424-.064-.12-.544-1.312-.752-1.792-.192-.456-.384-.4-.528-.4h-.448c-.144 0-.384.064-.576.288-.192.224-.736.72-.736 1.76 0 1.04.752 2.048.864 2.176.112.128 1.488 2.272 3.6 3.152.512.224.912.352 1.232.448.512.16.976.144 1.344.08.416-.064 1.28-.528 1.456-1.04.176-.512.176-.944.128-1.04-.048-.096-.176-.16-.4-.28z" />
+  </svg>
+);
 
 function Skeleton() {
   return (
     <div className="min-h-screen flex flex-col bg-[#F9F9F7]">
       <Header />
-      <main className="flex-1 max-w-7xl mx-auto px-6 py-8 md:py-12 w-full animate-pulse">
-        <div className="h-4 w-32 bg-stone-200 rounded-full mb-8" />
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-10 lg:gap-16">
-          <div className="aspect-square bg-stone-200 rounded-2xl" />
-          <div className="space-y-4">
-            <div className="h-3 w-24 bg-stone-200 rounded" />
-            <div className="h-8 w-3/4 bg-stone-200 rounded" />
-            <div className="h-5 w-28 bg-stone-200 rounded" />
-            <div className="h-4 w-full bg-stone-200 rounded" />
-            <div className="h-4 w-5/6 bg-stone-200 rounded" />
-            <div className="h-10 w-full bg-stone-200 rounded-xl mt-8" />
+      <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12 w-full animate-pulse">
+        <div className="h-4 w-40 bg-stone-200 rounded-full mb-8" />
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-14">
+          <div className="lg:col-span-7 aspect-[3/4] bg-stone-200 rounded-2xl" />
+          <div className="lg:col-span-5 space-y-4">
+            <div className="h-4 w-28 bg-stone-200 rounded-full" />
+            <div className="h-9 w-3/4 bg-stone-200 rounded-xl" />
+            <div className="h-6 w-36 bg-stone-200 rounded-lg" />
+            <div className="h-20 w-full bg-stone-200 rounded-2xl mt-6" />
+            <div className="h-12 w-full bg-stone-200 rounded-2xl" />
+            <div className="h-12 w-full bg-stone-200 rounded-2xl" />
           </div>
         </div>
       </main>
@@ -94,7 +84,6 @@ function Toast({ message, type, onClose }) {
   return (
     <motion.div
       role="alert"
-      aria-live={type === "error" ? "assertive" : "polite"}
       initial={{ opacity: 0, y: -10 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -10 }}
@@ -113,14 +102,11 @@ function Toast({ message, type, onClose }) {
   );
 }
 
-// ---------- Composant principal ----------
-
 export default function ProductDetails() {
   const { slug } = useParams();
   const navigate = useNavigate();
   const { shippingZones } = useCatalogData();
-  const { user } = useAuth();
-  const { contactInfo } = useSiteSettings();
+  const { toggleWishlist, isInWishlist } = useWishlist();
 
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -128,44 +114,32 @@ export default function ProductDetails() {
 
   const [selectedVariant, setSelectedVariant] = useState(null);
   const [quantity, setQuantity] = useState(1);
-  const [selectedZone, setSelectedZone] = useState(null);
-  const [addressDetail, setAddressDetail] = useState("");
-  const [customerName, setCustomerName] = useState("");
-  const [customerPhone, setCustomerPhone] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [orderSuccess, setOrderSuccess] = useState(false);
-
-  const { toggleWishlist, isInWishlist } = useWishlist();
+  const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
+  const [whatsAppDrawerOpen, setWhatsAppDrawerOpen] = useState(false);
+  const [stickyBarVisible, setStickyBarVisible] = useState(false);
 
   const [toast, setToast] = useState(null);
   const showToast = (message, type = "info") => {
     setToast({ message, type });
-    setTimeout(() => setToast(null), 5000);
+    setTimeout(() => setToast(null), 4000);
   };
 
-  const handleShare = async () => {
-    const shareData = {
-      title: product?.name,
-      text: `${product?.name} — ${currentPrice?.toLocaleString()} FCFA`,
-      url: window.location.href,
+  const buyActionsRef = useRef(null);
+
+  // Détection du scroll pour la barre d'achat mobile flottante
+  useEffect(() => {
+    const handleScroll = () => {
+      if (!buyActionsRef.current) return;
+      const rect = buyActionsRef.current.getBoundingClientRect();
+      // Si les boutons principaux ont disparu vers le haut
+      setStickyBarVisible(rect.bottom < 0);
     };
-    if (navigator.share) {
-      try { await navigator.share(shareData); } catch {}
-    } else {
-      await navigator.clipboard.writeText(window.location.href);
-      showToast("Lien copié dans le presse-papier", "success");
-    }
-  };
 
-  const [errors, setErrors] = useState({});
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
-  // Produits similaires : même catégorie, produit courant exclu, max 4.
-  const categorySlug = product?.category?.slug ?? null;
-  const { products: relatedRaw } = useCatalogProducts({ page: 1, categorySlug });
-  const relatedProducts = relatedRaw
-    .filter((p) => p.id !== product?.id)
-    .slice(0, 10);
-
+  // Chargement du produit par slug
   useEffect(() => {
     if (!slug) return;
     let cancelled = false;
@@ -179,7 +153,9 @@ export default function ProductDetails() {
           const dataProduct = result.data.data || result.data;
           setProduct(dataProduct);
           if (dataProduct.variants && dataProduct.variants.length > 0) {
-            setSelectedVariant(dataProduct.variants[0]);
+            // Sélectionner la première variante en stock, ou la première par défaut
+            const firstInStock = dataProduct.variants.find((v) => v.stock > 0);
+            setSelectedVariant(firstInStock || dataProduct.variants[0]);
           }
         } else {
           setError("Produit introuvable");
@@ -196,183 +172,34 @@ export default function ProductDetails() {
     };
   }, [slug]);
 
-  const currentPrice = selectedVariant
-    ? selectedVariant.price
-    : product?.price || 0;
-  const currentOldPrice = selectedVariant
-    ? selectedVariant.old_price
-    : product?.old_price || null;
+  // Produits similaires
+  const categorySlug = product?.category?.slug ?? null;
+  const { products: relatedRaw } = useCatalogProducts({ page: 1, categorySlug });
+  const relatedProducts = relatedRaw
+    .filter((p) => p.id !== product?.id)
+    .slice(0, 8);
+
+  // Prix et stock
+  const currentPrice = selectedVariant ? selectedVariant.price : product?.price || 0;
+  const currentOldPrice = selectedVariant ? selectedVariant.old_price : product?.old_price || null;
   const hasVariants = product?.variants && product.variants.length > 0;
   const isAvailable = hasVariants
     ? selectedVariant
       ? selectedVariant.stock > 0
       : false
     : product
-      ? product.is_active && (product.stock ?? 0) > 0
-      : false;
-  const maxAvailableStock =
-    hasVariants && selectedVariant
-      ? selectedVariant.stock
-      : product?.stock ?? 99;
-  const productSubtotal = currentPrice * quantity;
-  const deliveryPrice = selectedZone ? selectedZone.price : 0;
-  const totalAmount = productSubtotal + deliveryPrice;
+    ? product.is_active && (product.stock ?? 0) > 0
+    : false;
+  const maxAvailableStock = hasVariants && selectedVariant
+    ? selectedVariant.stock
+    : product?.stock ?? 99;
+
   const discountPercentage =
     currentOldPrice && currentOldPrice > currentPrice
       ? Math.round(((currentOldPrice - currentPrice) / currentOldPrice) * 100)
       : null;
 
-  const validateForm = () => {
-    const newErrors = {};
-    if (!selectedZone) {
-      newErrors.zone = "Sélectionnez votre ville";
-    }
-    if (!addressDetail.trim()) {
-      newErrors.addressDetail = "L'adresse est obligatoire";
-    }
-    if (!user) {
-      if (!customerName.trim()) newErrors.customerName = "Le nom est obligatoire";
-      if (!customerPhone.trim()) {
-        newErrors.customerPhone = "Le téléphone est obligatoire";
-      } else {
-        // Format ivoirien : 10 chiffres, préfixe +225 / 225 optionnel
-        const cleanedPhone = customerPhone.replace(/[\s.-]/g, "");
-        if (!/^(\+?225)?[0-9]{10}$/.test(cleanedPhone)) {
-          newErrors.customerPhone = "Numéro invalide (10 chiffres attendus)";
-        }
-      }
-    } else if (!user.phone?.trim()) {
-      newErrors.userPhone =
-        "Aucun téléphone sur votre compte. Ajoutez-en un pour être recontacté.";
-    }
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handlePlaceOrder = async () => {
-    if (!validateForm()) {
-      showToast("Veuillez corriger les champs en rouge.", "error");
-      return;
-    }
-
-    const resolvedName  = user ? user.name  : customerName.trim();
-    const resolvedPhone = user ? user.phone : customerPhone.trim();
-
-    // Onglet pré-ouvert DANS le geste utilisateur pour éviter le blocage popup.
-    // On lui affectera l'URL WhatsApp une fois la commande créée.
-    const waWindow = window.open("", "_blank");
-
-    setIsSubmitting(true);
-    try {
-      const variantLabel = selectedVariant
-        ? formatVariantLabel(selectedVariant.attributes)
-        : "Standard";
-
-      const orderData = {
-        delivery_location: selectedZone.name,
-        detailed_address: addressDetail.trim(),
-        ...(!user && { customer_name: resolvedName, customer_phone: resolvedPhone }),
-        items: [
-          {
-            ...(selectedVariant
-              ? { product_variant_id: selectedVariant.id }
-              : { product_id: product.id }),
-            quantity: quantity,
-          },
-        ],
-      };
-
-      const response = await createOrder(orderData);
-      if (response.success) {
-        // Montants et référence pris sur la réponse serveur.
-        const message = buildOrderMessage({
-          order: response.data?.order,
-          items: [{ name: product.name, variantLabel, quantity }],
-          customerName: resolvedName,
-          customerPhone: resolvedPhone,
-          title: "ACHAT INSTANTANÉ — MK BAZAAR",
-        });
-
-        setOrderSuccess(true);
-        showToast(
-          "Commande enregistrée ! Redirection vers WhatsApp...",
-          "success",
-        );
-
-        // Redirection immédiate de l'onglet pré-ouvert (non bloquée par le navigateur).
-        const waLink = getWhatsAppLink(message, contactInfo.whatsapp);
-        if (!waLink) {
-          if (waWindow) waWindow.close();
-          showToast(
-            `Commande enregistrée (réf. #${response.data?.order?.order_number ?? "—"}), ` +
-            `mais aucun numéro WhatsApp n'est configuré.`,
-            "error",
-          );
-        } else if (waWindow) {
-          waWindow.location.href = waLink;
-        } else {
-          // Fallback si l'onglet n'a pas pu être pré-ouvert.
-          window.location.assign(waLink);
-        }
-
-        setQuantity(1);
-        setSelectedZone(null);
-        setAddressDetail("");
-        if (!user) {
-          setCustomerName("");
-          setCustomerPhone("");
-        }
-        setTimeout(() => setOrderSuccess(false), 1500);
-      } else {
-        if (waWindow) waWindow.close();
-        showToast(response.error || "Erreur lors de la validation. Veuillez réessayer.", "error");
-      }
-    } catch (error) {
-      if (waWindow) waWindow.close();
-      console.error(error);
-      showToast("Une erreur est survenue. Veuillez réessayer.", "error");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const fadeInUp = {
-    hidden: { opacity: 0, y: 15 },
-    visible: {
-      opacity: 1,
-      y: 0,
-      transition: { duration: 0.4, ease: "easeOut" },
-    },
-  };
-  const staggerContainer = {
-    hidden: { opacity: 0 },
-    visible: { opacity: 1, transition: { staggerChildren: 0.05 } },
-  };
-
-  if (loading) {
-    return <Skeleton />;
-  }
-
-  if (error || !product) {
-    return (
-      <div className="min-h-screen flex flex-col bg-[#F9F9F7]">
-        <Seo title="Produit introuvable" path={`/products/${slug}`} noindex />
-        <Header />
-        <main className="flex-1 max-w-7xl mx-auto px-6 py-24 text-center w-full flex flex-col items-center justify-center">
-          <p className="text-stone-400 uppercase tracking-widest text-xs mb-6">
-            {error || "Produit introuvable"}
-          </p>
-          <button
-            onClick={() => navigate("/products")}
-            className="text-[10px] uppercase tracking-wider font-bold border border-stone-900 rounded-xl px-8 py-3.5 hover:bg-black hover:text-[#F9F9F7] transition-all duration-300"
-          >
-            Retourner au catalogue
-          </button>
-        </main>
-      </div>
-    );
-  }
-
+  // Préparation des images pour la galerie
   const productImages = Array.isArray(product?.image_path) ? product.image_path : [];
   const allImages = (() => {
     if (!hasVariants) return productImages;
@@ -382,19 +209,112 @@ export default function ProductDetails() {
       .filter((img) => img && !seen.has(img) && seen.add(img));
     return [...productImages, ...extraVariantImages];
   })();
+
+  // Index de la photo synchronisée avec la variante choisie
   const activeGalleryIndex = selectedVariant?.image_path
     ? Math.max(0, allImages.indexOf(selectedVariant.image_path))
     : 0;
-  const productPath = `/products/${product.slug || slug}`;
+
+  // Ajout au panier multi-articles
+  const handleAddToCart = () => {
+    if (!isAvailable) return;
+    try {
+      const localCartRaw = localStorage.getItem("mk_bazaar_cart");
+      const currentCart = localCartRaw ? JSON.parse(localCartRaw) : [];
+      const variantId = selectedVariant?.id || null;
+      const existingIndex = currentCart.findIndex(
+        (item) => item.id === product.id && (item.variant_id ?? null) === variantId
+      );
+
+      const price = selectedVariant?.price || currentPrice;
+      const image = selectedVariant?.image_path
+        ? resolveMediaUrl(selectedVariant.image_path)
+        : allImages[0]
+        ? resolveMediaUrl(allImages[0])
+        : DEFAULT_PLACEHOLDER_IMAGE;
+
+      if (existingIndex > -1) {
+        currentCart[existingIndex].quantity += quantity;
+      } else {
+        currentCart.push({
+          id: product.id,
+          variant_id: variantId,
+          name: product.name,
+          price: price,
+          quantity: quantity,
+          image: image,
+          attributes: selectedVariant?.attributes || null,
+          category: product.category?.name || "Boutique",
+          slug: product.slug,
+        });
+      }
+
+      localStorage.setItem("mk_bazaar_cart", JSON.stringify(currentCart));
+      window.dispatchEvent(new Event("cart-updated"));
+      window.dispatchEvent(new Event("show-basket-preview"));
+      showToast(
+        `${quantity} pièce${quantity > 1 ? "s" : ""} ajoutée${quantity > 1 ? "s" : ""} au panier !`,
+        "success"
+      );
+    } catch (e) {
+      console.error(e);
+      showToast("Erreur lors de l'ajout au panier", "error");
+    }
+  };
+
+  const handleShare = async () => {
+    const shareData = {
+      title: product?.name,
+      text: `${product?.name} — ${currentPrice?.toLocaleString()} FCFA sur MK BAZAAR`,
+      url: window.location.href,
+    };
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+      } catch {}
+    } else {
+      await navigator.clipboard.writeText(window.location.href);
+      showToast("Lien copié dans le presse-papier", "success");
+    }
+  };
+
+  if (loading) return <Skeleton />;
+
+  if (error || !product) {
+    return (
+      <div className="min-h-screen flex flex-col bg-[#F9F9F7]">
+        <Header />
+        <main className="flex-1 flex items-center justify-center p-6 text-center">
+          <div className="max-w-md space-y-4">
+            <h1 className="font-serif text-3xl font-light text-stone-900">
+              Pièce introuvable
+            </h1>
+            <p className="text-stone-500 text-sm font-light">
+              Cet article a été retiré de nos collections ou l'adresse n'est plus valide.
+            </p>
+            <Link
+              to="/products"
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-stone-950 text-white text-xs uppercase tracking-wider font-semibold hover:bg-stone-800 transition-colors shadow-md"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              Retour aux collections
+            </Link>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  const categoryName = product.category?.name || "Nouvelle Collection";
   const mainImage = allImages[0] ? absoluteImageUrl(allImages[0]) : null;
 
-
   return (
-    <div className="min-h-screen flex flex-col bg-[#F9F9F7] text-black antialiased">
+    <div className="min-h-screen flex flex-col bg-[#F9F9F7] text-stone-950 antialiased selection:bg-stone-950 selection:text-white">
       <Seo
         title={product.name}
         description={product.description}
-        path={productPath}
+        path={`/products/${product.slug || slug}`}
         image={mainImage}
         type="product"
         jsonLd={[
@@ -402,578 +322,285 @@ export default function ProductDetails() {
           buildBreadcrumbJsonLd([
             { name: "Accueil", path: "/" },
             { name: "Collections", path: "/products" },
-            { name: product.name, path: productPath },
+            { name: product.name, path: `/products/${product.slug || slug}` },
           ]),
         ].filter(Boolean)}
       />
+
       <Header />
 
       <AnimatePresence>
         {toast && (
-          <Toast
-            message={toast.message}
-            type={toast.type}
-            onClose={() => setToast(null)}
-          />
+          <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />
         )}
       </AnimatePresence>
 
-      <main className="flex-1 max-w-7xl mx-auto px-6 py-8 md:py-12 w-full">
-        <motion.button
-          initial={{ opacity: 0, x: -10 }}
-          animate={{ opacity: 1, x: 0 }}
-          onClick={() => navigate("/products")}
-          className="group flex items-center gap-1.5 text-[10px] uppercase tracking-[0.2em] text-stone-700 hover:text-stone-950 bg-white/80 backdrop-blur px-3.5 py-2 rounded-full border border-stone-200 shadow-sm transition-colors mb-8"
-        >
-          <ChevronLeft className="w-3.5 h-3.5 transition-transform group-hover:-translate-x-0.5 text-[#c07b5a] " />
-          <strong className="text-[#c07b5a]">Retour au catalogue</strong>
-        </motion.button>
+      <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-10 w-full">
+        {/* Fil d'Ariane Éditorial */}
+        <nav className="mb-6 flex items-center gap-2 text-[11px] uppercase tracking-wider text-stone-400 font-medium">
+          <Link to="/" className="hover:text-stone-900 transition-colors">Accueil</Link>
+          <span>/</span>
+          <Link to="/products" className="hover:text-stone-900 transition-colors">Collections</Link>
+          <span>/</span>
+          <span className="text-stone-900 font-bold truncate max-w-[200px] sm:max-w-none">
+            {product.name}
+          </span>
+        </nav>
 
-        {/* Grille principale : Galerie | Infos produit | Livraison & Récap */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-10 items-start">
-          {/* Galerie */}
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-          >
-            <ProductGallery
-              images={allImages}
-              selectedIndex={activeGalleryIndex}
-            />
-          </motion.div>
+        {/* Grille Principale 2 Colonnes Nobles */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-14 items-start">
+          
+          {/* Colonne Gauche (58%) : Grande Galerie Photo */}
+          <div className="lg:col-span-7 w-full">
+            <ProductGallery images={allImages} selectedIndex={activeGalleryIndex} />
+          </div>
 
-          {/* Colonne centrale : Infos produit */}
-          <motion.div
-            className="flex flex-col"
-            variants={staggerContainer}
-            initial="hidden"
-            animate="visible"
-          >
-            {/* --- Infos produit --- */}
-            <motion.div className="mb-6 space-y-2.5" variants={fadeInUp}>
-              <span className="text-[9px] uppercase tracking-[0.3em] text-stone-400 font-bold block">
-                {product.category?.name || "Nouvelle Collection"}
-              </span>
-              <h1 className="text-2xl md:text-3xl font-light uppercase tracking-tight leading-none text-stone-950">
+          {/* Colonne Droite (42%) : Informations & Décision d'Achat */}
+          <div className="lg:col-span-5 space-y-6 lg:sticky lg:top-24">
+            
+            {/* 1. Catégorie, Titre & Prix */}
+            <div className="space-y-3 pb-4 border-b border-stone-200/60">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] uppercase tracking-[0.25em] font-bold text-stone-400">
+                  {categoryName}
+                </span>
+
+                {/* Boutons Favoris & Partage discrets */}
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => toggleWishlist(product)}
+                    title={isInWishlist(product.id) ? "Retirer des favoris" : "Ajouter aux favoris"}
+                    className={`p-2 rounded-full border transition-all ${
+                      isInWishlist(product.id)
+                        ? "border-rose-300 bg-rose-50 text-rose-600"
+                        : "border-stone-200 text-stone-400 hover:text-stone-800 hover:border-stone-300"
+                    }`}
+                  >
+                    <Heart
+                      className={`w-4 h-4 ${
+                        isInWishlist(product.id) ? "fill-rose-500 text-rose-500" : ""
+                      }`}
+                    />
+                  </button>
+
+                  <button
+                    onClick={handleShare}
+                    title="Partager cette pièce"
+                    className="p-2 rounded-full border border-stone-200 text-stone-400 hover:text-stone-800 hover:border-stone-300 transition-all"
+                  >
+                    <Share2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              <h1 className="font-serif text-3xl sm:text-4xl lg:text-5xl font-normal text-stone-950 tracking-tight leading-[1.1]">
                 {product.name}
               </h1>
-              <div className="flex items-center gap-3 pt-1">
-                <p className="text-xl font-medium text-stone-950">
+
+              {/* Prix & Remise */}
+              <div className="flex items-baseline gap-3 pt-1">
+                <span className="font-serif text-2xl sm:text-3xl font-medium text-stone-950">
                   {currentPrice.toLocaleString()}{" "}
-                  <span className="text-xs font-light">FCFA</span>
-                </p>
+                  <span className="text-sm font-sans font-light text-stone-600">FCFA</span>
+                </span>
+
                 {currentOldPrice && currentOldPrice > currentPrice && (
-                  <>
+                  <div className="flex items-center gap-2">
                     <span className="text-sm font-light text-stone-400 line-through">
                       {currentOldPrice.toLocaleString()} FCFA
                     </span>
-                    <span className="inline-flex items-center gap-0.5 bg-stone-950 text-white text-[9px] font-mono tracking-tight px-1.5 py-0.5 rounded-md">
+                    <span className="bg-[#c07b5a] text-white text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-full">
                       -{discountPercentage}%
                     </span>
-                  </>
+                  </div>
                 )}
               </div>
-            </motion.div>
 
-            <motion.div className="mb-6" variants={fadeInUp}>
-              <span
-                className={`inline-flex items-center gap-1.5 text-[9px] uppercase tracking-[0.2em] font-bold px-2.5 py-1 rounded-full ${
-                  isAvailable
-                    ? "bg-emerald-50 text-emerald-800"
-                    : "bg-rose-50 text-rose-800"
-                }`}
-              >
+              {/* Badge Disponibilité & Réassurance immédiate */}
+              <div className="flex items-center gap-2 pt-1 text-xs">
                 <span
-                  className={`w-1 h-1 rounded-full ${isAvailable ? "bg-emerald-500" : "bg-rose-500"}`}
-                />
-                {isAvailable ? "Disponible" : "Épuisé"}
-              </span>
-              {hasVariants
-                ? selectedVariant &&
-                  selectedVariant.stock <= 3 &&
-                  selectedVariant.stock > 0 && (
-                    <span className="text-[10px] text-amber-600 font-medium ml-3 font-mono">
-                      (Plus que {selectedVariant.stock} pièces !)
-                    </span>
-                  )
-                : product?.stock > 0 &&
-                  product.stock <= 3 && (
-                    <span className="text-[10px] text-amber-600 font-medium ml-3 font-mono">
-                      (Plus que {product.stock} pièces !)
-                    </span>
-                  )}
-            </motion.div>
-
-            <motion.p
-              className="text-xs md:text-sm text-stone-600 leading-relaxed mb-5 font-light"
-              variants={fadeInUp}
-            >
-              {product.description}
-            </motion.p>
-
-            {/* Actions : Favori + Partage */}
-            <motion.div className="flex items-center gap-3 mb-6" variants={fadeInUp}>
-              <button
-                onClick={() => toggleWishlist(product)}
-                className={`flex items-center gap-1.5 px-3 py-2 rounded-full border text-xs font-medium transition-all ${
-                  isInWishlist(product.id)
-                    ? "border-rose-300 bg-rose-50 text-rose-600"
-                    : "border-stone-200 text-stone-500 hover:border-stone-400"
-                }`}
-              >
-                <Heart className={`w-3.5 h-3.5 ${isInWishlist(product.id) ? "fill-rose-500 text-rose-500" : ""}`} />
-                {isInWishlist(product.id) ? "Dans vos favoris" : "Ajouter aux favoris"}
-              </button>
-              <button
-                onClick={handleShare}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-full border border-stone-200 text-stone-500 text-xs font-medium hover:border-stone-400 transition-all"
-              >
-                <Share2 className="w-3.5 h-3.5" />
-                Partager
-              </button>
-            </motion.div>
-
-            <motion.div
-              className="space-y-6 mb-6 pb-6 border-b border-stone-200/80"
-              variants={staggerContainer}
-            >
-              {hasVariants && (
-                <motion.div variants={fadeInUp} className="space-y-2.5">
-                  <label className="text-[10px] uppercase tracking-[0.2em] font-bold block text-stone-800">
-                    Sélectionner la Taille / Option :
-                  </label>
-                  <div className="flex flex-wrap gap-2">
-                    {product.variants.map((v) => {
-                      const isSelected = selectedVariant?.id === v.id;
-                      const attributesText = Object.values(v.attributes).join(
-                        " - ",
-                      );
-                      const isOutOfStock = v.stock === 0;
-                      const variantDiscount =
-                        v.old_price && v.old_price > v.price
-                          ? Math.round(
-                              ((v.old_price - v.price) / v.old_price) * 100,
-                            )
-                          : null;
-                      return (
-                        <button
-                          key={v.id}
-                          type="button"
-                          disabled={isOutOfStock}
-                          onClick={() => {
-                            setSelectedVariant(v);
-                            setQuantity(1);
-                          }}
-                          aria-label={`Option ${attributesText}${isOutOfStock ? " (épuisé)" : ""}`}
-                          className={`relative px-4 py-3 rounded-xl text-xs font-medium tracking-wider border transition-all duration-300 min-w-[55px] text-center ${
-                            isSelected
-                              ? "border-stone-950 bg-stone-950 text-white shadow-sm scale-[1.02]"
-                              : isOutOfStock
-                                ? "border-stone-100 bg-stone-50 text-stone-300 line-through cursor-not-allowed"
-                                : "border-stone-200 text-stone-700 bg-transparent hover:border-stone-400"
-                          }`}
-                        >
-                          {attributesText}
-                          {variantDiscount && !isOutOfStock && (
-                            <span
-                              className={`absolute -top-1.5 -right-1.5 text-[8px] font-mono font-bold px-1 py-0.5 rounded ${
-                                isSelected
-                                  ? "bg-white text-stone-950"
-                                  : "bg-rose-600 text-white"
-                              }`}
-                            >
-                              -{variantDiscount}%
-                            </span>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </motion.div>
-              )}
-
-              <motion.div variants={fadeInUp}>
-                <label
-                  htmlFor="quantity"
-                  className="text-[10px] uppercase tracking-[0.2em] font-bold block mb-2.5 text-stone-800"
+                  className={`inline-flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-bold px-2.5 py-0.5 rounded-full ${
+                    isAvailable
+                      ? "bg-emerald-50 text-emerald-800 border border-emerald-200/50"
+                      : "bg-rose-50 text-rose-800 border border-rose-200/50"
+                  }`}
                 >
-                  Quantité
-                </label>
-                <div className="flex items-center border border-stone-200 rounded-xl w-fit overflow-hidden bg-stone-50 shadow-inner">
-                  <button
-                    type="button"
-                    onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                    aria-label="Diminuer la quantité"
-                    className="px-4 py-3 text-sm font-medium hover:bg-stone-200/60 active:bg-stone-200 text-stone-600 transition-colors"
-                  >
-                    −
-                  </button>
                   <span
-                    id="quantity"
-                    className="px-5 py-3 text-sm font-mono font-medium text-stone-950 min-w-[40px] text-center select-none"
-                  >
-                    {quantity}
-                  </span>
-                  <button
-                    type="button"
-                    disabled={quantity >= maxAvailableStock}
-                    onClick={() =>
-                      setQuantity(Math.min(maxAvailableStock, quantity + 1))
-                    }
-                    aria-label="Augmenter la quantité"
-                    className="px-4 py-3 text-sm font-medium hover:bg-stone-200/60 active:bg-stone-200 text-stone-600 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                  >
-                    +
-                  </button>
-                </div>
-              </motion.div>
-            </motion.div>
-
-            <AnimatePresence>
-              {orderSuccess && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex items-start gap-2"
-                >
-                  <CheckCircle className="w-4 h-4 text-emerald-600 mt-0.5 flex-shrink-0" />
-                  <p className="text-xs text-emerald-900 font-medium">
-                    Commande enregistrée avec succès. Vous allez être redirigé
-                    vers WhatsApp pour finaliser.
-                  </p>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </motion.div>
-
-          {/* Colonne de droite : Livraison & Récapitulatif */}
-          <motion.div
-            className="sticky top-6 space-y-6"
-            initial={{ opacity: 0, x: 15 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.5, delay: 0.1 }}
-          >
-            {/* 1. INFORMATIONS DE LIVRAISON */}
-            <div className="bg-white rounded-2xl border border-stone-200 p-6 space-y-4">
-              <h2 className="text-[12px] uppercase tracking-[0.25em] font-bold text-[#c07b5a]">
-                1. Informations de livraison
-              </h2>
-
-              {/* Infos client — auto si connecté, saisie sinon */}
-              {user ? (
-                <div>
-                  <div
-                    className={`flex items-center gap-3 bg-stone-50 border rounded-xl px-4 py-3 ${
-                      errors.userPhone ? "border-rose-300" : "border-stone-200"
+                    className={`w-1.5 h-1.5 rounded-full ${
+                      isAvailable ? "bg-emerald-500 animate-pulse" : "bg-rose-500"
                     }`}
-                  >
-                    <div className="w-7 h-7 rounded-full bg-stone-200 flex items-center justify-center flex-shrink-0">
-                      <span className="text-[10px] font-bold text-stone-600 uppercase">
-                        {user.name?.charAt(0) || "?"}
-                      </span>
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-xs font-semibold text-stone-900 truncate">{user.name}</p>
-                      <p className="text-[10px] text-stone-400 truncate">
-                        {user.phone || "Aucun téléphone enregistré"}
-                      </p>
-                    </div>
-                  </div>
-                  {errors.userPhone && (
-                    <p className="text-[9px] text-rose-600 mt-1">
-                      {errors.userPhone}{" "}
-                      <button
-                        type="button"
-                        onClick={() => navigate("/compte")}
-                        className="underline font-semibold hover:text-rose-700"
-                      >
-                        Compléter mon compte
-                      </button>
-                    </p>
-                  )}
-                </div>
-              ) : (
-                <>
-                  <div>
-                    <label
-                      htmlFor="customerName"
-                      className="text-[10px] uppercase tracking-wider font-bold text-stone-600 mb-1 block"
-                    >
-                      Nom complet
-                    </label>
-                    <input
-                      id="customerName"
-                      type="text"
-                      value={customerName}
-                      onChange={(e) => {
-                        setCustomerName(e.target.value);
-                        if (errors.customerName)
-                          setErrors((prev) => ({ ...prev, customerName: undefined }));
-                      }}
-                      placeholder="Votre nom et prénom"
-                      className={`w-full px-4 py-3 rounded-xl border bg-stone-50 text-xs text-stone-950 placeholder-stone-400 focus:outline-none focus:border-stone-950 transition-all ${
-                        errors.customerName
-                          ? "border-rose-300 focus:border-rose-500"
-                          : "border-stone-200"
-                      }`}
-                    />
-                    {errors.customerName && (
-                      <p className="text-[9px] text-rose-600 mt-1">{errors.customerName}</p>
-                    )}
-                  </div>
-                  <div>
-                    <label
-                      htmlFor="customerPhone"
-                      className="text-[10px] uppercase tracking-wider font-bold text-stone-600 mb-1 block"
-                    >
-                      Téléphone
-                    </label>
-                    <input
-                      id="customerPhone"
-                      type="tel"
-                      value={customerPhone}
-                      onChange={(e) => {
-                        setCustomerPhone(e.target.value);
-                        if (errors.customerPhone)
-                          setErrors((prev) => ({ ...prev, customerPhone: undefined }));
-                      }}
-                      placeholder="07 XX XX XX XX"
-                      className={`w-full px-4 py-3 rounded-xl border bg-stone-50 text-xs text-stone-950 placeholder-stone-400 focus:outline-none focus:border-stone-950 transition-all ${
-                        errors.customerPhone
-                          ? "border-rose-300 focus:border-rose-500"
-                          : "border-stone-200"
-                      }`}
-                    />
-                    {errors.customerPhone && (
-                      <p className="text-[9px] text-rose-600 mt-1">{errors.customerPhone}</p>
-                    )}
-                  </div>
-                </>
-              )}
+                  />
+                  {isAvailable ? "En stock" : "Rupture de stock"}
+                </span>
 
-              <div>
-                <label
-                  htmlFor="zone"
-                  className="text-[10px] uppercase tracking-wider font-bold text-stone-600 mb-1 block"
-                >
-                  Ville / Commune
-                </label>
-                <select
-                  id="zone"
-                  value={selectedZone?.name || ""}
-                  onChange={(e) => {
-                    const zone = shippingZones.find(
-                      (z) => z.name === e.target.value,
-                    );
-                    setSelectedZone(zone || null);
-                    if (errors.zone)
-                      setErrors((prev) => ({ ...prev, zone: undefined }));
-                  }}
-                  className={`w-full px-4 py-3 rounded-xl border bg-stone-50 text-xs text-stone-900 focus:outline-none focus:border-stone-950 transition-all cursor-pointer ${
-                    errors.zone
-                      ? "border-rose-300 focus:border-rose-500"
-                      : "border-stone-200"
-                  }`}
-                >
-                  <option value="" disabled>
-                    Choisir votre ville
-                  </option>
-                  {shippingZones.map(({ id, name, price }) => (
-                    <option key={id} value={name}>
-                      {name} (+{price.toLocaleString()} FCFA)
-                    </option>
-                  ))}
-                </select>
-                {errors.zone && (
-                  <p className="text-[9px] text-rose-600 mt-1">{errors.zone}</p>
-                )}
-                {!errors.zone && (
-                  <p className="text-[9px] text-stone-400 mt-1.5 tracking-wide">
-                    Les frais de livraison s’affichent automatiquement.
-                  </p>
-                )}
-              </div>
-              <div>
-                <label
-                  htmlFor="addressDetail"
-                  className="text-[10px] uppercase tracking-wider font-bold text-stone-600 mb-1 block"
-                >
-                  Adresse détaillée
-                </label>
-                <input
-                  id="addressDetail"
-                  type="text"
-                  value={addressDetail}
-                  onChange={(e) => {
-                    setAddressDetail(e.target.value);
-                    if (errors.addressDetail)
-                      setErrors((prev) => ({
-                        ...prev,
-                        addressDetail: undefined,
-                      }));
-                  }}
-                  placeholder="Quartier, rue, numéro de maison..."
-                  className={`w-full px-4 py-3 rounded-xl border bg-stone-50 text-xs text-stone-950 placeholder-stone-400 focus:outline-none focus:border-stone-950 transition-all ${
-                    errors.addressDetail
-                      ? "border-rose-300 focus:border-rose-500"
-                      : "border-stone-200"
-                  }`}
-                />
-                {errors.addressDetail && (
-                  <p className="text-[9px] text-rose-600 mt-1">
-                    {errors.addressDetail}
-                  </p>
+                {isAvailable && (
+                  <span className="text-stone-500 text-[11px] font-light flex items-center gap-1">
+                    <Clock className="w-3.5 h-3.5 text-stone-400" /> Expédition sous 24h
+                  </span>
                 )}
               </div>
             </div>
 
-            {/* 2. RÉSUMÉ DE COMMANDE */}
-            <div className="bg-stone-50 rounded-2xl border border-stone-200 p-6 space-y-4">
-              <h2 className="text-[12px] uppercase tracking-[0.25em] font-bold text-[#c07b5a]">
-                2. Résumé de commande
-              </h2>
-              <div className="flex justify-between text-xs text-stone-600">
-                <span className="font-medium">Produit</span>
-                <span className="font-medium">
-                  {product.name} × {quantity}
-                </span>
-              </div>
-              <div className="flex justify-between text-xs text-stone-600">
-                <span className="font-medium">Zone de livraison</span>
-                <span className="font-medium">
-                  {selectedZone ? selectedZone.name : "—"}
-                </span>
-              </div>
-              <div className="flex justify-between text-xs text-stone-600 border-t border-stone-200 pt-3">
-                <span className="font-medium">Sous-total</span>
-                <span className="font-medium">
-                  {productSubtotal.toLocaleString()} FCFA
-                </span>
-              </div>
-              <div className="flex justify-between text-xs text-stone-600">
-                <span className="font-medium">Frais de livraison</span>
-                <span className="font-medium">
-                  {deliveryPrice.toLocaleString()} FCFA
-                </span>
-              </div>
-              <div className="flex justify-between text-base font-bold text-stone-950 border-t border-stone-200 pt-3">
-                <span>TOTAL</span>
-                <span>{totalAmount.toLocaleString()} FCFA</span>
-              </div>
+            {/* 2. Sélecteur de Variantes Moderne (Couleur en pastilles / Taille en boutons) */}
+            {hasVariants && (
+              <ProductVariantSelector
+                variants={product.variants || []}
+                selectedVariant={selectedVariant}
+                onSelectVariant={(v) => {
+                  setSelectedVariant(v);
+                  setQuantity(1);
+                }}
+                onOpenSizeGuide={() => setSizeGuideOpen(true)}
+              />
+            )}
 
-              {/* Bouton de commande */}
+            {/* 3. Sélecteur de Quantité */}
+            <div className="space-y-2 pt-1">
+              <label
+                htmlFor="product-quantity"
+                className="text-[10px] uppercase tracking-[0.2em] font-bold block text-stone-500"
+              >
+                Quantité
+              </label>
+
+              <div className="flex items-center border border-stone-200 rounded-xl w-fit overflow-hidden bg-white shadow-sm">
+                <button
+                  type="button"
+                  onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                  aria-label="Diminuer la quantité"
+                  className="px-4 py-2.5 text-sm font-medium hover:bg-stone-100 active:bg-stone-200 text-stone-700 transition-colors"
+                >
+                  −
+                </button>
+                <span
+                  id="product-quantity"
+                  className="px-5 py-2.5 text-xs font-mono font-bold text-stone-950 min-w-[42px] text-center select-none"
+                >
+                  {quantity}
+                </span>
+                <button
+                  type="button"
+                  disabled={quantity >= maxAvailableStock}
+                  onClick={() => setQuantity(Math.min(maxAvailableStock, quantity + 1))}
+                  aria-label="Augmenter la quantité"
+                  className="px-4 py-2.5 text-sm font-medium hover:bg-stone-100 active:bg-stone-200 text-stone-700 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  +
+                </button>
+              </div>
+            </div>
+
+            {/* 4. Boutons d'Action Hiérarchisés */}
+            <div id="buy-actions" ref={buyActionsRef} className="space-y-3 pt-3">
+              {/* Action Principale : Ajouter au panier */}
               <button
-                onClick={handlePlaceOrder}
-                disabled={isSubmitting || !isAvailable}
-                className={`w-full mt-4 py-4 rounded-xl text-[10px] uppercase tracking-wider font-bold flex items-center justify-center gap-2 transition-all ${
-                  !isAvailable
-                    ? "bg-stone-200 text-stone-400 cursor-not-allowed"
-                    : isSubmitting
-                      ? "bg-emerald-700 text-white"
-                      : "bg-emerald-600 text-white hover:bg-emerald-700 shadow-md active:scale-[0.98]"
+                type="button"
+                onClick={handleAddToCart}
+                disabled={!isAvailable}
+                className={`w-full py-4 px-6 rounded-2xl text-xs sm:text-sm font-bold uppercase tracking-widest flex items-center justify-center gap-3 transition-all duration-300 shadow-lg ${
+                  isAvailable
+                    ? "bg-[#c07b5a] text-white hover:bg-[#a5684a] active:scale-[0.99] shadow-[#c07b5a]/30 hover:shadow-xl cursor-pointer"
+                    : "bg-stone-200 text-stone-400 cursor-not-allowed"
                 }`}
               >
-                {isSubmitting ? (
-                  <SpinnerIcon />
-                ) : (
-                  <>
-                    <svg
-                      className="w-4 h-4"
-                      viewBox="0 0 24 24"
-                      fill="currentColor"
-                    >
-                      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
-                    </svg>
-                    {isAvailable
-                      ? "Confirmer la commande"
-                      : "Produit indisponible"}
-                  </>
-                )}
+                <ShoppingBag className="w-4 h-4 sm:w-5 sm:h-5" />
+                <span>{isAvailable ? "Ajouter au panier" : "Article indisponible"}</span>
               </button>
-              {!isAvailable && (
-                <p className="text-[9px] text-rose-600 text-center mt-2">
-                  Ce produit est actuellement en rupture de stock.
-                </p>
-              )}
+
+              {/* Action Complémentaire : Commande Express 1 Clic (WhatsApp) */}
+              <button
+                type="button"
+                onClick={() => setWhatsAppDrawerOpen(true)}
+                disabled={!isAvailable}
+                className={`w-full py-3.5 px-6 rounded-2xl text-xs sm:text-sm font-semibold uppercase tracking-wider flex items-center justify-center gap-3 transition-all duration-300 border ${
+                  isAvailable
+                    ? "bg-stone-950 text-white hover:bg-stone-800 border-stone-950 active:scale-[0.99] shadow-md cursor-pointer"
+                    : "bg-stone-100 text-stone-400 border-stone-200 cursor-not-allowed"
+                }`}
+              >
+                <WhatsAppIcon />
+                <span>Achat Express en 1 Clic (WhatsApp)</span>
+              </button>
             </div>
 
-            {/* Icônes d’avantages */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="flex items-center gap-2 bg-white p-3 rounded-xl border border-stone-200">
-                <Truck className="w-5 h-5 text-stone-600 flex-shrink-0" />
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-wider">
-                    Paiement à la livraison
-                  </p>
-                  <p className="text-[8px] text-stone-400">
-                    Payez en toute sécurité à réception
-                  </p>
-                </div>
+            {/* 5. Réassurances & Engagements de Marque */}
+            <div className="grid grid-cols-3 gap-2 py-3 px-3 bg-stone-100/70 rounded-2xl border border-stone-200/60 text-center">
+              <div className="space-y-1">
+                <Truck className="w-4 h-4 mx-auto text-[#c07b5a]" />
+                <span className="text-[10px] uppercase font-bold text-stone-800 block">
+                  Expédition 24h
+                </span>
+                <span className="text-[9px] text-stone-500 font-light block">
+                  Abidjan & Intérieur
+                </span>
               </div>
-              <div className="flex items-center gap-2 bg-white p-3 rounded-xl border border-stone-200">
-                <Shield className="w-5 h-5 text-stone-600 flex-shrink-0" />
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-wider">
-                    Livraison rapide
-                  </p>
-                  <p className="text-[8px] text-stone-400">
-                    Partout en Côte d’Ivoire
-                  </p>
-                </div>
+
+              <div className="space-y-1 border-x border-stone-200/80">
+                <ShieldCheck className="w-4 h-4 mx-auto text-[#c07b5a]" />
+                <span className="text-[10px] uppercase font-bold text-stone-800 block">
+                  Paiement Réception
+                </span>
+                <span className="text-[9px] text-stone-500 font-light block">
+                  Cash ou Wave / Orange
+                </span>
               </div>
-              <div className="flex items-center gap-2 bg-white p-3 rounded-xl border border-stone-200">
-                <Award className="w-5 h-5 text-stone-600 flex-shrink-0" />
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-wider">
-                    Produits de qualité
-                  </p>
-                  <p className="text-[8px] text-stone-400">
-                    Sélectionnées avec soin
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 bg-white p-3 rounded-xl border border-stone-200">
-                <Headphones className="w-5 h-5 text-stone-600 flex-shrink-0" />
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-wider">
-                    Support client
-                  </p>
-                  <p className="text-[8px] text-stone-400">
-                    Disponible sur WhatsApp
-                  </p>
-                </div>
+
+              <div className="space-y-1">
+                <RotateCcw className="w-4 h-4 mx-auto text-[#c07b5a]" />
+                <span className="text-[10px] uppercase font-bold text-stone-800 block">
+                  Échange 48h
+                </span>
+                <span className="text-[9px] text-stone-500 font-light block">
+                  Si souci de taille
+                </span>
               </div>
             </div>
-          </motion.div>
+
+            {/* 6. Accordéons Techniques : Matières, Entretien, Livraison */}
+            <ProductAccordions
+              description={product.description}
+              categoryName={categoryName}
+            />
+          </div>
         </div>
 
-        {/* Politique de retour */}
-        <motion.div
-          initial={{ opacity: 0, y: 15 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          className="mt-12 bg-white rounded-2xl border border-stone-200 p-6 flex items-start gap-4"
-        >
-          <RotateCcw className="w-5 h-5 text-[#c07b5a] flex-shrink-0 mt-0.5" />
-          <div>
-            <h2 className="text-[12px] uppercase tracking-[0.25em] font-bold text-stone-900 mb-1.5">
-              Retours & échanges
-            </h2>
-            <p className="text-xs text-stone-600 leading-relaxed font-light">
-              Vous disposez de 48 h après réception pour signaler un article
-              défectueux ou non conforme. Contactez-nous sur WhatsApp pour
-              organiser un échange ou un remboursement. Les frais de retour sont
-              à notre charge en cas d’erreur de notre part.
-            </p>
-          </div>
-        </motion.div>
+        {/* Section Produits Similaires */}
+        <div className="mt-16 sm:mt-24 pt-12 border-t border-stone-200/80">
+          <RelatedProducts products={relatedProducts} currentProductId={product.id} />
+        </div>
       </main>
 
-      {/* Produits similaires */}
-      <RelatedProducts products={relatedProducts} />
-        <Footer />
+      <Footer />
+
+      {/* Tiroir Achat Express WhatsApp */}
+      <WhatsAppOrderDrawer
+        isOpen={whatsAppDrawerOpen}
+        onClose={() => setWhatsAppDrawerOpen(false)}
+        product={product}
+        selectedVariant={selectedVariant}
+        quantity={quantity}
+        setQuantity={setQuantity}
+        shippingZones={shippingZones}
+        onOrderCompleted={() => {
+          showToast("Votre commande a été préparée pour WhatsApp !", "success");
+        }}
+      />
+
+      {/* Modal Guide des Tailles */}
+      <SizeGuideModal
+        isOpen={sizeGuideOpen}
+        onClose={() => setSizeGuideOpen(false)}
+        defaultTab={product.category?.name?.toLowerCase().includes("chauss") ? "chaussures" : "vetements"}
+      />
+
+      {/* Barre d'action fixe mobile */}
+      <StickyMobileBar
+        isVisible={stickyBarVisible}
+        product={product}
+        selectedVariant={selectedVariant}
+        onAddToCart={handleAddToCart}
+        onOpenWhatsApp={() => setWhatsAppDrawerOpen(true)}
+      />
     </div>
   );
 }

@@ -17,8 +17,8 @@ export default function TestimonialsSection({ testimonials }) {
         <span className="text-[10px] uppercase tracking-[0.3em] text-stone-400 font-bold block mb-3">
           Témoignages
         </span>
-        <h2 className="text-2xl md:text-3xl font-light uppercase tracking-tight text-stone-900">
-          Ce que nos <span className="font-normal">clients disent</span>
+        <h2 className="font-serif text-2xl md:text-3xl font-light text-stone-900">
+          Ce que nos <span className="italic font-normal">clients disent</span>
         </h2>
       </motion.div>
 

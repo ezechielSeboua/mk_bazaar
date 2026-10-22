@@ -1,3 +1,57 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+:root {
+  --brand-terracotta: #c07b5a;
+  --brand-terracotta-dark: #a5684a;
+  --brand-terracotta-light: #fef4ee;
+  --brand-sand: #F9F9F7;
+  --brand-charcoal: #18181B;
+  --brand-gold: #B38B41;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    background-color: var(--brand-sand);
+    color: #18181B;
+    overflow-x: hidden;
+  }
+
+  ::selection {
+    background-color: #18181B;
+    color: #F9F9F7;
+  }
+}
+
+@layer utilities {
+  .bg-brand-terracotta {
+    background-color: #c07b5a;
+  }
+  .hover\:bg-brand-terracotta-dark:hover {
+    background-color: #a5684a;
+  }
+  .text-brand-terracotta {
+    color: #c07b5a;
+  }
+  .border-brand-terracotta {
+    border-color: #c07b5a;
+  }
+}
+
+/* Guard against rapid excessive motion when user prefers reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

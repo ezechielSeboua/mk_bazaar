@@ -100,9 +100,23 @@ export const CatalogProvider = ({ children }) => {
         sort = 'nouveautes',
         search = '',
         inStock = null,
+        minPrice = null,
+        maxPrice = null,
+        size = null,
+        color = null,
         force = false,
     } = {}) => {
-        const key = buildProductsCacheKey({ page, categorySlug, sort, search, inStock });
+        const key = buildProductsCacheKey({
+            page,
+            categorySlug,
+            sort,
+            search,
+            inStock,
+            minPrice,
+            maxPrice,
+            size,
+            color,
+        });
         const cached = getCachedProductPage(key);
 
         if (!force && cached && isProductPageFresh(cached)) {
@@ -123,6 +137,10 @@ export const CatalogProvider = ({ children }) => {
             effectiveSort,
             search,
             inStockOnly,
+            minPrice,
+            maxPrice,
+            size,
+            color,
         );
 
         if (!result.success) {
@@ -197,9 +215,23 @@ export const useCatalogProducts = ({
     sort = 'nouveautes',
     search = '',
     inStock = null,
+    minPrice = null,
+    maxPrice = null,
+    size = null,
+    color = null,
 }) => {
     const { fetchProductPage } = useCatalogData();
-    const cacheKey = buildProductsCacheKey({ page, categorySlug, sort, search, inStock });
+    const cacheKey = buildProductsCacheKey({
+        page,
+        categorySlug,
+        sort,
+        search,
+        inStock,
+        minPrice,
+        maxPrice,
+        size,
+        color,
+    });
     const cached = getCachedProductPage(cacheKey);
 
     const [products, setProducts] = useState(cached?.products ?? []);
@@ -210,7 +242,17 @@ export const useCatalogProducts = ({
 
     useEffect(() => {
         let cancelled = false;
-        const key = buildProductsCacheKey({ page, categorySlug, sort, search, inStock });
+        const key = buildProductsCacheKey({
+            page,
+            categorySlug,
+            sort,
+            search,
+            inStock,
+            minPrice,
+            maxPrice,
+            size,
+            color,
+        });
         const existing = getCachedProductPage(key);
 
         if (existing) {
@@ -224,7 +266,7 @@ export const useCatalogProducts = ({
             setIsLoading(true);
         }
 
-        fetchProductPage({ page, categorySlug, sort, search, inStock })
+        fetchProductPage({ page, categorySlug, sort, search, inStock, minPrice, maxPrice, size, color })
             .then((result) => {
                 if (cancelled) return;
                 setProducts(result.products);
@@ -241,7 +283,7 @@ export const useCatalogProducts = ({
         return () => {
             cancelled = true;
         };
-    }, [page, categorySlug, sort, search, inStock, fetchProductPage]);
+    }, [page, categorySlug, sort, search, inStock, minPrice, maxPrice, size, color, fetchProductPage]);
 
     return { products, totalPages, totalItems, isLoading, isRefreshing };
 };
