@@ -2,7 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Category;
 use App\Models\Product;
+use App\Models\ProductAttribute;
+use App\Models\ProductVariant;
+use App\Models\Promotion;
+use App\Services\PricingService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Str;
@@ -11,45 +16,83 @@ use Cloudinary\Cloudinary as CloudinarySDK;
 
 class ProductController extends Controller
 {
+    /** Résolu à chaque appel : les instances de contrôleur peuvent être réutilisées entre requêtes. */
+    private function pricing(): PricingService
+    {
+        return app(PricingService::class);
+    }
+
     /**
      * Récupérer les produits (Filtres, tri et pagination)
+     *
+     * Filtres : category_slug | category_id (sous-catégories incluses), in_stock,
+     * min_price, max_price, size, color, attr[<slug>]=<valeur>, search (nom,
+     * description, référence), featured, is_new, on_sale.
+     * Admin : include_inactive=1 pour voir les produits et variantes désactivés.
+     *
+     * Chaque produit et chaque variante exposent `pricing` (prix final, remise, promotion).
      */
     public function index(Request $request): JsonResponse
     {
-        // On charge la catégorie ET les variantes associées
-        $query = Product::where('is_active', true)->with(['category', 'variants']);
+        $withInactive = $request->boolean('include_inactive') && $this->requestIsAdmin();
 
-        // Filtrage par catégorie (Slug ou ID)
-        if ($request->filled('category_slug')) {
-            $query->whereHas('category', fn($q) => $q->where('slug', $request->category_slug));
-        } elseif ($request->filled('category_id')) {
-            $query->where('category_id', $request->category_id);
+        $query = Product::query()->with(['category', 'variants' => $this->variantScope($withInactive)]);
+
+        if (!$withInactive) {
+            $query->where('is_active', true);
+        } elseif ($request->has('is_active')) {
+            $query->where('is_active', $request->boolean('is_active'));
+        }
+
+        // Filtrage par catégorie (Slug ou ID), sous-catégories comprises
+        if ($request->filled('category_slug') || $request->filled('category_id')) {
+            $category = $request->filled('category_slug')
+                ? Category::where('slug', $request->category_slug)->first()
+                : Category::find($request->category_id);
+
+            $query->whereIn('category_id', $category ? $category->selfAndChildrenIds() : []);
         }
 
         // Nouveau filtre de stock basé sur la table des variantes
         if ($request->has('in_stock')) {
-            if ($request->boolean('in_stock')) {
-                // En stock : le produit possède au moins une variante dont le stock > 0
-                $query->whereHas('variants', fn($q) => $q->where('stock', '>', 0));
-            } else {
-                // Rupture : toutes les variantes ont un stock à 0
-                $query->whereDoesntHave('variants', fn($q) => $q->where('stock', '>', 0));
-            }
+            // En stock : une variante active en stock, ou un produit sans variante en stock
+            $inStock = fn ($q) => $q
+                ->whereHas('variants', fn ($v) => $v->where('is_active', true)->where('stock', '>', 0))
+                ->orWhere(fn ($p) => $p->whereDoesntHave('variants')->where('stock', '>', 0));
+
+            $request->boolean('in_stock') ? $query->where($inStock) : $query->whereNot($inStock);
         }
 
-        // Filtrage par prix minimum et maximum
+        // Filtrage par prix minimum et maximum (prix de base)
         if ($request->filled('min_price')) {
-            $query->where('price', '>=', (float) $request->min_price);
+            $query->where('price', '>=', (int) $request->min_price);
         }
         if ($request->filled('max_price')) {
-            $query->where('price', '<=', (float) $request->max_price);
+            $query->where('price', '<=', (int) $request->max_price);
         }
 
-        // Filtrage par taille / pointure (variantes en stock)
+        // Filtres d'attributs : attr[taille]=M&attr[finition]=Doré (variantes actives en stock)
+        $attributeFilters = (array) $request->input('attr', []);
+        // Anciens paramètres, conservés pour compatibilité
+        if ($request->filled('color')) {
+            $attributeFilters['couleur'] = $request->color;
+        }
+
+        foreach ($attributeFilters as $slug => $value) {
+            if (!is_string($slug) || !preg_match(ProductAttribute::SLUG_PATTERN, $slug) || !is_scalar($value) || $value === '') {
+                continue; // la clé sert de chemin JSON : on n'accepte que des slugs valides
+            }
+            $query->whereHas('variants', fn ($q) => $q
+                ->where('is_active', true)
+                ->where('stock', '>', 0)
+                ->where("attributes->{$slug}", (string) $value));
+        }
+
         if ($request->filled('size')) {
             $size = $request->size;
             $query->whereHas('variants', function ($q) use ($size) {
-                $q->where('stock', '>', 0)
+                $q->where('is_active', true)
+                  ->where('stock', '>', 0)
                   ->where(function ($sub) use ($size) {
                       $sub->where('attributes->taille', $size)
                           ->orWhere('attributes->pointure', $size);
@@ -57,19 +100,25 @@ class ProductController extends Controller
             });
         }
 
-        // Filtrage par couleur
-        if ($request->filled('color')) {
-            $color = $request->color;
-            $query->whereHas('variants', function ($q) use ($color) {
-                $q->where('attributes->couleur', $color);
-            });
-        }
-
-        // Recherche textuelle
+        // Recherche textuelle (nom, description, référence produit ou variante)
         if ($request->filled('search')) {
             $search = '%' . substr($request->search, 0, 100) . '%';
-            $query->where(fn($q) => $q->where('name', 'like', $search)
-                                      ->orWhere('description', 'like', $search));
+            $query->where(fn ($q) => $q->where('name', 'like', $search)
+                                       ->orWhere('description', 'like', $search)
+                                       ->orWhere('sku', 'like', $search)
+                                       ->orWhereHas('variants', fn ($v) => $v->where('sku', 'like', $search)));
+        }
+
+        if ($request->has('featured')) {
+            $query->where('featured', $request->boolean('featured'));
+        }
+        if ($request->has('is_new')) {
+            $query->where('is_new', $request->boolean('is_new'));
+        }
+
+        // Produits concernés par une promotion en cours
+        if ($request->boolean('on_sale')) {
+            $this->scopeOnSale($query);
         }
 
         // Tri des données
@@ -84,30 +133,42 @@ class ProductController extends Controller
 
         $perPage = min(max((int) $request->input('per_page', 12), 1), 500);
 
-        return response()->json($query->paginate($perPage));
+        $page = $query->paginate($perPage);
+        $this->pricing()->decorateMany($page->getCollection());
+
+        return response()->json($page);
     }
 
     /**
      * Afficher un seul produit complet (via ID ou Slug)
      */
-    /**
-     * Afficher un seul produit complet (via ID ou Slug)
-     */
     public function show($idOrSlug): JsonResponse
     {
-        // On détecte si c'est un nombre ou un slug
-        $product = Product::query();
+        $withInactive = $this->requestIsAdmin();
 
-        if (is_numeric($idOrSlug)) {
-            $product->where('id', $idOrSlug);
-        } else {
-            $product->where('slug', $idOrSlug);
+        $query = Product::query()
+            ->where(is_numeric($idOrSlug) ? 'id' : 'slug', $idOrSlug)
+            ->with([
+                'category.parent',
+                'category.productType.variationAttributes.values',
+                'category.parent.productType.variationAttributes.values',
+                'variants' => $this->variantScope($withInactive),
+            ]);
+
+        if (!$withInactive) {
+            $query->where('is_active', true);
         }
 
-        // On exécute avec les relations nécessaires
-        $result = $product->with(['category', 'variants'])->firstOrFail();
+        $product = $query->firstOrFail();
 
-        return response()->json($result);
+        // Type effectif : options proposées au client et libellé du guide
+        $product->setAttribute('product_type', $product->category?->effectiveProductType());
+        $product->category?->unsetRelation('productType');
+        $product->category?->parent?->unsetRelation('productType');
+
+        $this->pricing()->decorate($product);
+
+        return response()->json($product);
     }
 
     /**
@@ -115,13 +176,37 @@ class ProductController extends Controller
      */
     public function featured(): JsonResponse
     {
-        return response()->json(
-            Product::where('featured', true)
-                ->where('is_active', true)
-                ->with(['category', 'variants'])
-                ->limit(8)
-                ->get()
-        );
+        $products = Product::where('featured', true)
+            ->where('is_active', true)
+            ->with(['category', 'variants' => $this->variantScope(false)])
+            ->limit(8)
+            ->get();
+
+        $this->pricing()->decorateMany($products);
+
+        return response()->json($products);
+    }
+
+    /** Variantes visibles : actives seulement, sauf pour l'admin. */
+    private function variantScope(bool $withInactive): \Closure
+    {
+        return fn ($q) => $withInactive ? $q : $q->where('is_active', true);
+    }
+
+    /** Restreint aux produits visés par au moins une promotion en cours. */
+    private function scopeOnSale($query): void
+    {
+        $promotions = $this->pricing()->activePromotions();
+
+        $categoryIds = $promotions->where('target_type', Promotion::TARGET_CATEGORY)->pluck('category_id')->filter()->unique();
+        $categoryIds = $categoryIds->merge(Category::whereIn('parent_id', $categoryIds)->pluck('id'))->unique();
+        $productIds  = $promotions->where('target_type', Promotion::TARGET_PRODUCTS)->flatMap->products->pluck('id');
+        $variantIds  = $promotions->where('target_type', Promotion::TARGET_VARIANTS)->flatMap->variants->pluck('id');
+
+        $query->where(fn ($q) => $q
+            ->whereIn('category_id', $categoryIds->all() ?: [0])
+            ->orWhereIn('id', $productIds->all() ?: [0])
+            ->orWhereHas('variants', fn ($v) => $v->whereIn('id', $variantIds->all() ?: [0])));
     }
 
     /**
@@ -129,25 +214,8 @@ class ProductController extends Controller
      */
     public function store(Request $request): JsonResponse
     {
-        $validated = $request->validate([
-            'name'                  => 'required|string|max:255',
-            'slug'                  => 'nullable|string|max:255|unique:products,slug',
-            'description'           => 'required|string',
-            'price'                 => 'required|integer|min:0',
-            'old_price'             => 'nullable|integer|min:0',
-            'stock'                 => 'sometimes|integer|min:0',
-            'rating'                => 'nullable|numeric|min:0|max:5',
-            'category_id'           => 'required|exists:categories,id',
-            'is_active'             => 'sometimes|boolean',
-            'featured'              => 'sometimes|boolean',
-            'image_path.*'          => 'image|mimes:jpeg,jpg,png,webp|max:4096',
-            'variants'              => 'sometimes|array',
-            'variants.*.attributes' => 'required_with:variants|array',
-            'variants.*.price'      => 'nullable|integer|min:0',
-            'variants.*.old_price'  => 'nullable|integer|min:0',
-            'variants.*.stock'      => 'required_with:variants|integer|min:0',
-            'variants.*.image'      => 'nullable|image|mimes:jpeg,jpg,png,webp|max:4096',
-        ]);
+        $validated = $request->validate($this->rules());
+        $this->assertValidVariants($validated['variants'] ?? [], (int) $validated['category_id']);
 
         $validated['slug'] = $validated['slug'] ?? Str::slug($validated['name']);
 
@@ -181,7 +249,7 @@ class ProductController extends Controller
             }
         }
 
-        return response()->json($product->load(['category', 'variants']), 201);
+        return response()->json($this->pricing()->decorate($product->load(['category', 'variants'])), 201);
     }
 
     /**
@@ -193,28 +261,10 @@ class ProductController extends Controller
             ->orWhere('slug', $idOrSlug)
             ->firstOrFail();
 
-        $validated = $request->validate([
-            'name'                  => 'sometimes|string|max:255',
-            'slug'                  => 'sometimes|string|max:255|unique:products,slug,' . $product->id,
-            'description'           => 'sometimes|string',
-            'price'                 => 'sometimes|integer|min:0',
-            'old_price'             => 'nullable|integer|min:0',
-            'stock'                 => 'sometimes|integer|min:0',
-            'rating'                => 'nullable|numeric|min:0|max:5',
-            'category_id'           => 'sometimes|exists:categories,id',
-            'is_active'             => 'sometimes|boolean',
-            'featured'              => 'sometimes|boolean',
-            'image_path.*'          => 'image|mimes:jpeg,jpg,png,webp|max:4096',
-            'existing_images'       => 'sometimes|array',
-            'existing_images.*'     => 'sometimes|string',
-            'variants'              => 'sometimes|array',
-            'variants.*.id'         => 'nullable|integer|exists:product_variants,id',
-            'variants.*.attributes' => 'required_with:variants|array',
-            'variants.*.price'      => 'nullable|integer|min:0',
-            'variants.*.old_price'  => 'nullable|integer|min:0',
-            'variants.*.stock'      => 'required_with:variants|integer|min:0',
-            'variants.*.image'      => 'nullable|image|mimes:jpeg,jpg,png,webp|max:4096',
-        ]);
+        $validated = $request->validate($this->rules($product));
+        if (array_key_exists('variants', $validated)) {
+            $this->assertValidVariants($validated['variants'] ?? [], (int) ($validated['category_id'] ?? $product->category_id), $product);
+        }
 
         if (isset($validated['name']) && empty($validated['slug'])) {
             $validated['slug'] = Str::slug($validated['name']);
@@ -222,7 +272,9 @@ class ProductController extends Controller
 
         // Gestion du remplacement de la galerie d'images
         $hasNewFiles = $request->hasFile('image_path');
-        $hasExistingImages = $request->has('existing_images');
+        // sync_images=1 : la galerie finale est exactement existing_images + nouveaux fichiers
+        // (permet de retirer toutes les photos, un tableau vide n'existant pas en multipart).
+        $hasExistingImages = $request->has('existing_images') || $request->boolean('sync_images');
 
         if ($hasNewFiles || $hasExistingImages) {
             $existingToKeep = $request->input('existing_images', []);
@@ -256,6 +308,16 @@ class ProductController extends Controller
             $product->update($validated);
 
             // 2. Gestion et synchronisation des variantes
+            // clear_variants=1 : le produit n'a plus de variantes (tableau vide impossible en multipart).
+            if ($request->boolean('clear_variants') && !$request->has('variants')) {
+                foreach ($product->variants as $variant) {
+                    if ($variant->image_path) {
+                        $this->cloudinaryDelete($variant->image_path);
+                    }
+                    $variant->delete();
+                }
+            }
+
             if ($request->has('variants')) {
                 $activeVariantIds = [];
 
@@ -296,7 +358,7 @@ class ProductController extends Controller
             }
         });
 
-        return response()->json($product->load(['category', 'variants']));
+        return response()->json($this->pricing()->decorate($product->load(['category', 'variants'])));
     }
 
     /**
@@ -352,6 +414,89 @@ class ProductController extends Controller
             'success' => true,
             'message' => count($validated['ids']) . ' produit(s) supprimé(s).',
         ]);
+    }
+
+    private function rules(?Product $product = null): array
+    {
+        $required = $product ? 'sometimes' : 'required';
+
+        return [
+            'name'                  => "{$required}|string|max:255",
+            'slug'                  => ($product ? 'sometimes' : 'nullable') . '|string|max:255|unique:products,slug' . ($product ? ',' . $product->id : ''),
+            'sku'                   => 'nullable|string|max:64|unique:products,sku' . ($product ? ',' . $product->id : ''),
+            'description'           => "{$required}|string",
+            'specs'                 => 'nullable|array|max:20',
+            'specs.*.label'         => 'required|string|max:60',
+            'specs.*.value'         => 'required|string|max:255',
+            'price'                 => "{$required}|integer|min:0",
+            'stock'                 => 'sometimes|integer|min:0',
+            'rating'                => 'nullable|numeric|min:0|max:5',
+            'category_id'           => "{$required}|exists:categories,id",
+            'is_active'             => 'sometimes|boolean',
+            'featured'              => 'sometimes|boolean',
+            'is_new'                => 'sometimes|boolean',
+            'image_path.*'          => 'image|mimes:jpeg,jpg,png,webp|max:4096',
+            'existing_images'       => 'sometimes|array',
+            'existing_images.*'     => 'sometimes|string',
+            'sync_images'           => 'sometimes|boolean',
+            'clear_variants'        => 'sometimes|boolean',
+            'variants'              => 'sometimes|array|max:200',
+            'variants.*.id'         => 'nullable|integer|exists:product_variants,id',
+            'variants.*.sku'        => 'nullable|string|max:64|distinct',
+            'variants.*.attributes' => 'required_with:variants|array',
+            'variants.*.attributes.*' => 'required|string|max:100',
+            'variants.*.price'      => 'nullable|integer|min:0',
+            'variants.*.stock'      => 'required_with:variants|integer|min:0',
+            'variants.*.is_active'  => 'sometimes|boolean',
+            'variants.*.image'      => 'nullable|image|mimes:jpeg,jpg,png,webp|max:4096',
+        ];
+    }
+
+    /**
+     * Vérifie les variantes reçues :
+     *  - référence (SKU) non utilisée par une variante d'un autre produit ;
+     *  - si la catégorie a un type de produit, attributs et valeurs autorisés par ce type.
+     * Sans type de produit, les attributs restent libres (données existantes).
+     */
+    private function assertValidVariants(array $variants, int $categoryId, ?Product $product = null): void
+    {
+        $errors = [];
+
+        $skus = collect($variants)->pluck('sku')->filter()->values();
+        if ($skus->isNotEmpty()) {
+            $taken = ProductVariant::whereIn('sku', $skus)
+                ->when($product, fn ($q) => $q->where('product_id', '!=', $product->id))
+                ->pluck('sku');
+            foreach ($variants as $index => $variant) {
+                if (!empty($variant['sku']) && $taken->contains($variant['sku'])) {
+                    $errors["variants.{$index}.sku"][] = "La référence « {$variant['sku']} » est déjà utilisée.";
+                }
+            }
+        }
+
+        $type = Category::with(['productType.variationAttributes.values', 'parent.productType.variationAttributes.values'])
+            ->find($categoryId)
+            ?->effectiveProductType();
+
+        if ($type) {
+            $allowed = $type->variationAttributes->mapWithKeys(fn ($attribute) => [
+                $attribute->slug => $attribute->values->pluck('value')->all(),
+            ]);
+
+            foreach ($variants as $index => $variant) {
+                foreach (($variant['attributes'] ?? []) as $slug => $value) {
+                    if (!$allowed->has($slug)) {
+                        $errors["variants.{$index}.attributes"][] = "L'attribut « {$slug} » ne fait pas partie du type « {$type->name} ».";
+                    } elseif (!in_array($value, $allowed[$slug], true)) {
+                        $errors["variants.{$index}.attributes"][] = "La valeur « {$value} » n'existe pas pour l'attribut « {$slug} ».";
+                    }
+                }
+            }
+        }
+
+        if ($errors) {
+            throw \Illuminate\Validation\ValidationException::withMessages($errors);
+        }
     }
 
     private function cloudinary(): CloudinarySDK

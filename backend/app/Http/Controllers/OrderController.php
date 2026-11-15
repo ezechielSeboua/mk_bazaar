@@ -11,34 +11,70 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
+use App\Services\PricingService;
 
 class OrderController extends Controller
 {
+    /** Résolu à chaque appel : les instances de contrôleur peuvent être réutilisées entre requêtes. */
+    private function pricing(): PricingService
+    {
+        return app(PricingService::class);
+    }
+
     /**
      * Afficher la liste des commandes avec métriques (Dashboard Admin)
      */
     public function index(Request $request): JsonResponse
     {
         // On charge les lignes de commande (items) et les détails des variantes associées
-        $query = Order::with(['items.variant.product', 'user']);
+        $query = Order::with(['items.variant.product', 'items.product', 'items.promotion:id,name', 'user']);
 
         if ($request->filled('status')) {
             $query->where('status', $request->status);
         }
 
+        // Recherche : n° de commande, nom ou téléphone du client
+        if ($request->filled('search')) {
+            $search = '%' . substr($request->search, 0, 100) . '%';
+            $query->where(fn ($q) => $q->where('order_number', 'like', $search)
+                                       ->orWhere('customer_name', 'like', $search)
+                                       ->orWhere('customer_phone', 'like', $search));
+        }
+
+        if ($request->filled('delivery_location')) {
+            $query->where('delivery_location', $request->delivery_location);
+        }
+        if ($request->filled('date_from')) {
+            $query->whereDate('created_at', '>=', $request->date('date_from'));
+        }
+        if ($request->filled('date_to')) {
+            $query->whereDate('created_at', '<=', $request->date('date_to'));
+        }
+
+        $request->input('sort') === 'oldest' ? $query->oldest() : $query->latest();
+
         // Paginated to prevent full-table memory dump
-        $orders = $query->latest()->paginate($request->input('per_page', 25));
+        $perPage = min(max((int) $request->input('per_page', 25), 1), 100);
+        $orders  = $query->paginate($perPage);
+
+        // Compteurs par statut (onglets « Toutes (17) · En attente (6) … »)
+        $counts = Order::select('status', DB::raw('COUNT(*) as total'))
+            ->groupBy('status')
+            ->pluck('total', 'status');
 
         // Calculs des revenus basés sur les statuts réels
-        $totalRevenue = Order::where('status', 'completed')->sum('total_price');
-        $pendingCount = Order::where('status', 'pending')->count();
-        $cancelledRevenue = Order::where('status', 'cancelled')->sum('total_price');
+        $totalRevenue     = Order::where('status', Order::STATUS_DELIVERED)->sum('total_price');
+        $cancelledRevenue = Order::where('status', Order::STATUS_CANCELLED)->sum('total_price');
 
         return response()->json([
             'metrics' => [
-                'total_revenue_fcfa' => (int) $totalRevenue,
-                'pending_orders_count' => $pendingCount,
+                'total_revenue_fcfa'          => (int) $totalRevenue,
+                'pending_orders_count'        => (int) ($counts[Order::STATUS_PENDING] ?? 0),
                 'lost_revenue_cancelled_fcfa' => (int) $cancelledRevenue,
+                'counts'                      => collect(Order::STATUSES)
+                    ->mapWithKeys(fn ($status) => [$status => (int) ($counts[$status] ?? 0)])
+                    ->put('all', (int) $counts->sum()),
             ],
             'orders' => $orders
         ]);
@@ -49,7 +85,7 @@ class OrderController extends Controller
      */
     public function myOrders(): JsonResponse
     {
-        $orders = Order::with(['items.variant.product', 'items.product'])
+        $orders = Order::with(['items.variant.product', 'items.product', 'items.promotion:id,name'])
             ->where('user_id', auth('api')->id())
             ->latest()
             ->get();
@@ -124,10 +160,11 @@ class OrderController extends Controller
                     'delivery_fee'      => $deliveryFee,
                     'detailed_address'  => $validated['detailed_address'],
                     'total_price'       => 0,
-                    'status'            => 'pending',
+                    'status'            => Order::STATUS_PENDING,
                 ]);
 
-                $computedTotal = 0;
+                $itemsTotal    = 0;
+                $discountTotal = 0;
 
                 foreach ($validated['items'] as $itemData) {
                     $qty = $itemData['quantity'];
@@ -135,43 +172,52 @@ class OrderController extends Controller
                     if (!empty($itemData['product_variant_id'])) {
                         // Produit avec variante
                         $variant = ProductVariant::lockForUpdate()->findOrFail($itemData['product_variant_id']);
+                        $product = Product::with('category')->findOrFail($variant->product_id);
 
+                        if (!$variant->is_active || !$product->is_active) {
+                            throw new \Exception("Variante indisponible : ID {$variant->id}");
+                        }
                         if ($variant->stock < $qty) {
                             throw new \Exception("Stock insuffisant pour la variante ID: {$variant->id}");
                         }
 
                         $variant->decrement('stock', $qty);
-
-                        $unitPrice = $variant->price ?? $variant->product->price;
-                        $order->items()->create([
-                            'product_id'         => $variant->product_id,
-                            'product_variant_id' => $variant->id,
-                            'quantity'           => $qty,
-                            'price'              => $unitPrice,
-                        ]);
-                        $computedTotal += $unitPrice * $qty;
                     } else {
                         // Produit unique sans variante
-                        $product = Product::lockForUpdate()->findOrFail($itemData['product_id']);
+                        $product = Product::with('category')->lockForUpdate()->findOrFail($itemData['product_id']);
+                        $variant = null;
 
+                        if (!$product->is_active) {
+                            throw new \Exception("Produit indisponible : ID {$product->id}");
+                        }
                         if ($product->stock < $qty) {
                             throw new \Exception("Stock insuffisant pour le produit ID: {$product->id}");
                         }
 
                         $product->decrement('stock', $qty);
-
-                        $order->items()->create([
-                            'product_id'         => $product->id,
-                            'product_variant_id' => null,
-                            'quantity'           => $qty,
-                            'price'              => $product->price,
-                        ]);
-                        $computedTotal += $product->price * $qty;
                     }
+
+                    // Prix et remise calculés côté serveur, puis figés sur la ligne
+                    $price = $this->pricing()->priceFor($product, $variant);
+
+                    $order->items()->create([
+                        'product_id'         => $product->id,
+                        'product_variant_id' => $variant?->id,
+                        'promotion_id'       => $price['promotion_id'],
+                        'quantity'           => $qty,
+                        'price'              => $price['final_price'],
+                        'discount'           => $price['discount'],
+                    ]);
+
+                    $itemsTotal    += $price['final_price'] * $qty;
+                    $discountTotal += $price['discount'] * $qty;
                 }
 
                 // Total calculé côté serveur : prix des articles + frais de livraison
-                $order->update(['total_price' => $computedTotal + $deliveryFee]);
+                $order->update([
+                    'total_price'    => $itemsTotal + $deliveryFee,
+                    'discount_total' => $discountTotal,
+                ]);
 
                 return $order;
             });
@@ -179,7 +225,7 @@ class OrderController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Commande enregistrée avec succès !',
-                'order'   => $order->load('items.variant.product')
+                'order'   => $order->load(['items.variant.product', 'items.product', 'items.promotion:id,name'])
             ], 201);
 
         } catch (\Exception $e) {
@@ -195,10 +241,11 @@ class OrderController extends Controller
      * Valid status transitions — prevents circular stock manipulation and skipped states.
      */
     private const VALID_TRANSITIONS = [
-        'pending'    => ['processing', 'cancelled'],
-        'processing' => ['completed', 'cancelled'],
-        'completed'  => [],
-        'cancelled'  => ['processing'],
+        Order::STATUS_PENDING   => [Order::STATUS_CONFIRMED, Order::STATUS_CANCELLED],
+        Order::STATUS_CONFIRMED => [Order::STATUS_SHIPPING, Order::STATUS_CANCELLED],
+        Order::STATUS_SHIPPING  => [Order::STATUS_DELIVERED, Order::STATUS_CANCELLED],
+        Order::STATUS_DELIVERED => [],
+        Order::STATUS_CANCELLED => [Order::STATUS_CONFIRMED],
     ];
 
     /**
@@ -208,7 +255,7 @@ class OrderController extends Controller
     public function update(Request $request, Order $order): JsonResponse
     {
         $validated = $request->validate([
-            'status' => 'required|string|in:pending,processing,completed,cancelled',
+            'status' => ['required', 'string', Rule::in(Order::STATUSES)],
         ]);
 
         $newStatus     = $validated['status'];
@@ -233,7 +280,7 @@ class OrderController extends Controller
         try {
             DB::transaction(function () use ($order, $validated) {
                 // Si la commande passe à "annulée" alors qu'elle ne l'était pas, on rend les stocks
-                if ($validated['status'] === 'cancelled' && $order->status !== 'cancelled') {
+                if ($validated['status'] === Order::STATUS_CANCELLED && $order->status !== Order::STATUS_CANCELLED) {
                     foreach ($order->items as $item) {
                         if ($item->product_variant_id) {
                             $item->variant()->increment('stock', $item->quantity);
@@ -243,7 +290,7 @@ class OrderController extends Controller
                     }
                 }
                 // Si une commande annulée est réactivée par l'admin, on retire à nouveau les stocks
-                elseif ($validated['status'] !== 'cancelled' && $order->status === 'cancelled') {
+                elseif ($validated['status'] !== Order::STATUS_CANCELLED && $order->status === Order::STATUS_CANCELLED) {
                     foreach ($order->items as $item) {
                         if ($item->product_variant_id) {
                             $variant = ProductVariant::lockForUpdate()->findOrFail($item->product_variant_id);

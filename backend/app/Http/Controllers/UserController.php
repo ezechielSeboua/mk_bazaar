@@ -10,7 +10,8 @@ class UserController extends Controller
      */
     public function index()
     {
-        $users = User::all(); // ✅ get() → all() plus explicite
+        // Nombre de commandes par compte (colonne « Commandes » du back-office)
+        $users = User::withCount('orders')->get();
         return response()->json($users);
     }
 

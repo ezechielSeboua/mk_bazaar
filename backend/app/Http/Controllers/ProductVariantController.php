@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\ProductVariant;
+use App\Services\PricingService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 
@@ -32,9 +33,10 @@ class ProductVariantController extends Controller
         $validated = $request->validate([
             'product_id' => 'required|integer|exists:products,id',
             'attributes' => 'required|array', // Ex: {"couleur": "Noir", "taille": "XL"}
+            'sku'        => 'nullable|string|max:64|unique:product_variants,sku',
             'price'      => 'nullable|integer|min:0', // Si nul, prendra le prix du produit parent
-            'old_price'  => 'nullable|integer|min:0',
             'stock'      => 'required|integer|min:0',
+            'is_active'  => 'sometimes|boolean',
         ]);
 
         $variant = ProductVariant::create($validated);
@@ -45,10 +47,13 @@ class ProductVariantController extends Controller
     /**
      * Afficher une variante spécifique via son ID
      */
-    public function show(ProductVariant $productVariant): JsonResponse
+    public function show(ProductVariant $productVariant, PricingService $pricing): JsonResponse
     {
         // On charge la relation parent au cas où le front ait besoin des infos globales du produit
-        return response()->json($productVariant->load('product'));
+        $productVariant->load('product.category');
+        $productVariant->setAttribute('pricing', collect($pricing->priceFor($productVariant->product, $productVariant))->except('promotion_id'));
+
+        return response()->json($productVariant);
     }
 
     /**
@@ -57,10 +62,11 @@ class ProductVariantController extends Controller
     public function update(Request $request, ProductVariant $productVariant): JsonResponse
     {
         $validated = $request->validate([
+            'sku'        => 'nullable|string|max:64|unique:product_variants,sku,' . $productVariant->id,
             'attributes' => 'sometimes|array',
             'price'      => 'nullable|integer|min:0',
-            'old_price'  => 'nullable|integer|min:0',
             'stock'      => 'sometimes|integer|min:0',
+            'is_active'  => 'sometimes|boolean',
         ]);
 
         $productVariant->update($validated);

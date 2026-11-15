@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Product extends Model
@@ -11,25 +12,35 @@ class Product extends Model
     protected $fillable = [
         'name',
         'slug',
+        'sku',
         'description',
+        'specs',
         'price',
-        'old_price',
         'stock',
         'rating',
         'category_id',
         'is_active',
         'featured',
+        'is_new',
         'image_path',
     ];
 
+    /**
+     * `old_price` est remplacé par les promotions (colonne vidée, supprimée plus tard).
+     * Le prix affiché au client est exposé dans `pricing` (voir PricingService).
+     */
+    protected $hidden = ['old_price'];
+
     protected $casts = [
-        'price'      => 'integer',
-        'old_price'  => 'integer',
-        'stock'      => 'integer',
-        'rating'     => 'float',
-        'is_active'  => 'boolean',
-        'featured'   => 'boolean',
-        'image_path' => 'array',
+        'category_id' => 'integer',
+        'price'       => 'integer',
+        'stock'       => 'integer',
+        'rating'      => 'float',
+        'is_active'   => 'boolean',
+        'featured'    => 'boolean',
+        'is_new'      => 'boolean',
+        'image_path'  => 'array',
+        'specs'       => 'array',
     ];
 
     // Exposé au frontend : true si le produit (sans variante) a du stock
@@ -61,5 +72,10 @@ class Product extends Model
     public function variants(): HasMany
     {
         return $this->hasMany(ProductVariant::class);
+    }
+
+    public function promotions(): BelongsToMany
+    {
+        return $this->belongsToMany(Promotion::class, 'promotion_product');
     }
 }

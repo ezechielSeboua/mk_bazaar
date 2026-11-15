@@ -109,6 +109,34 @@ class UserAuthController extends Controller
     }
 
     /**
+     * Change the authenticated user's password (requires the current one)
+     */
+    public function updatePassword(Request $request)
+    {
+        /** @var User $user */
+        $user = auth('api')->user();
+
+        $validated = $request->validate([
+            'current_password' => 'required|string',
+            'password'         => 'required|string|min:8|confirmed|different:current_password',
+        ]);
+
+        if (!Hash::check($validated['current_password'], $user->password)) {
+            return response()->json([
+                'message' => 'Le mot de passe actuel est incorrect.',
+                'errors'  => ['current_password' => ['Le mot de passe actuel est incorrect.']],
+            ], 422);
+        }
+
+        $user->forceFill([
+            'password'            => Hash::make($validated['password']),
+            'password_changed_at' => now(),
+        ])->save();
+
+        return response()->json($this->safeUserData($user->fresh()));
+    }
+
+    /**
      * Upload avatar for authenticated user
      */
     public function updateAvatar(Request $request)
@@ -167,6 +195,7 @@ class UserAuthController extends Controller
             'phone'    => $user->phone,
             'avatar'   => $user->avatar,
             'is_admin' => (bool) $user->is_admin,
+            'password_changed_at' => $user->password_changed_at?->toIso8601String(),
         ];
     }
 }

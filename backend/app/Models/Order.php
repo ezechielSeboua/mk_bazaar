@@ -8,6 +8,31 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Order extends Model
 {
+    /** Envoyée, en attente de validation. */
+    public const STATUS_PENDING   = 'pending';
+    /** Validée avec le client, en traitement. */
+    public const STATUS_CONFIRMED = 'confirmed';
+    /** En livraison. */
+    public const STATUS_SHIPPING  = 'shipping';
+    /** Livrée : seul statut compté comme encaissé. */
+    public const STATUS_DELIVERED = 'delivered';
+    public const STATUS_CANCELLED = 'cancelled';
+
+    public const STATUSES = [
+        self::STATUS_PENDING,
+        self::STATUS_CONFIRMED,
+        self::STATUS_SHIPPING,
+        self::STATUS_DELIVERED,
+        self::STATUS_CANCELLED,
+    ];
+
+    /** Commandes ni livrées ni annulées. */
+    public const IN_PROGRESS_STATUSES = [
+        self::STATUS_PENDING,
+        self::STATUS_CONFIRMED,
+        self::STATUS_SHIPPING,
+    ];
+
     protected $fillable = [
         'user_id',
         'customer_name',
@@ -15,15 +40,17 @@ class Order extends Model
         'order_number',
         'delivery_location',
         'delivery_fee',
+        'discount_total',
         'detailed_address',
         'total_price',
         'status',
     ];
 
     protected $casts = [
-        'user_id' => 'integer',
-        'delivery_fee' => 'integer',
-        'total_price' => 'integer',
+        'user_id'        => 'integer',
+        'delivery_fee'   => 'integer',
+        'discount_total' => 'integer',
+        'total_price'    => 'integer',
     ];
 
     /**
