@@ -80,6 +80,7 @@ export default function VariantOrderDrawer({ product, onClose, order: sharedOrde
                 <motion.aside
                     role="dialog"
                     aria-modal="true"
+                    data-lenis-prevent
                     aria-labelledby="variant-order-title"
                     className="absolute inset-y-0 right-0 w-full max-w-[560px] bg-white flex flex-col"
                     initial={{ x: '100%' }}
@@ -103,7 +104,7 @@ export default function VariantOrderDrawer({ product, onClose, order: sharedOrde
                         </button>
                     </div>
 
-                    <div className="flex-1 overflow-y-auto px-6 sm:px-8 pb-6">
+                    <div className="flex-1 overflow-y-auto overscroll-contain px-6 sm:px-8 pb-6">
                         {step === 'select' ? (
                             <>
                                 <div className="flex gap-3 items-center pb-5 mb-5 border-b border-[#ececec]">

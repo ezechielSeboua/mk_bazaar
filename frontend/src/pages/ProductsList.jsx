@@ -386,6 +386,7 @@ export default function ProductsList() {
             <motion.div
               role="dialog"
               aria-modal="true"
+              data-lenis-prevent
               aria-label="Filtres"
               className="absolute inset-y-0 right-0 w-[340px] max-w-[90vw] bg-white flex flex-col"
               initial={{ x: "100%" }}
@@ -399,7 +400,7 @@ export default function ProductsList() {
                   <X className="w-5 h-5" strokeWidth={1.6} aria-hidden="true" />
                 </button>
               </div>
-              <div className="flex-1 overflow-y-auto px-4 py-2">{filtersPanel}</div>
+              <div className="flex-1 overflow-y-auto overscroll-contain px-4 py-2">{filtersPanel}</div>
               <div className="p-4 border-t border-[#ececec]">
                 <button type="button" onClick={() => setFiltersOpen(false)} className="w-full h-11 rounded bg-[#111] text-white text-sm font-semibold">
                   Voir {result.total} article{result.total > 1 ? "s" : ""}

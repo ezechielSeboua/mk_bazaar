@@ -83,6 +83,7 @@ function Gallery({ images, name, activeImage, onActiveImage }) {
           <motion.div
             role="dialog"
             aria-modal="true"
+            data-lenis-prevent
             aria-label={`Photo de ${name}`}
             className="fixed inset-0 z-50 bg-black/90 grid place-items-center p-4"
             initial={{ opacity: 0 }}

@@ -53,6 +53,7 @@ export default function BasketPreview() {
           <motion.aside
             role="dialog"
             aria-modal="true"
+            data-lenis-prevent
             aria-labelledby="basket-preview-title"
             className="absolute inset-y-0 right-0 w-full max-w-md bg-white flex flex-col"
             initial={{ x: "100%" }}
@@ -67,7 +68,7 @@ export default function BasketPreview() {
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto px-6">
+            <div className="flex-1 overflow-y-auto overscroll-contain px-6">
               {items.length === 0 ? (
                 <div className="text-center py-16">
                   <ShoppingBag className="w-9 h-9 mx-auto text-[#bbb]" strokeWidth={1.2} aria-hidden="true" />

@@ -120,8 +120,9 @@ function MobileMenu({ open, onClose, menu, logoSrc, user, wishlistCount, whatsap
           <motion.nav
             role="dialog"
             aria-modal="true"
+            data-lenis-prevent
             aria-label="Menu"
-            className="absolute inset-y-0 left-0 w-[330px] max-w-[88vw] bg-white flex flex-col overflow-y-auto"
+            className="absolute inset-y-0 left-0 w-[330px] max-w-[88vw] bg-white flex flex-col overflow-y-auto overscroll-contain"
             initial={{ x: "-100%" }}
             animate={{ x: 0 }}
             exit={{ x: "-100%" }}

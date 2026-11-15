@@ -252,6 +252,9 @@ export default function ProductEditPage() {
     };
 
     const title = form.name.trim() || (isNew ? 'Nouveau produit' : 'Produit');
+    // Cellules resserrées pour le tableau des variantes (7 colonnes dans la largeur du panneau)
+    const cth = th.replace('px-5', 'px-3');
+    const ctd = td.replace('px-5', 'px-3').replace('py-[13px]', 'py-2.5');
     const statusLine = form.is_active ? 'Publié sur la boutique' : 'Brouillon · non publié';
 
     if (loadingProduct) {
@@ -285,7 +288,7 @@ export default function ProductEditPage() {
                 <Notice tone="success">{success}</Notice>
             </div>
 
-            <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)] gap-5 items-start">
+            <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_320px] 2xl:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)] gap-5 items-start">
                 <div className="space-y-5 min-w-0">
                     <Panel title="Informations">
                         <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -408,13 +411,13 @@ export default function ProductEditPage() {
                                     <thead>
                                         <tr>
                                             {combos.length
-                                                ? typeAttributes.map((a) => <th key={a.id} scope="col" className={th}>{a.name}</th>)
-                                                : <th scope="col" className={th}>Options</th>}
-                                            <th scope="col" className={th}>Référence</th>
-                                            <th scope="col" className={`${th} text-right`}>Prix</th>
-                                            <th scope="col" className={`${th} text-right`}>Stock</th>
-                                            <th scope="col" className={th}>Photo</th>
-                                            <th scope="col" className={th}>Active</th>
+                                                ? typeAttributes.map((a) => <th key={a.id} scope="col" className={cth}>{a.name}</th>)
+                                                : <th scope="col" className={cth}>Options</th>}
+                                            <th scope="col" className={cth}>Référence</th>
+                                            <th scope="col" className={`${cth} text-right`}>Prix</th>
+                                            <th scope="col" className={`${cth} text-right`}>Stock</th>
+                                            <th scope="col" className={cth}>Photo</th>
+                                            <th scope="col" className={cth}>Active</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -433,7 +436,7 @@ export default function ProductEditPage() {
                                                         ? typeAttributes.map((a) => {
                                                             const hex = a.values.find((v) => v.value === entry[a.slug])?.hex;
                                                             return (
-                                                                <td key={a.id} className={td}>
+                                                                <td key={a.id} className={ctd}>
                                                                     <span className="flex items-center gap-2">
                                                                         {hex && <i className="w-3.5 h-3.5 rounded-full shadow-[inset_0_0_0_1px_rgba(0,0,0,.2)]" style={{ background: hex }} aria-hidden="true" />}
                                                                         {entry[a.slug]}
@@ -441,24 +444,23 @@ export default function ProductEditPage() {
                                                                 </td>
                                                             );
                                                         })
-                                                        : <td className={td}>{label}</td>}
-                                                    <td className={td}>
-                                                        <input value={row.sku} maxLength={64} onChange={(e) => update({ sku: e.target.value })} placeholder="Auto" aria-label={`Référence ${label}`} className={`${fieldClass} w-32 h-9`} />
+                                                        : <td className={ctd}>{label}</td>}
+                                                    <td className={ctd}>
+                                                        <input value={row.sku} maxLength={64} onChange={(e) => update({ sku: e.target.value })} placeholder="Auto" aria-label={`Référence ${label}`} className={`${fieldClass} w-full min-w-[92px] h-9 px-2.5`} />
                                                     </td>
-                                                    <td className={`${td} text-right`}>
-                                                        <input type="number" min={0} value={row.price} onChange={(e) => update({ price: e.target.value })} placeholder={form.price || '0'} aria-label={`Prix ${label}`} className={`${fieldClass} w-28 h-9 text-right tabular-nums`} />
+                                                    <td className={`${ctd} text-right`}>
+                                                        <input type="number" min={0} value={row.price} onChange={(e) => update({ price: e.target.value })} placeholder={form.price || '0'} aria-label={`Prix ${label}`} className={`${fieldClass} w-[84px] h-9 px-2.5 text-right tabular-nums`} />
                                                     </td>
-                                                    <td className={`${td} text-right`}>
-                                                        <input type="number" min={0} value={row.stock} onChange={(e) => update({ stock: e.target.value })} aria-label={`Stock ${label}`} className={`${fieldClass} w-20 h-9 text-right tabular-nums`} />
+                                                    <td className={`${ctd} text-right`}>
+                                                        <input type="number" min={0} value={row.stock} onChange={(e) => update({ stock: e.target.value })} aria-label={`Stock ${label}`} className={`${fieldClass} w-[68px] h-9 px-2.5 text-right tabular-nums`} />
                                                     </td>
-                                                    <td className={td}>
-                                                        <label className={`${buttonClass('secondary', 'sm')} cursor-pointer`}>
-                                                            {preview ? <img src={preview} alt="" className="w-5 h-6 object-cover rounded-sm" /> : <ImagePlus className="w-3.5 h-3.5" strokeWidth={1.6} aria-hidden="true" />}
-                                                            Photo
+                                                    <td className={ctd}>
+                                                        <label title={preview ? 'Changer la photo' : 'Ajouter une photo'} className="relative w-10 h-10 rounded border border-[#d4d4d4] bg-white grid place-items-center overflow-hidden cursor-pointer hover:border-[#111] focus-within:outline focus-within:outline-2 focus-within:outline-[#111]">
+                                                            {preview ? <img src={preview} alt="" className="w-full h-full object-cover" /> : <ImagePlus className="w-4 h-4 text-[#666]" strokeWidth={1.6} aria-hidden="true" />}
                                                             <input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" aria-label={`Photo ${label}`} onChange={(e) => { const file = e.target.files?.[0] ?? null; update({ imageFile: file, preview: file ? URL.createObjectURL(file) : null }); }} />
                                                         </label>
                                                     </td>
-                                                    <td className={td}>
+                                                    <td className={ctd}>
                                                         <Switch label={`Activer ${label}`} checked={row.is_active} onChange={(v) => update({ is_active: v })} />
                                                     </td>
                                                 </tr>

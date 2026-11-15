@@ -58,6 +58,7 @@ export default function SizeGuideModal({ isOpen, onClose, defaultTab = 'vetement
           className="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl border border-stone-200 overflow-hidden z-10 flex flex-col max-h-[90vh]"
           role="dialog"
           aria-modal="true"
+          data-lenis-prevent
           aria-label="Guide des tailles"
         >
           {/* Header */}
