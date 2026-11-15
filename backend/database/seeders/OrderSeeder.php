@@ -4,80 +4,95 @@ namespace Database\Seeders;
 
 use App\Models\Order;
 use App\Models\ProductVariant;
+use App\Models\Setting;
 use App\Models\User;
+use App\Services\PricingService;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Str;
 
+/**
+ * Commandes de test sur le catalogue bijoux : communes de livraison de la
+ * boutique, prix et remises calculés par PricingService (comme en vrai),
+ * statuts répartis sur tout le parcours, sur les 45 derniers jours.
+ */
 class OrderSeeder extends Seeder
 {
+    private const COUNT = 20;
+
     public function run(): void
     {
-        $variants = ProductVariant::with('product')->get();
+        mt_srand(4242);
 
+        $variants = ProductVariant::with('product.category')->where('stock', '>', 0)->get();
         if ($variants->isEmpty()) {
-            $this->command->error('❌ Impossible de générer des commandes : aucune variante de produit trouvée.');
+            $this->command?->error('Aucune variante en stock : lancez ProductsSeeder avant OrderSeeder.');
             return;
         }
 
-        $users = User::all();
+        $zones = Setting::where('key', 'shipping_zones')->value('value') ?? [];
+        if (!$zones) {
+            $this->command?->error('Aucune zone de livraison : lancez ShippingZonesSeeder avant OrderSeeder.');
+            return;
+        }
 
-        $locations = [
-            ['name' => 'Abidjan, Cocody', 'fee' => 1500],
-            ['name' => 'Abidjan, Yopougon', 'fee' => 2000],
-            ['name' => 'Abidjan, Marcory', 'fee' => 1500],
-            ['name' => 'Abidjan, Koumassi', 'fee' => 2000],
-            ['name' => 'Abidjan, Plateau', 'fee' => 1000],
+        $pricing = app(PricingService::class);
+        $admin = User::where('is_admin', true)->first();
+        $guests = [
+            ['Koffi Atta', '0701020304'], ['Adjoua Brou', '0756781234'], ['Yao Kouassi', '0712345678'],
+            ['Amenan Djè', '0787654321'], ["Kouadio N'Goran", '0723456789'], ['Aya Koné', '0545112233'],
+        ];
+        // Répartition des statuts sur le parcours de la maquette
+        $statuses = [
+            Order::STATUS_PENDING, Order::STATUS_PENDING, Order::STATUS_PENDING, Order::STATUS_PENDING, Order::STATUS_PENDING,
+            Order::STATUS_CONFIRMED, Order::STATUS_CONFIRMED, Order::STATUS_CONFIRMED,
+            Order::STATUS_SHIPPING, Order::STATUS_SHIPPING,
+            Order::STATUS_DELIVERED, Order::STATUS_DELIVERED, Order::STATUS_DELIVERED, Order::STATUS_DELIVERED,
+            Order::STATUS_DELIVERED, Order::STATUS_DELIVERED, Order::STATUS_DELIVERED,
+            Order::STATUS_CANCELLED, Order::STATUS_CANCELLED, Order::STATUS_CANCELLED,
         ];
 
-        $statuses = ['pending', 'processing', 'completed', 'cancelled'];
-
-        $guestNames  = ['Koffi Atta', 'Adjoua Brou', 'Yao Kouassi', 'Amenan Djè', 'Kouadio N\'Goran'];
-        $guestPhones = ['+225 0701020304', '+225 0756781234', '+225 0712345678', '+225 0787654321', '+225 0723456789'];
-
-        for ($i = 1; $i <= 15; $i++) {
-
-            $user     = ($users->isNotEmpty() && rand(0, 1)) ? $users->random() : null;
-            $location = $locations[array_rand($locations)];
+        for ($i = 0; $i < self::COUNT; $i++) {
+            $zone = $zones[mt_rand(0, count($zones) - 1)];
+            $byAdmin = $admin && $i % 5 === 0;
+            [$name, $phone] = $guests[mt_rand(0, count($guests) - 1)];
+            $date = now()->subDays(mt_rand(0, 45))->subMinutes(mt_rand(0, 1400));
 
             $order = Order::create([
-                'user_id'           => $user?->id,
-                'customer_name'     => $user ? $user->name  : $guestNames[array_rand($guestNames)],
-                'customer_phone'    => $user ? ($user->phone ?? $guestPhones[array_rand($guestPhones)]) : $guestPhones[array_rand($guestPhones)],
-                'order_number'      => 'MK-' . strtoupper(Str::random(4)) . '-' . (time() - rand(1000, 86400)),
-                'delivery_location' => $location['name'],
-                'delivery_fee'      => $location['fee'],
-                'detailed_address'  => 'Cité ' . rand(1, 20) . ', Appt ' . rand(10, 99),
-                'total_price'       => 0,
-                'status'            => $statuses[array_rand($statuses)],
-                'created_at'        => now()->subDays(rand(0, 30)),
+                'user_id' => $byAdmin ? $admin->id : null,
+                'customer_name' => $byAdmin ? $admin->name : $name,
+                'customer_phone' => $byAdmin ? ($admin->phone ?: $phone) : $phone,
+                'order_number' => 'MK-' . strtoupper(Str::random(4)) . '-' . $date->timestamp,
+                'delivery_location' => $zone['name'],
+                'delivery_fee' => (int) $zone['price'],
+                'detailed_address' => 'Quartier ' . mt_rand(1, 30) . ', près de la pharmacie',
+                'total_price' => 0,
+                'status' => $statuses[$i % count($statuses)],
             ]);
+            $order->forceFill(['created_at' => $date, 'updated_at' => $date])->save();
 
-            // --- LA CORRECTION EST ICI ---
-            $numberOfItems = rand(1, 3);
-            // .take() mélangé à .shuffle() garantit qu'on récupère toujours une COLLECTION, qu'il y ait 1, 2 ou 3 éléments.
-            $randomVariants = $variants->shuffle()->take($numberOfItems);
-            
-            $calculatedTotal = 0;
-
-            foreach ($randomVariants as $variant) {
-                $qty = rand(1, 2);
-                $unitPrice = $variant->price ?? $variant->product->price;
-                
+            $itemsTotal = 0;
+            $discountTotal = 0;
+            foreach ($variants->random(mt_rand(1, 3)) as $variant) {
+                $quantity = mt_rand(1, 2);
+                $price = $pricing->priceFor($variant->product, $variant);
                 $order->items()->create([
-                    'product_id'         => $variant->product_id,
+                    'product_id' => $variant->product_id,
                     'product_variant_id' => $variant->id,
-                    'quantity'           => $qty,
-                    'price'              => $unitPrice,
+                    'promotion_id' => $price['promotion_id'],
+                    'quantity' => $quantity,
+                    'price' => $price['final_price'],
+                    'discount' => $price['discount'],
                 ]);
-
-                $calculatedTotal += ($unitPrice * $qty);
+                $itemsTotal += $price['final_price'] * $quantity;
+                $discountTotal += $price['discount'] * $quantity;
             }
 
             $order->update([
-                'total_price' => $calculatedTotal + $location['fee']
+                'total_price' => $itemsTotal + (int) $zone['price'],
+                'discount_total' => $discountTotal,
             ]);
         }
 
-        $this->command->info('✅ 15 commandes de test générées avec succès.');
+        $this->command?->info('✅ ' . self::COUNT . ' commandes de test.');
     }
 }

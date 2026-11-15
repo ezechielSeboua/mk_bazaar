@@ -3,68 +3,46 @@
 namespace Database\Seeders;
 
 use App\Models\Category;
+use App\Models\ProductType;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Str;
 
+/**
+ * Catégories du catalogue bijoux : 5 catégories principales dans le menu,
+ * sous-catégories typées (data/catalogue.php). Visuels sur Cloudinary.
+ */
 class CategorySeeder extends Seeder
 {
     public function run(): void
     {
-        $categories = [
-            [
-                'name'        => 'Robes',
-                'description' => 'Robes longues, courtes et mi-longues en tissus africains.',
-                'image_path'  => 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=500',
-            ],
-            [
-                'name'        => 'Ensembles',
-                'description' => 'Ensembles deux et trois pièces pour femmes et hommes.',
-                'image_path'  => 'https://images.unsplash.com/photo-1548624149-f9b1859aa7d0?w=500',
-            ],
-            [
-                'name'        => 'Accessoires',
-                'description' => 'Ceintures, foulards, chapeaux et petits accessoires de mode.',
-                'image_path'  => 'https://images.unsplash.com/photo-1523293182086-7651a899d37f?w=500',
-            ],
-            [
-                'name'        => 'Chaussures',
-                'description' => 'Sandales, babouches et chaussures artisanales.',
-                'image_path'  => 'https://images.unsplash.com/photo-1543163521-1bf539c55dd2?w=500',
-            ],
-            [
-                'name'        => 'Bijoux',
-                'description' => 'Colliers, bracelets et boucles d\'oreilles artisanaux.',
-                'image_path'  => 'https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=500',
-            ],
-            [
-                'name'        => 'Sacs',
-                'description' => 'Sacs à main, sacs de soirée et totes en matières naturelles.',
-                'image_path'  => 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=500',
-            ],
-            [
-                'name'        => 'Hauts',
-                'description' => 'Tops, chemises et blouses en wax, bazin et bogolan.',
-                'image_path'  => 'https://images.unsplash.com/photo-1598033129183-c4f50c736f10?w=500',
-            ],
-            [
-                'name'        => 'Pantalons',
-                'description' => 'Pantalons larges, slim et shorts en tissus traditionnels.',
-                'image_path'  => 'https://images.unsplash.com/photo-1541099649105-f69ad21f3246?w=500',
-            ],
-        ];
+        $types = ProductType::pluck('id', 'name');
+        $order = 0;
 
-        foreach ($categories as $data) {
-            Category::updateOrCreate(
-                ['slug' => Str::slug($data['name'])], // Condition unique
-                [
-                    'name'        => $data['name'],
-                    'description' => $data['description'],
-                    'image_path'  => $data['image_path'],
-                    'is_active'   => true, // Active par défaut pour tes tests
-                ]
-            );
+        foreach (CatalogueData::get()['categories'] as $definition) {
+            $parent = $this->upsert($definition, null, $order++, $types);
+
+            foreach ($definition['children'] ?? [] as $childOrder => $child) {
+                $this->upsert($child, $parent->id, $childOrder, $types);
+            }
         }
 
-        $this->command->info('✅ ' . count($categories) . ' catégories seedées avec succès.');
+        $this->command?->info('✅ ' . Category::count() . ' catégories.');
+    }
+
+    private function upsert(array $definition, ?int $parentId, int $order, $types): Category
+    {
+        return Category::updateOrCreate(
+            ['slug' => Str::slug($definition['name'])],
+            [
+                'name' => $definition['name'],
+                'parent_id' => $parentId,
+                'product_type_id' => isset($definition['type']) ? $types[$definition['type']] : null,
+                'description' => $definition['description'] ?? null,
+                'image_path' => isset($definition['image']) ? CatalogueData::image($definition['image']) : null,
+                'is_active' => true,
+                'show_in_menu' => $parentId === null,
+                'menu_order' => $order,
+            ],
+        );
     }
 }
