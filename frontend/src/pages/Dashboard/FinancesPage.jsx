@@ -5,7 +5,7 @@ import { useDashboardData, extractList, extractPaginationMeta } from '../../cont
 import dashboardService from '../../services/dashboard';
 import { getOrders } from '../../services/order';
 import { getPromotions } from '../../services/catalog';
-import { Badge, KpiCard, Notice, OrderStatusBadge, PageHeader, Pagination, Panel } from '../../components/admin/AdminUI';
+import { Badge, KpiCard, Notice, OrderStatusBadge, PageHeader, Pagination, Panel, SkeletonRows } from '../../components/admin/AdminUI';
 import { buttonClass, downloadCsv, fieldClass, formatDate, formatFCFA, td, th } from '../../components/admin/adminFormat';
 import { ORDER_STATUS_LABEL, ORDER_STATUSES } from '../../constants/orderStatus';
 
@@ -150,8 +150,9 @@ export default function FinancesPage() {
                                     </tr>
                                 );
                             })}
-                            {byPromotion.length === 0 && (
-                                <tr><td colSpan={5} className="px-5 py-8 text-center text-sm text-[#666]">{stats ? 'Aucune vente remisée pour le moment.' : 'Chargement…'}</td></tr>
+                            {!stats && <SkeletonRows rows={3} cols={5} />}
+                            {stats && byPromotion.length === 0 && (
+                                <tr><td colSpan={5} className="px-5 py-8 text-center text-sm text-[#666]">Aucune vente remisée pour le moment.</td></tr>
                             )}
                         </tbody>
                     </table>
@@ -214,7 +215,7 @@ export default function FinancesPage() {
                                 <tr><td colSpan={7} className="px-5 py-12 text-center text-sm text-[#666]">Aucune transaction ne correspond.</td></tr>
                             )}
                             {loading && orders.length === 0 && (
-                                <tr><td colSpan={7} className="px-5 py-12 text-center text-sm text-[#666]">Chargement…</td></tr>
+                                <SkeletonRows rows={8} cols={7} />
                             )}
                         </tbody>
                     </table>

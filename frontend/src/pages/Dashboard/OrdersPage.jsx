@@ -5,7 +5,7 @@ import DashboardLayout from '../../components/DashboardLayout';
 import { useDashboardData, extractList, extractPaginationMeta } from '../../contexts/DashboardDataContext';
 import { getOrders, updateOrder } from '../../services/order';
 import { resolveMediaUrl } from '../../config/env';
-import { Drawer, Notice, OrderStatusBadge, PageHeader, Pagination, Panel, Tabs } from '../../components/admin/AdminUI';
+import { Drawer, Notice, OrderStatusBadge, PageHeader, Pagination, Panel, Tabs, SkeletonRows } from '../../components/admin/AdminUI';
 import {
     buttonClass,
     downloadCsv,
@@ -420,7 +420,7 @@ export default function OrdersPage() {
                                 </tr>
                             )}
                             {loading && orders.length === 0 && (
-                                <tr><td colSpan={8} className="px-5 py-12 text-center text-sm text-[#666]">Chargement…</td></tr>
+                                <SkeletonRows rows={8} cols={8} />
                             )}
                         </tbody>
                     </table>

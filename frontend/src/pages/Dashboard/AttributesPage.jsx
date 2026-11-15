@@ -12,7 +12,7 @@ import {
     updateAttribute,
     updateProductType,
 } from '../../services/catalog';
-import { Badge, Drawer, Notice, PageHeader, Panel, Switch } from '../../components/admin/AdminUI';
+import { Badge, Drawer, Notice, PageHeader, Panel, Switch, Skeleton } from '../../components/admin/AdminUI';
 import { buttonClass, fieldClass, labelClass, td, th } from '../../components/admin/adminFormat';
 
 const FAMILY_LABEL = { color: 'Couleur', size: 'Taille', other: 'Autre' };
@@ -335,7 +335,16 @@ export default function AttributesPage() {
 
             <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] gap-5 items-start">
                 <Panel title="Types de produit" action={<span className="text-[13px] text-[#6b6b6b]">{types.length} type{types.length > 1 ? 's' : ''}</span>}>
-                    {loading && <p className="px-5 py-8 text-sm text-[#666]">Chargement…</p>}
+                    {loading && (
+                        <div className="divide-y divide-[#f1f1f1]" aria-hidden="true">
+                            {Array.from({ length: 4 }).map((_, i) => (
+                                <div key={i} className="px-5 py-4 space-y-2">
+                                    <Skeleton className="h-3.5 w-28" />
+                                    <Skeleton className="h-3 w-40" />
+                                </div>
+                            ))}
+                        </div>
+                    )}
                     {sortedTypes.map((type) => {
                         const active = type.id === selectedId;
                         return (

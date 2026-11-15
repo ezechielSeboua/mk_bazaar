@@ -6,7 +6,7 @@ import { useDashboardData } from '../../contexts/DashboardDataContext';
 import { createProduct, getProductById, updateProduct } from '../../services/product';
 import { getProductTypes } from '../../services/catalog';
 import { resolveMediaUrl } from '../../config/env';
-import { Badge, Notice, Panel, Switch } from '../../components/admin/AdminUI';
+import { Badge, Notice, Panel, Switch, Skeleton } from '../../components/admin/AdminUI';
 import { buttonClass, fieldClass, labelClass, td, th, variantLabel } from '../../components/admin/adminFormat';
 
 const EMPTY = {
@@ -258,7 +258,32 @@ export default function ProductEditPage() {
     const statusLine = form.is_active ? 'Publié sur la boutique' : 'Brouillon · non publié';
 
     if (loadingProduct) {
-        return <DashboardLayout><p className="text-sm text-[#666]">Chargement du produit…</p></DashboardLayout>;
+        return (
+            <DashboardLayout>
+                <div aria-busy="true" aria-label="Chargement du produit">
+                    <Skeleton className="h-3 w-28 mb-4" />
+                    <Skeleton className="h-7 w-64 mb-8" />
+                    <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_320px] gap-5">
+                        <div className="space-y-5">
+                            {[220, 160, 260].map((height, i) => (
+                                <div key={i} className="bg-white border border-[#ececec] rounded p-5 space-y-3">
+                                    <Skeleton className="h-4 w-36" />
+                                    <Skeleton className="w-full" style={{ height }} />
+                                </div>
+                            ))}
+                        </div>
+                        <div className="space-y-5">
+                            {[140, 200].map((height, i) => (
+                                <div key={i} className="bg-white border border-[#ececec] rounded p-5 space-y-3">
+                                    <Skeleton className="h-4 w-24" />
+                                    <Skeleton className="w-full" style={{ height }} />
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            </DashboardLayout>
+        );
     }
 
     return (

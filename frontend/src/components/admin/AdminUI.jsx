@@ -49,7 +49,7 @@ export function KpiCard({ label, value, hint, tone = 'default', loading = false 
         <div className="bg-white border border-[#ececec] rounded px-5 py-[18px] min-w-0">
             <p className="text-[13px] text-[#666]">{label}</p>
             {loading ? (
-                <div className="h-7 w-32 my-2 bg-[#f1f1f1] rounded animate-pulse" />
+                <Skeleton className="h-7 w-32 my-2" />
             ) : (
                 <p className={`text-2xl font-semibold tracking-[-0.01em] tabular-nums mt-2 mb-1.5 truncate ${tone === 'danger' ? 'text-[#b42318]' : 'text-[#111]'}`}>
                     {value}
@@ -270,5 +270,49 @@ export function Notice({ tone = 'error', children }) {
         <p role={tone === 'error' ? 'alert' : 'status'} className={`text-[13px] border rounded px-3 py-2 ${tones[tone]}`}>
             {children}
         </p>
+    );
+}
+
+/** Bloc gris animé (squelette) aux dimensions données par className. */
+export function Skeleton({ className = '', style }) {
+    return <span className={`mk-skeleton block rounded-[3px] ${className}`} style={style} aria-hidden="true" />;
+}
+
+const SKELETON_WIDTHS = ['w-24', 'w-32', 'w-20', 'w-28', 'w-16', 'w-24', 'w-14', 'w-20'];
+
+/** Lignes de tableau fictives affichées pendant le chargement d'une liste. */
+export function SkeletonRows({ rows = 6, cols = 5, media = false }) {
+    return Array.from({ length: rows }).map((_, row) => (
+        <tr key={row} className="border-b border-[#f1f1f1] last:border-0" aria-hidden="true">
+            {Array.from({ length: cols }).map((__, col) => (
+                <td key={col} className="px-5 py-3.5">
+                    {media && col === 0 ? (
+                        <span className="flex items-center gap-3">
+                            <Skeleton className="w-10 h-10 shrink-0" />
+                            <Skeleton className="h-3.5 w-32" />
+                        </span>
+                    ) : (
+                        <Skeleton className={`h-3.5 ${SKELETON_WIDTHS[(row + col) % SKELETON_WIDTHS.length]}`} />
+                    )}
+                </td>
+            ))}
+        </tr>
+    ));
+}
+
+/** Liste verticale fictive (vignette + deux lignes de texte). */
+export function SkeletonList({ rows = 4 }) {
+    return (
+        <ul className="divide-y divide-[#f1f1f1]" aria-hidden="true">
+            {Array.from({ length: rows }).map((_, i) => (
+                <li key={i} className="flex items-center gap-3 px-5 py-3">
+                    <Skeleton className="w-10 h-10 shrink-0" />
+                    <span className="flex-1 space-y-2">
+                        <Skeleton className={`h-3.5 ${SKELETON_WIDTHS[i % SKELETON_WIDTHS.length]}`} />
+                        <Skeleton className="h-3 w-16" />
+                    </span>
+                </li>
+            ))}
+        </ul>
     );
 }

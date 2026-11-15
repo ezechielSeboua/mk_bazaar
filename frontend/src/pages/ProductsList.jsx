@@ -47,7 +47,7 @@ function FilterSection({ title, children }) {
   );
 }
 
-function Filters({ params, update, categories, filterAttributes, onReset }) {
+function Filters({ params, update, categories, categoriesLoading, filterAttributes, onReset }) {
   const category = params.get("category");
   const [minPrice, setMinPrice] = useState(params.get("min_price") ?? "");
   const [maxPrice, setMaxPrice] = useState(params.get("max_price") ?? "");
@@ -93,6 +93,12 @@ function Filters({ params, update, categories, filterAttributes, onReset }) {
       <FilterSection title="Catégorie">
         <div role="radiogroup" aria-label="Catégorie">
           {categoryRow(null, "Toutes les pièces", total)}
+          {categoriesLoading && categories.length === 0 && [60, 48, 70, 54].map((width, i) => (
+            <div key={i} className="flex items-center gap-2.5 mb-3" aria-hidden="true">
+              <span className="mk-skeleton w-4 h-4 rounded-[3px]" />
+              <span className="mk-skeleton h-3 rounded" style={{ width: `${width}%` }} />
+            </div>
+          ))}
           {parents.map((parent) => [
             categoryRow(parent.slug, parent.name, parent.total_products_count ?? parent.products_count),
             ...categories
@@ -165,7 +171,7 @@ function Filters({ params, update, categories, filterAttributes, onReset }) {
 }
 
 export default function ProductsList() {
-  const { categories } = useCatalogData();
+  const { categories, isLoading: categoriesLoading } = useCatalogData();
   const [params, setParams] = useSearchParams();
   const [types, setTypes] = useState(typesCache ?? []);
   const [result, setResult] = useState({ key: null, products: [], total: 0, lastPage: 1 });
@@ -282,7 +288,7 @@ export default function ProductsList() {
     ...(params.get("min_price") || params.get("max_price") ? [{ key: "price", label: `${params.get("min_price") || 0} – ${params.get("max_price") || "∞"} FCFA`, clear: { min_price: null, max_price: null } }] : []),
   ];
 
-  const filtersPanel = <Filters key={`${params.get("min_price") ?? ""}-${params.get("max_price") ?? ""}`} params={params} update={update} categories={categories} filterAttributes={filterAttributes} onReset={reset} />;
+  const filtersPanel = <Filters key={`${params.get("min_price") ?? ""}-${params.get("max_price") ?? ""}`} params={params} update={update} categories={categories} categoriesLoading={categoriesLoading} filterAttributes={filterAttributes} onReset={reset} />;
 
   return (
     <div className="min-h-screen bg-white text-[#111] font-admin antialiased">

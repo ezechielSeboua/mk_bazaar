@@ -8,6 +8,8 @@ import { SiteSettingsProvider } from './contexts/SiteSettingsContext';
 import DashboardWrapper from './components/DashboardWrapper';
 import StorefrontWrapper from './components/StorefrontWrapper';
 import LoadingScreen from './components/LoadingScreen';
+import NetworkProgress from './components/NetworkProgress';
+import ScrollbarActivity from './components/ScrollbarActivity';
 import BasketPage from './pages/BasketPage';
 
 /* ---------- Chargement paresseux (Lazy Loading) des pages ---------- */
@@ -47,6 +49,8 @@ function App() {
       <SiteSettingsProvider>
         <WishlistProvider>
           <Suspense fallback={<LoadingScreen isLoading={true} />}>
+            <NetworkProgress />
+            <ScrollbarActivity />
             <Suspense fallback={null}><SmoothScroll /></Suspense>
             <Routes>
               {/* Vitrine */}

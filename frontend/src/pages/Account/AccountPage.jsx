@@ -286,7 +286,22 @@ function OrdersTab({ orders, loading, error, whatsappNumber }) {
   const lastPage = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
   const shown = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
 
-  if (loading) return <p className="text-sm text-[#666]">Chargement de vos commandes…</p>;
+  if (loading) {
+    return (
+      <div className="space-y-3" aria-busy="true" aria-label="Chargement de vos commandes">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="border border-[#ececec] rounded p-5 flex items-center gap-4" aria-hidden="true">
+            <span className="mk-skeleton w-14 h-14 rounded-[3px] shrink-0" />
+            <span className="flex-1 space-y-2.5">
+              <span className="mk-skeleton block h-3.5 w-40 rounded" />
+              <span className="mk-skeleton block h-3 w-24 rounded" />
+            </span>
+            <span className="mk-skeleton h-6 w-20 rounded-full" />
+          </div>
+        ))}
+      </div>
+    );
+  }
   if (error) return <p role="alert" className="text-sm text-[#b42318]">{error}</p>;
   if (!orders.length) {
     return (
@@ -362,7 +377,17 @@ export default function AccountPage() {
     return (
       <div className="min-h-screen bg-white font-admin">
         <Header />
-        <p className={`${wrapClass} py-20 text-sm text-[#666]`}>Chargement…</p>
+        <div className={`${wrapClass} py-16 grid grid-cols-1 lg:grid-cols-[260px_minmax(0,1fr)] gap-10`} aria-busy="true" aria-label="Chargement de votre compte">
+          <div className="space-y-4" aria-hidden="true">
+            <span className="mk-skeleton block w-20 h-20 rounded-full" />
+            <span className="mk-skeleton block h-4 w-36 rounded" />
+            <span className="mk-skeleton block h-3 w-48 rounded" />
+          </div>
+          <div className="space-y-3" aria-hidden="true">
+            <span className="mk-skeleton block h-7 w-56 rounded mb-6" />
+            {Array.from({ length: 3 }).map((_, i) => <span key={i} className="mk-skeleton block h-24 rounded" />)}
+          </div>
+        </div>
       </div>
     );
   }

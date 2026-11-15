@@ -46,6 +46,59 @@
   }
 }
 
+/*
+ * Barres de défilement discrètes (façon macOS) : fines et invisibles au repos,
+ * visibles pendant le défilement (attribut data-scrolling posé par
+ * ScrollbarActivity) et au survol des zones défilantes internes.
+ * La place de la barre est conservée : rien ne bouge quand elle apparaît.
+ */
+@layer base {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+  }
+
+  body *:hover,
+  [data-scrolling] {
+    scrollbar-color: rgba(17, 17, 17, 0.28) transparent;
+  }
+}
+
+/* Barre de progression des requêtes (NetworkProgress) */
+@keyframes mk-progress {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(400%); }
+}
+
+.mk-progress-bar {
+  animation: mk-progress 1.1s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+/* Squelettes de chargement : reflet qui traverse le bloc */
+@keyframes mk-shimmer {
+  100% { transform: translateX(100%); }
+}
+
+.mk-skeleton {
+  position: relative;
+  overflow: hidden;
+  background-color: #f0f0ef;
+}
+
+.mk-skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.6), transparent);
+  animation: mk-shimmer 1.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mk-progress-bar { width: 100%; animation: none; }
+  .mk-skeleton::after { display: none; }
+}
+
 /* Guard against rapid excessive motion when user prefers reduced motion */
 @media (prefers-reduced-motion: reduce) {
   *, ::before, ::after {

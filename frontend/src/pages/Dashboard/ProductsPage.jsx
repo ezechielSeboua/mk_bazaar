@@ -6,7 +6,7 @@ import ConfirmDialog from '../../components/ConfirmDialog';
 import { useDashboardData } from '../../contexts/DashboardDataContext';
 import { deleteProducts, updateProduct } from '../../services/product';
 import { resolveMediaUrl } from '../../config/env';
-import { Badge, Notice, PageHeader, Pagination, Panel } from '../../components/admin/AdminUI';
+import { Badge, Notice, PageHeader, Pagination, Panel, SkeletonRows } from '../../components/admin/AdminUI';
 import { buttonClass, fieldClass, formatFCFA, td, th } from '../../components/admin/adminFormat';
 
 const PER_PAGE = 20;
@@ -219,10 +219,11 @@ export default function ProductsPage() {
                                     </tr>
                                 );
                             })}
-                            {pageItems.length === 0 && (
+                            {isLoading && pageItems.length === 0 && <SkeletonRows rows={8} cols={9} media />}
+                            {!isLoading && pageItems.length === 0 && (
                                 <tr>
                                     <td colSpan={9} className="px-5 py-12 text-center text-sm text-[#666]">
-                                        {isLoading ? 'Chargement…' : products.length ? 'Aucun produit ne correspond à ces filtres.' : 'Aucun produit. Ajoutez le premier.'}
+                                        {products.length ? 'Aucun produit ne correspond à ces filtres.' : 'Aucun produit. Ajoutez le premier.'}
                                     </td>
                                 </tr>
                             )}

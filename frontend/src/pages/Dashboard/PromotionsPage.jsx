@@ -14,7 +14,7 @@ import {
     updateAnnouncementBar,
     updatePromotion,
 } from '../../services/catalog';
-import { Badge, Drawer, Notice, PageHeader, Panel, SegmentedControl, Switch, Tip } from '../../components/admin/AdminUI';
+import { Badge, Drawer, Notice, PageHeader, Panel, SegmentedControl, Switch, Tip, SkeletonRows } from '../../components/admin/AdminUI';
 import { buttonClass, fieldClass, formatFCFA, labelClass, td, th, variantLabel } from '../../components/admin/adminFormat';
 
 const PROMO_STATUS = {
@@ -275,6 +275,10 @@ export default function PromotionsPage() {
     const [promotions, setPromotions] = useState([]);
     const [counts, setCounts] = useState(null);
     const [bars, setBars] = useState([]);
+    // Filtre dont la liste affichée provient : tant qu'il diffère du filtre choisi, on charge.
+    const [loadedFilter, setLoadedFilter] = useState(null);
+    const [barsLoaded, setBarsLoaded] = useState(false);
+    const promotionsLoading = loadedFilter !== filter;
     const [filter, setFilter] = useState('all');
     const [pageError, setPageError] = useState(null);
 
@@ -309,6 +313,7 @@ export default function PromotionsPage() {
         let cancelled = false;
         getPromotions(filter === 'all' ? null : filter).then((res) => {
             if (cancelled) return;
+            setLoadedFilter(filter);
             if (res?.success) {
                 setPromotions(res.data?.promotions ?? []);
                 setCounts(res.data?.counts ?? null);
@@ -321,7 +326,11 @@ export default function PromotionsPage() {
 
     useEffect(() => {
         let cancelled = false;
-        getAllAnnouncementBars().then((res) => { if (!cancelled && res?.success) setBars(res.data ?? []); });
+        getAllAnnouncementBars().then((res) => {
+            if (cancelled) return;
+            setBarsLoaded(true);
+            if (res?.success) setBars(res.data ?? []);
+        });
         return () => { cancelled = true; };
     }, []);
 
@@ -508,7 +517,8 @@ export default function PromotionsPage() {
                                             </td>
                                         </tr>
                                     ))}
-                                    {promotions.length === 0 && (
+                                    {promotionsLoading && promotions.length === 0 && <SkeletonRows rows={4} cols={5} />}
+                                    {!promotionsLoading && promotions.length === 0 && (
                                         <tr><td colSpan={5} className="px-5 py-10 text-center text-sm text-[#666]">Aucune promotion dans cette liste.</td></tr>
                                     )}
                                 </tbody>
@@ -565,7 +575,8 @@ export default function PromotionsPage() {
                                             </td>
                                         </tr>
                                     ))}
-                                    {bars.length === 0 && (
+                                    {!barsLoaded && <SkeletonRows rows={2} cols={7} />}
+                                    {barsLoaded && bars.length === 0 && (
                                         <tr><td colSpan={7} className="px-5 py-10 text-center text-sm text-[#666]">Aucun bandeau.</td></tr>
                                     )}
                                 </tbody>

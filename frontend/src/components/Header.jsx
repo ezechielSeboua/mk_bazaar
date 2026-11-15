@@ -150,6 +150,11 @@ function MobileMenu({ open, onClose, menu, logoSrc, user, wishlistCount, whatsap
               Offres <ChevronRight className="w-4 h-4" {...ICON} />
             </Link>
 
+            {menu.loading && Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="py-4 border-b border-[#f1f1f1]" aria-hidden="true">
+                <span className="mk-skeleton block h-3.5 w-1/2 rounded" />
+              </div>
+            ))}
             {categories.map((category) => {
               const children = category.children ?? [];
               const isOpen = expanded === category.id;
@@ -223,7 +228,7 @@ export default function Header() {
   const navigate = useNavigate();
   const { pathname, search } = useLocation();
 
-  const [menu, setMenu] = useState(menuCache ?? { items: [], more: [] });
+  const [menu, setMenu] = useState(menuCache ?? { items: [], more: [], loading: true });
   const [openId, setOpenId] = useState(null);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -277,6 +282,11 @@ export default function Header() {
             <NavLink to="/products?sort=nouveautes" className={() => navItemClass(pathname === "/products" && !activeCategory && search.includes("nouveautes"))}>
               Nouveautés
             </NavLink>
+            {menu.loading && [72, 64, 88, 56, 70].map((width, i) => (
+              <span key={i} className="flex items-center py-[25px]" aria-hidden="true">
+                <span className="mk-skeleton h-3 rounded" style={{ width }} />
+              </span>
+            ))}
             {menu.items.map((category) => {
               const hasChildren = (category.children ?? []).length > 0;
               const active = activeCategory === category.slug || (category.children ?? []).some((c) => c.slug === activeCategory);

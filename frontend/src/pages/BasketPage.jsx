@@ -246,7 +246,15 @@ export default function BasketPage() {
 
             <aside className="lg:sticky lg:top-28 space-y-5" aria-label="Récapitulatif">
               <div className="border border-[#ececec] rounded p-5">
-                <h2 className="text-base font-semibold mb-4">Récapitulatif</h2>
+                <h2 className="text-base font-semibold mb-4 flex items-center justify-between gap-3">
+                  Récapitulatif
+                  {!checked && (
+                    <span className="flex items-center gap-1.5 text-[12.5px] font-normal text-[#666]" role="status">
+                      <span className="w-3 h-3 rounded-full border-[1.5px] border-[#ccc] border-t-[#111] animate-spin" aria-hidden="true" />
+                      Mise à jour des prix…
+                    </span>
+                  )}
+                </h2>
                 <dl className="space-y-2.5 text-sm tabular-nums">
                   <div className="flex justify-between"><dt className="text-[#555]">Sous-total ({count} article{count > 1 ? "s" : ""})</dt><dd>{formatFCFA(subtotal)}</dd></div>
                   {discounts.map(([name, value]) => (

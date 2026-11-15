@@ -6,14 +6,7 @@ import { useDashboardData } from '../../contexts/DashboardDataContext';
 import dashboardService from '../../services/dashboard';
 import { getOrders } from '../../services/order';
 import { resolveMediaUrl } from '../../config/env';
-import {
-    KpiCard,
-    OrderStatusBadge,
-    PageHeader,
-    Panel,
-    SeeAllLink,
-    SegmentedControl,
-} from '../../components/admin/AdminUI';
+import { KpiCard, OrderStatusBadge, PageHeader, Panel, SeeAllLink, SegmentedControl, Skeleton, SkeletonRows, SkeletonList } from '../../components/admin/AdminUI';
 import { buttonClass, formatCompact, formatDate, formatFCFA, td, th } from '../../components/admin/adminFormat';
 
 const PERIODS = [
@@ -95,7 +88,13 @@ function RevenueChart({ rows, loading }) {
     const pending = rows.reduce((sum, r) => sum + r.pending, 0);
 
     if (loading) {
-        return <div className="h-[200px] m-5 bg-[#fafafa] rounded animate-pulse" />;
+        return (
+            <div className="flex items-end gap-2 sm:gap-3.5 h-[200px] px-5 pt-5" aria-hidden="true">
+                {[45, 70, 30, 85, 55, 65, 40].map((height, i) => (
+                    <Skeleton key={i} className="flex-1 !rounded-t-[3px] !rounded-b-none" style={{ height: `${height}%` }} />
+                ))}
+            </div>
+        );
     }
 
     return (
@@ -351,11 +350,10 @@ export default function DashboardHome() {
                                         <td className={`${td} text-right tabular-nums whitespace-nowrap`}>{formatFCFA(order.total_price)}</td>
                                     </tr>
                                 ))}
-                                {recentOrders.length === 0 && (
+                                {isLoading && recentOrders.length === 0 && <SkeletonRows rows={5} cols={4} />}
+                                {!isLoading && recentOrders.length === 0 && (
                                     <tr>
-                                        <td colSpan={4} className="px-5 py-8 text-center text-sm text-[#666]">
-                                            {isLoading ? 'Chargement…' : 'Aucune commande pour le moment.'}
-                                        </td>
+                                        <td colSpan={4} className="px-5 py-8 text-center text-sm text-[#666]">Aucune commande pour le moment.</td>
                                     </tr>
                                 )}
                             </tbody>
@@ -383,8 +381,9 @@ export default function DashboardHome() {
                             </div>
                         );
                     })}
-                    {recentProducts.length === 0 && (
-                        <p className="px-5 py-8 text-sm text-[#666] text-center">{isLoading ? 'Chargement…' : 'Aucun produit.'}</p>
+                    {isLoading && recentProducts.length === 0 && <SkeletonList rows={5} />}
+                    {!isLoading && recentProducts.length === 0 && (
+                        <p className="px-5 py-8 text-sm text-[#666] text-center">Aucun produit.</p>
                     )}
                 </Panel>
             </div>

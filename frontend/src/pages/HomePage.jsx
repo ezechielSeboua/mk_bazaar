@@ -43,13 +43,27 @@ function ProductRow({ products }) {
   );
 }
 
+function CategoryGridSkeleton() {
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-1 mt-10 sm:mt-12" aria-hidden="true">
+      {Array.from({ length: 5 }).map((_, i) => (
+        <div key={i}>
+          <div className="mk-skeleton aspect-[4/5]" />
+          <div className="mk-skeleton h-3 w-1/2 mx-auto mt-4 rounded" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function ProductRowSkeleton() {
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-1 mt-12" aria-hidden="true">
       {Array.from({ length: 4 }).map((_, i) => (
         <div key={i}>
-          <div className="aspect-[3/4] bg-[#f4f3f1] animate-pulse" />
-          <div className="h-3 w-2/3 mx-auto mt-4 bg-[#f1f1f1] rounded" />
+          <div className="mk-skeleton aspect-[3/4]" />
+          <div className="mk-skeleton h-3 w-2/3 mx-auto mt-4 rounded" />
+          <div className="mk-skeleton h-3 w-1/3 mx-auto mt-2 rounded" />
         </div>
       ))}
     </div>
@@ -63,7 +77,7 @@ export default function Home() {
   const mainRef = useRef(null);
   const [carousel, setCarousel] = useState(FALLBACK_CAROUSEL);
   const [testimonials, setTestimonials] = useState([]);
-  const [categories, setCategories] = useState([]);
+  const [categories, setCategories] = useState(null); // null = en cours de chargement
   const [featured, setFeatured] = useState(null);
   const [offers, setOffers] = useState(null);
 
@@ -81,14 +95,14 @@ export default function Home() {
     appSettingsService.getSetting("testimonials")
       .then((data) => { if (Array.isArray(data)) keep(setTestimonials)(data); })
       .catch(() => {});
-    getCategoryMenu().then((res) => { if (res?.success) keep(setCategories)([...(res.data?.items ?? []), ...(res.data?.more ?? [])]); });
+    getCategoryMenu().then((res) => keep(setCategories)(res?.success ? [...(res.data?.items ?? []), ...(res.data?.more ?? [])] : []));
     getFeaturedProducts().then((res) => keep(setFeatured)(res?.success && Array.isArray(res.data) ? res.data : []));
     getOffers().then((res) => keep(setOffers)(res?.success ? res.data : { promotions: [], products: [], upcoming: null }));
 
     return () => { cancelled = true; };
   }, []);
 
-  useStorefrontMotion(mainRef, [heroReady, categories.length, featured?.length, offers?.products?.length, testimonials.length, carousel.length]);
+  useStorefrontMotion(mainRef, [heroReady, categories?.length, featured?.length, offers?.products?.length, testimonials.length, carousel.length]);
 
   const heroImage = media(hero.image_url) || media(carousel[0]);
   const heroTitle = [hero.title, hero.title_bold].filter(Boolean).join(" ");
@@ -118,9 +132,16 @@ export default function Home() {
       <main ref={mainRef}>
         {/* Grand visuel */}
         <section data-anim="hero" className="relative h-[560px] sm:h-[640px] lg:h-[720px] overflow-hidden bg-[#f4f3f1]">
+          {!heroReady && <div className="mk-skeleton absolute inset-0 !bg-[#ecebe8]" aria-hidden="true" />}
           {heroReady && heroImage && <img src={heroImage} alt="" className="absolute inset-0 w-full h-[112%] -top-[6%] object-cover" fetchPriority="high" />}
           <div className="absolute inset-0 bg-[linear-gradient(0deg,rgba(0,0,0,.55),rgba(0,0,0,0)_55%)]" aria-hidden="true" />
           <div className="absolute inset-x-0 bottom-12 sm:bottom-16 px-4 text-center text-white">
+            {!heroReady && (
+              <div className="flex flex-col items-center gap-4 mb-6 sm:mb-[26px]" aria-busy="true" aria-label="Chargement">
+                <span className="h-3 w-32 rounded bg-white/40" />
+                <span className="h-9 sm:h-12 w-[min(560px,80%)] rounded bg-white/40" />
+              </div>
+            )}
             {heroReady && (
               <>
                 {hero.badge && <p data-anim="fade" data-anim-load data-anim-delay="0.3" className={`${tagClass} text-[#eee]`}>{hero.badge}</p>}
@@ -139,12 +160,18 @@ export default function Home() {
         </section>
 
         <ScrollMarquee
-          words={categories.length ? categories.map((c) => c.name.toUpperCase()) : ["BAGUES", "COLLIERS", "BRACELETS", "PARURES"]}
+          words={categories?.length ? categories.map((c) => c.name.toUpperCase()) : ["BAGUES", "COLLIERS", "BRACELETS", "PARURES"]}
           className="py-6 sm:py-8 border-b border-[#ececec] text-[44px] sm:text-[72px] lg:text-[96px] font-light tracking-[-0.03em] leading-none text-[#111]"
         />
 
         {/* Univers */}
-        {categories.length > 0 && (
+        {categories === null && (
+          <section className={`${wrapClass} pt-20 sm:pt-[120px] text-center`} aria-busy="true">
+            <SectionTitle tag="Nos univers" title="Explorez une sélection de la boutique" />
+            <CategoryGridSkeleton />
+          </section>
+        )}
+        {categories?.length > 0 && (
           <section className={`${wrapClass} pt-20 sm:pt-[120px] text-center`}>
             <SectionTitle tag="Nos univers" title="Explorez une sélection de la boutique" />
             <div data-anim="stagger" className={`grid grid-cols-2 sm:grid-cols-3 ${categories.length >= 5 ? "lg:grid-cols-5" : "lg:grid-cols-4"} gap-1 mt-10 sm:mt-12`}>

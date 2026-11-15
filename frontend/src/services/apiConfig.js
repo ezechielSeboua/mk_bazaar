@@ -37,8 +37,31 @@ export const getAuthHeaders = (isJson = true) => {
     return headers;
 };
 
+// Requêtes en cours : alimente la barre de progression globale (NetworkProgress).
+let pendingRequests = 0;
+const networkListeners = new Set();
+const notifyNetwork = () => networkListeners.forEach((listener) => listener(pendingRequests));
+
+/** S'abonne au nombre de requêtes en cours ; renvoie la fonction de désabonnement. */
+export const subscribeNetwork = (listener) => {
+    networkListeners.add(listener);
+    listener(pendingRequests);
+    return () => networkListeners.delete(listener);
+};
+
 // Core fetch API
 export const fetchAPI = async (endpoint, options = {}) => {
+    pendingRequests += 1;
+    notifyNetwork();
+    try {
+        return await performRequest(endpoint, options);
+    } finally {
+        pendingRequests -= 1;
+        notifyNetwork();
+    }
+};
+
+const performRequest = async (endpoint, options) => {
     try {
         const url = endpoint.startsWith('https')
             ? endpoint
