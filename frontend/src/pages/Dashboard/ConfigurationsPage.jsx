@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { PageHeader, Tabs } from '../../components/admin/AdminUI';
 import { motion, AnimatePresence } from 'framer-motion';
 import DashboardLayout from '../../components/DashboardLayout';
 import { useDashboardData } from '../../contexts/DashboardDataContext';
@@ -44,7 +46,7 @@ function PlusIcon() {
 }
 function ImageIcon() {
   return (
-    <svg className="w-8 h-8 text-stone-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.5">
+    <svg className="w-8 h-8 text-[#bbb]" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.5">
       <rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" />
       <path d="M21 15l-5-5L5 21" />
     </svg>
@@ -52,21 +54,21 @@ function ImageIcon() {
 }
 
 /* ---------- Helpers UI ---------- */
-const inputCls = 'w-full px-3 py-2 border border-stone-200 rounded-lg text-sm focus:border-[#c07b5a] focus:ring-1 focus:ring-[#c07b5a]/30 outline-none bg-white transition-colors';
-const labelCls = 'text-[10px] uppercase tracking-wider font-bold text-stone-500 block mb-1';
-const sectionTitle = 'text-base font-medium flex items-center gap-2';
-const saveBtnCls = 'w-full sm:w-auto px-5 py-2.5 bg-stone-900 text-white font-medium text-sm rounded-lg hover:bg-black transition-colors shadow-sm disabled:opacity-50';
+const inputCls = 'w-full h-10 px-3.5 border border-[#d9d9d9] rounded bg-white text-[13.5px] text-[#111] outline-none focus:border-[#111] transition-colors';
+const labelCls = 'block text-[13px] font-medium text-[#222] mb-1.5';
+const sectionTitle = 'text-[15px] font-semibold tracking-[-0.02em] text-[#111] flex items-center gap-2';
+const saveBtnCls = 'w-full sm:w-auto inline-flex items-center justify-center h-10 px-4 rounded bg-[#111] text-white text-[13px] font-semibold hover:bg-[#333] transition-colors disabled:opacity-50';
 
 
 function ConfigBadge({ configured }) {
   return (
-    <span className={`hidden sm:inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full border shrink-0 ${
+    <span className={`hidden sm:inline-flex items-center gap-1.5 h-6 px-2.5 text-xs font-medium rounded-full border shrink-0 ${
       configured
-        ? 'bg-[#c07b5a]/10 text-[#c07b5a] border-[#c07b5a]/25'
-        : 'bg-stone-50 text-stone-400 border-stone-200'
+        ? 'bg-[#e7f6ec] text-[#166534] border-transparent'
+        : 'bg-[#fff4e0] text-[#8a4b00] border-transparent'
     }`}>
-      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${configured ? 'bg-[#c07b5a]' : 'bg-stone-300'}`} />
-      {configured ? 'Configuré' : 'Non configuré'}
+      <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-current" />
+      {configured ? 'Personnalisé' : 'Contenu par défaut'}
     </span>
   );
 }
@@ -77,7 +79,7 @@ function StatusBadge({ msg }) {
     <AnimatePresence>
       <motion.span
         initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }}
-        className={`text-xs font-medium px-3 py-1.5 rounded-lg border ${msg.type === 'success' ? 'bg-[#c07b5a]/10 text-[#c07b5a] border-[#c07b5a]/20' : 'bg-red-50 text-red-700 border-red-100'}`}
+        className={`text-xs font-medium px-3 py-1.5 rounded border ${msg.type === 'success' ? 'bg-[#e7f6ec] text-[#166534] border-transparent' : 'bg-[#fdeaea] text-[#b42318] border-transparent'}`}
       >
         {msg.text}
       </motion.span>
@@ -100,7 +102,7 @@ function ZoneForm({ initial, onSave, onCancel }) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      {error && <div className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</div>}
+      {error && <div className="text-xs text-red-600 bg-red-50 border border-red-100 rounded px-3 py-2">{error}</div>}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="flex-1">
           <label className={labelCls}>Nom de la zone</label>
@@ -112,8 +114,8 @@ function ZoneForm({ initial, onSave, onCancel }) {
         </div>
       </div>
       <div className="flex gap-2 justify-end">
-        <button type="button" onClick={onCancel} className="px-4 py-2 border border-stone-200 text-stone-600 rounded-lg text-xs font-medium hover:bg-stone-50 transition-colors">Annuler</button>
-        <button type="submit" className="px-4 py-2 bg-stone-900 text-white rounded-lg text-xs font-medium hover:bg-black transition-colors">{initial ? 'Modifier' : 'Ajouter'}</button>
+        <button type="button" onClick={onCancel} className="px-4 py-2 border border-[#e0e0e0] text-[#555] rounded text-xs font-medium hover:bg-[#fafafa] transition-colors">Annuler</button>
+        <button type="submit" className="px-4 py-2 bg-[#111] text-white rounded text-xs font-medium hover:bg-[#333] transition-colors">{initial ? 'Modifier' : 'Ajouter'}</button>
       </div>
     </form>
   );
@@ -134,7 +136,7 @@ function TestimonialForm({ initial, onSave, onCancel }) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
-      {error && <div className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</div>}
+      {error && <div className="text-xs text-red-600 bg-red-50 border border-red-100 rounded px-3 py-2">{error}</div>}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label className={labelCls}>Nom *</label>
@@ -150,8 +152,8 @@ function TestimonialForm({ initial, onSave, onCancel }) {
         <textarea value={comment} onChange={(e) => { setComment(e.target.value); setError(''); }} rows="3" placeholder="Son témoignage..." className={`${inputCls} resize-none`} />
       </div>
       <div className="flex gap-2 justify-end">
-        <button type="button" onClick={onCancel} className="px-4 py-2 border border-stone-200 text-stone-600 rounded-lg text-xs font-medium hover:bg-stone-50 transition-colors">Annuler</button>
-        <button type="submit" className="px-4 py-2 bg-stone-900 text-white rounded-lg text-xs font-medium hover:bg-black transition-colors">{initial ? 'Modifier' : 'Ajouter'}</button>
+        <button type="button" onClick={onCancel} className="px-4 py-2 border border-[#e0e0e0] text-[#555] rounded text-xs font-medium hover:bg-[#fafafa] transition-colors">Annuler</button>
+        <button type="submit" className="px-4 py-2 bg-[#111] text-white rounded text-xs font-medium hover:bg-[#333] transition-colors">{initial ? 'Modifier' : 'Ajouter'}</button>
       </div>
     </form>
   );
@@ -204,8 +206,6 @@ export default function ConfigurationsPage() {
   const [isSavingContact, setIsSavingContact] = useState(false);
 
   /* ── Bannière promotionnelle ── */
-  const [promoBanner, setPromoBanner] = useState({ enabled: false, text: '' });
-  const [isSavingBanner, setIsSavingBanner] = useState(false);
 
   /* ── Chargement initial des settings ── */
   useEffect(() => {
@@ -243,9 +243,6 @@ export default function ConfigurationsPage() {
       .then(data => { if (data && !Array.isArray(data)) setSocialLinks(prev => ({ ...prev, ...data })); })
       .catch(() => {});
 
-    appSettingsService.getSetting('promo_banner')
-      .then(data => { if (data && !Array.isArray(data)) setPromoBanner(prev => ({ ...prev, ...data })); })
-      .catch(() => {});
   }, []);
 
   /* ── Handlers livraison (existants) ── */
@@ -375,26 +372,16 @@ export default function ConfigurationsPage() {
     finally { setIsSavingContact(false); }
   };
 
-  /* ── Handlers Bannière ── */
-  const saveBanner = async () => {
-    setIsSavingBanner(true);
-    try {
-      await appSettingsService.updateSetting('promo_banner', promoBanner);
-      showStatus('banner', 'success', 'Bannière enregistrée.');
-    } catch { showStatus('banner', 'error', 'Erreur de sauvegarde.'); }
-    finally { setIsSavingBanner(false); }
-  };
-
   if (isLoading) {
     return <DashboardLayout><DashboardPageLoader label="Chargement des configurations…" /></DashboardLayout>;
   }
 
   const TABS = [
-    { id: 'hero',         label: 'Hero' },
+    { id: 'hero',         label: "Bannière d'accueil" },
     { id: 'carousel',     label: 'Carrousel' },
-    { id: 'testimonials', label: 'Témoignages' },
+    { id: 'testimonials', label: 'Avis clients' },
     { id: 'logo',         label: 'Logo' },
-    { id: 'banner',       label: 'Bannière' },
+    { id: 'banner',       label: 'Bandeau' },
     { id: 'contact',      label: 'Contact' },
     { id: 'zones',        label: 'Livraison' },
   ];
@@ -402,29 +389,10 @@ export default function ConfigurationsPage() {
   return (
     <DashboardLayout>
       <div className="space-y-4 sm:space-y-6">
-        {/* En-tête */}
-        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
-          <h1 className="text-2xl md:text-3xl font-light uppercase tracking-tight text-black">Configurations</h1>
-          <p className="text-stone-600 text-sm mt-1">Personnalisez le contenu affiché sur la boutique.</p>
-        </motion.div>
+        <PageHeader title="Contenu du site" subtitle="Personnalisez ce qui s'affiche sur la boutique." />
 
-        {/* Onglets */}
-        <div className="max-w-4xl border-b border-stone-200">
-          <div className="flex overflow-x-auto -mb-px">
-            {TABS.map(({ id, label }) => (
-              <button
-                key={id}
-                onClick={() => setActiveTab(id)}
-                className={`whitespace-nowrap px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
-                  activeTab === id
-                    ? 'text-black border-[#c07b5a]'
-                    : 'text-stone-500 border-transparent hover:text-black hover:border-stone-300'
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
+        <div className="max-w-4xl bg-white border border-[#ececec] rounded-t border-b-0">
+          <Tabs label="Rubriques du contenu" items={TABS.map(({ id, label }) => ({ value: id, label }))} value={activeTab} onChange={setActiveTab} />
         </div>
 
         <div className="max-w-4xl">
@@ -437,8 +405,8 @@ export default function ConfigurationsPage() {
               transition={{ duration: 0.15 }}
             >
               {activeTab === 'hero' && (
-                <div className="bg-white border border-stone-200 border-l-4 border-l-[#c07b5a] rounded-xl shadow-sm overflow-hidden">
-                  <div className="flex items-center justify-between p-4 sm:p-6 border-b border-stone-100">
+                <div className="bg-white border border-[#ececec] rounded overflow-hidden">
+                  <div className="flex items-center justify-between px-5 py-4 border-b border-[#ececec]">
                     <h3 className={sectionTitle}>
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M3 9h18M9 21V9" /></svg>
                       Hero de la page d'accueil
@@ -448,7 +416,7 @@ export default function ConfigurationsPage() {
                       <StatusBadge msg={status.hero} />
                     </div>
                   </div>
-                  <div className="p-4 sm:p-6 space-y-4">
+                  <div className="px-5 py-4 space-y-4">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <label className={labelCls}>Badge (petit texte au-dessus)</label>
@@ -478,7 +446,7 @@ export default function ConfigurationsPage() {
                     <div>
                       <label className={labelCls}>Image principale</label>
                       <div className="flex items-start gap-4">
-                        <div className="w-40 h-52 bg-stone-100 border border-stone-200 rounded-lg overflow-hidden flex items-center justify-center flex-shrink-0">
+                        <div className="w-40 h-52 bg-[#f1f1f1] border border-[#e0e0e0] rounded overflow-hidden flex items-center justify-center flex-shrink-0">
                           {heroImagePreview
                             ? <img src={heroImagePreview} alt="Hero preview" className="w-full h-full object-cover" />
                             : <ImageIcon />
@@ -486,16 +454,16 @@ export default function ConfigurationsPage() {
                         </div>
                         <div className="flex-1">
                           <input type="file" accept="image/jpeg,image/jpg,image/png,image/webp" onChange={handleHeroImageChange}
-                            className="w-full text-xs text-stone-600 file:mr-3 file:py-1.5 file:px-3 file:border-0 file:text-[10px] file:uppercase file:tracking-wider file:font-bold file:bg-stone-100 file:text-stone-700 hover:file:bg-stone-200 file:cursor-pointer cursor-pointer" />
-                          <p className="text-[10px] text-stone-400 mt-1">JPEG, PNG ou WebP — max 4 Mo</p>
+                            className="w-full text-xs text-[#555] file:mr-3 file:py-1.5 file:px-3 file:border-0 file:text-xs file:font-semibold file:rounded file:bg-[#f1f1f1] file:text-[#444] hover:file:bg-[#e8e8e8] file:cursor-pointer cursor-pointer" />
+                          <p className="text-[12.5px] text-[#666] mt-1">JPEG, PNG ou WebP — max 4 Mo</p>
                           {hero.image_url && !heroImageFile && (
-                            <p className="text-[10px] text-[#c07b5a] mt-1 truncate">Image actuelle : {hero.image_url}</p>
+                            <p className="text-[10px] text-[#444] mt-1 truncate">Image actuelle : {hero.image_url}</p>
                           )}
                         </div>
                       </div>
                     </div>
                   </div>
-                  <div className="p-4 sm:p-6 border-t border-stone-100 flex justify-end">
+                  <div className="px-5 py-4 border-t border-[#ececec] flex justify-end">
                     <button onClick={saveHero} disabled={isSavingHero} className={saveBtnCls}>
                       {isSavingHero ? 'Enregistrement…' : 'Enregistrer le Hero'}
                     </button>
@@ -504,8 +472,8 @@ export default function ConfigurationsPage() {
               )}
 
               {activeTab === 'carousel' && (
-                <div className="bg-white border border-stone-200 border-l-4 border-l-[#c07b5a] rounded-xl shadow-sm overflow-hidden">
-                  <div className="flex items-center justify-between p-4 sm:p-6 border-b border-stone-100">
+                <div className="bg-white border border-[#ececec] rounded overflow-hidden">
+                  <div className="flex items-center justify-between px-5 py-4 border-b border-[#ececec]">
                     <h3 className={sectionTitle}>
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><rect x="2" y="7" width="20" height="10" rx="1" /><path d="M17 7V5a2 2 0 0 0-2-2H9a2 2 0 0 0-2 2v2M7 17v2a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-2" /></svg>
                       Carrousel (galerie éditoriale)
@@ -515,17 +483,17 @@ export default function ConfigurationsPage() {
                       <StatusBadge msg={status.carousel} />
                     </div>
                   </div>
-                  <div className="p-4 sm:p-6 space-y-4">
+                  <div className="px-5 py-4 space-y-4">
                     {carouselImages.length === 0 ? (
-                      <p className="text-sm text-stone-400 text-center py-6 border border-dashed border-stone-200 rounded-lg">Aucune image — ajoutez-en ci-dessous.</p>
+                      <p className="text-sm text-[#767676] text-center py-6 border border-dashed border-[#e0e0e0] rounded">Aucune image — ajoutez-en ci-dessous.</p>
                     ) : (
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                         {carouselImages.map((url, i) => (
-                          <div key={i} className="relative group aspect-video bg-stone-100 rounded-lg overflow-hidden border border-stone-200">
+                          <div key={i} className="relative group aspect-video bg-[#f1f1f1] rounded overflow-hidden border border-[#e0e0e0]">
                             <img src={url.startsWith('/storage') ? resolveMediaUrl(url) : url} alt={`Slide ${i + 1}`} className="w-full h-full object-cover" />
                             <button
                               onClick={() => setCarouselImages(prev => prev.filter((_, idx) => idx !== i))}
-                              className="absolute top-1 right-1 bg-black/70 hover:bg-black text-white rounded-full w-5 h-5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-[10px] font-bold"
+                              className="absolute top-1 right-1 bg-black/70 hover:bg-[#333] text-white rounded-full w-5 h-5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-[10px] font-bold"
                             >×</button>
                             <span className="absolute bottom-1 left-1 bg-black/50 text-white text-[9px] px-1.5 py-0.5 rounded">{i + 1}</span>
                           </div>
@@ -534,15 +502,15 @@ export default function ConfigurationsPage() {
                     )}
                     <div>
                       <label className="flex items-center gap-2 cursor-pointer w-fit">
-                        <span className={`px-4 py-2 border border-stone-200 rounded-lg text-xs font-medium hover:bg-stone-50 transition-colors flex items-center gap-1.5 ${isUploadingImg ? 'opacity-50 pointer-events-none' : ''}`}>
+                        <span className={`px-4 py-2 border border-[#e0e0e0] rounded text-xs font-medium hover:bg-[#fafafa] transition-colors flex items-center gap-1.5 ${isUploadingImg ? 'opacity-50 pointer-events-none' : ''}`}>
                           <PlusIcon /> {isUploadingImg ? 'Upload en cours…' : 'Ajouter une image'}
                         </span>
                         <input type="file" accept="image/jpeg,image/jpg,image/png,image/webp" onChange={handleCarouselUpload} className="hidden" disabled={isUploadingImg} />
                       </label>
-                      <p className="text-[10px] text-stone-400 mt-1">JPEG, PNG ou WebP — max 4 Mo par image</p>
+                      <p className="text-[12.5px] text-[#666] mt-1">JPEG, PNG ou WebP — max 4 Mo par image</p>
                     </div>
                   </div>
-                  <div className="p-4 sm:p-6 border-t border-stone-100 flex justify-end">
+                  <div className="px-5 py-4 border-t border-[#ececec] flex justify-end">
                     <button onClick={saveCarousel} disabled={isSavingCarousel} className={saveBtnCls}>
                       {isSavingCarousel ? 'Enregistrement…' : 'Enregistrer le carrousel'}
                     </button>
@@ -551,8 +519,8 @@ export default function ConfigurationsPage() {
               )}
 
               {activeTab === 'testimonials' && (
-                <div className="bg-white border border-stone-200 border-l-4 border-l-[#c07b5a] rounded-xl shadow-sm overflow-hidden">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 sm:p-6 border-b border-stone-100">
+                <div className="bg-white border border-[#ececec] rounded overflow-hidden">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-5 py-4 border-b border-[#ececec]">
                     <h3 className={sectionTitle}>
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>
                       Témoignages ({testimonials.length})
@@ -562,7 +530,7 @@ export default function ConfigurationsPage() {
                       <StatusBadge msg={status.testimonials} />
                       <button
                         onClick={() => { setEditingTestimonial(null); setShowTestimonialForm(true); }}
-                        className="px-3 py-2 bg-stone-100 text-stone-900 border border-stone-200 rounded-lg text-xs font-medium hover:bg-stone-200 transition-colors flex items-center gap-1.5"
+                        className="px-3 py-2 bg-[#f1f1f1] text-[#111] border border-[#e0e0e0] rounded text-xs font-medium hover:bg-[#e8e8e8] transition-colors flex items-center gap-1.5"
                       >
                         <PlusIcon /> Ajouter
                       </button>
@@ -571,8 +539,8 @@ export default function ConfigurationsPage() {
                   <AnimatePresence>
                     {showTestimonialForm && (
                       <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
-                        <div className="p-4 sm:p-6 border-b border-stone-100 bg-stone-50">
-                          <p className="text-xs font-medium text-stone-600 mb-3">
+                        <div className="px-5 py-4 border-b border-[#ececec] bg-[#fafafa]">
+                          <p className="text-xs font-medium text-[#555] mb-3">
                             {editingTestimonial !== null ? 'Modifier le témoignage' : 'Nouveau témoignage'}
                           </p>
                           <TestimonialForm
@@ -585,24 +553,24 @@ export default function ConfigurationsPage() {
                     )}
                   </AnimatePresence>
                   {testimonials.length === 0 ? (
-                    <p className="text-sm text-stone-400 text-center py-8">Aucun témoignage — ajoutez-en via le bouton ci-dessus.</p>
+                    <p className="text-sm text-[#767676] text-center py-8">Aucun témoignage — ajoutez-en via le bouton ci-dessus.</p>
                   ) : (
-                    <div className="divide-y divide-stone-100">
+                    <div className="divide-y divide-[#f0f0f0]">
                       {testimonials.map((t, i) => (
-                        <div key={i} className="flex items-start gap-3 p-4 sm:p-6 hover:bg-stone-50 transition-colors">
+                        <div key={i} className="flex items-start gap-3 px-5 py-4 hover:bg-[#fafafa] transition-colors">
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold text-stone-900">{t.name}
-                              {t.role && <span className="text-[10px] font-normal text-stone-400 ml-2 uppercase tracking-wider">{t.role}</span>}
+                            <p className="text-sm font-semibold text-[#111]">{t.name}
+                              {t.role && <span className="text-[10px] font-normal text-[#767676] ml-2 uppercase tracking-wider">{t.role}</span>}
                             </p>
-                            <p className="text-xs text-stone-600 mt-1 italic line-clamp-2">« {t.comment} »</p>
+                            <p className="text-xs text-[#555] mt-1 italic line-clamp-2">« {t.comment} »</p>
                           </div>
                           <div className="flex gap-1 flex-shrink-0">
                             <button onClick={() => { setEditingTestimonial(i); setShowTestimonialForm(true); }}
-                              className="p-1.5 text-stone-400 hover:text-stone-800 hover:bg-stone-100 rounded-lg transition-colors">
+                              className="p-1.5 text-[#767676] hover:text-[#222] hover:bg-[#f1f1f1] rounded transition-colors">
                               <EditIcon />
                             </button>
                             <button onClick={() => setTestimonials(prev => prev.filter((_, idx) => idx !== i))}
-                              className="p-1.5 text-stone-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                              className="p-1.5 text-[#767676] hover:text-red-600 hover:bg-red-50 rounded transition-colors">
                               <TrashIcon />
                             </button>
                           </div>
@@ -610,7 +578,7 @@ export default function ConfigurationsPage() {
                       ))}
                     </div>
                   )}
-                  <div className="p-4 sm:p-6 border-t border-stone-100 flex justify-end">
+                  <div className="px-5 py-4 border-t border-[#ececec] flex justify-end">
                     <button onClick={saveTestimonials} disabled={isSavingTestimonials || testimonials.length === 0} className={saveBtnCls}>
                       {isSavingTestimonials ? 'Enregistrement…' : 'Enregistrer les témoignages'}
                     </button>
@@ -619,8 +587,8 @@ export default function ConfigurationsPage() {
               )}
 
               {activeTab === 'logo' && (
-                <div className="bg-white border border-stone-200 border-l-4 border-l-[#c07b5a] rounded-xl shadow-sm overflow-hidden">
-                  <div className="flex items-center justify-between p-4 sm:p-6 border-b border-stone-100">
+                <div className="bg-white border border-[#ececec] rounded overflow-hidden">
+                  <div className="flex items-center justify-between px-5 py-4 border-b border-[#ececec]">
                     <h3 className={sectionTitle}>
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M8 12l2 2 4-4" /></svg>
                       Logo de la boutique
@@ -630,10 +598,10 @@ export default function ConfigurationsPage() {
                       <StatusBadge msg={status.logo} />
                     </div>
                   </div>
-                  <div className="p-4 sm:p-6 space-y-4">
-                    <p className="text-xs text-stone-500">Remplace le logo statique affiché dans la navigation et le footer.</p>
+                  <div className="px-5 py-4 space-y-4">
+                    <p className="text-xs text-[#666]">Remplace le logo statique affiché dans la navigation et le footer.</p>
                     <div className="flex items-start gap-4">
-                      <div className="w-32 h-20 bg-stone-100 border border-stone-200 rounded-lg overflow-hidden flex items-center justify-center flex-shrink-0">
+                      <div className="w-32 h-20 bg-[#f1f1f1] border border-[#e0e0e0] rounded overflow-hidden flex items-center justify-center flex-shrink-0">
                         {logoPreview
                           ? <img src={logoPreview} alt="Logo preview" className="w-full h-full object-contain p-2" />
                           : <ImageIcon />
@@ -641,15 +609,15 @@ export default function ConfigurationsPage() {
                       </div>
                       <div className="flex-1">
                         <input type="file" accept="image/jpeg,image/jpg,image/png,image/webp" onChange={handleLogoChange}
-                          className="w-full text-xs text-stone-600 file:mr-3 file:py-1.5 file:px-3 file:border-0 file:text-[10px] file:uppercase file:tracking-wider file:font-bold file:bg-stone-100 file:text-stone-700 hover:file:bg-stone-200 file:cursor-pointer cursor-pointer" />
-                        <p className="text-[10px] text-stone-400 mt-1">PNG ou WebP recommandé, fond transparent — max 4 Mo</p>
+                          className="w-full text-xs text-[#555] file:mr-3 file:py-1.5 file:px-3 file:border-0 file:text-xs file:font-semibold file:rounded file:bg-[#f1f1f1] file:text-[#444] hover:file:bg-[#e8e8e8] file:cursor-pointer cursor-pointer" />
+                        <p className="text-[12.5px] text-[#666] mt-1">PNG ou WebP recommandé, fond transparent — max 4 Mo</p>
                         {logo.url && !logoFile && (
-                          <p className="text-[10px] text-[#c07b5a] mt-1 truncate">Logo actuel : {logo.url}</p>
+                          <p className="text-[10px] text-[#444] mt-1 truncate">Logo actuel : {logo.url}</p>
                         )}
                       </div>
                     </div>
                   </div>
-                  <div className="p-4 sm:p-6 border-t border-stone-100 flex justify-end">
+                  <div className="px-5 py-4 border-t border-[#ececec] flex justify-end">
                     <button onClick={saveLogo} disabled={isSavingLogo || (!logoFile && !logo.url)} className={saveBtnCls}>
                       {isSavingLogo ? 'Enregistrement…' : 'Enregistrer le logo'}
                     </button>
@@ -658,65 +626,25 @@ export default function ConfigurationsPage() {
               )}
 
               {activeTab === 'banner' && (
-                <div className="bg-white border border-stone-200 border-l-4 border-l-[#c07b5a] rounded-xl shadow-sm overflow-hidden">
-                  <div className="flex items-center justify-between p-4 sm:p-6 border-b border-stone-100">
-                    <h3 className={sectionTitle}>
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" /><line x1="4" y1="22" x2="4" y2="15" /></svg>
-                      Bannière promotionnelle
-                    </h3>
-                    <div className="flex items-center gap-2">
-                      <ConfigBadge configured={!!promoBanner.text} />
-                      <StatusBadge msg={status.banner} />
-                    </div>
+                <div className="bg-white border border-[#ececec] rounded overflow-hidden">
+                  <div className="px-5 py-4 border-b border-[#ececec]">
+                    <h3 className={sectionTitle}>Bandeaux d'annonce</h3>
                   </div>
-                  <div className="p-4 sm:p-6 space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium text-stone-800">Afficher la bannière</p>
-                        <p className="text-xs text-stone-500 mt-0.5">Barre sticky en haut de la boutique</p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setPromoBanner(p => ({ ...p, enabled: !p.enabled }))}
-                        className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${promoBanner.enabled ? 'bg-[#c07b5a]' : 'bg-stone-200'}`}
-                        role="switch"
-                        aria-checked={promoBanner.enabled}
-                      >
-                        <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ${promoBanner.enabled ? 'translate-x-5' : 'translate-x-0'}`} />
-                      </button>
-                    </div>
-                    <div>
-                      <label className={labelCls}>Texte de la bannière</label>
-                      <input
-                        type="text"
-                        value={promoBanner.text}
-                        onChange={e => setPromoBanner(p => ({ ...p, text: e.target.value }))}
-                        className={inputCls}
-                        placeholder="🚚 Livraison gratuite dès 50 000 FCFA · Paiement sécurisé"
-                        maxLength={120}
-                      />
-                      <p className="text-[10px] text-stone-400 mt-1">{promoBanner.text.length}/120 caractères</p>
-                    </div>
-                    {promoBanner.enabled && promoBanner.text && (
-                      <div className="rounded-lg overflow-hidden border border-stone-200">
-                        <p className="text-[9px] uppercase tracking-wider text-stone-400 px-3 pt-2 pb-1">Aperçu</p>
-                        <div className="bg-[#c07b5a] text-white text-[10px] font-semibold tracking-widest uppercase text-center py-2 px-4">
-                          {promoBanner.text}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                  <div className="p-4 sm:p-6 border-t border-stone-100 flex justify-end">
-                    <button onClick={saveBanner} disabled={isSavingBanner} className={saveBtnCls}>
-                      {isSavingBanner ? 'Enregistrement…' : 'Enregistrer la bannière'}
-                    </button>
+                  <div className="px-5 py-5 space-y-4 text-sm text-[#444]">
+                    <p>
+                      Les messages en haut du site sont désormais gérés comme des <b>bandeaux d'annonce</b> : plusieurs messages
+                      affichés à tour de rôle, avec un lien et des dates de début et de fin.
+                    </p>
+                    <Link to="/dashboard/promotions" className="inline-flex items-center h-10 px-4 rounded bg-[#111] text-white text-[13px] font-semibold hover:bg-[#333]">
+                      Gérer les bandeaux
+                    </Link>
                   </div>
                 </div>
               )}
 
               {activeTab === 'contact' && (
-                <div className="bg-white border border-stone-200 border-l-4 border-l-[#c07b5a] rounded-xl shadow-sm overflow-hidden">
-                  <div className="flex items-center justify-between p-4 sm:p-6 border-b border-stone-100">
+                <div className="bg-white border border-[#ececec] rounded overflow-hidden">
+                  <div className="flex items-center justify-between px-5 py-4 border-b border-[#ececec]">
                     <h3 className={sectionTitle}>
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.6 1.27h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 8.91a16 16 0 0 0 6 6l1-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" /></svg>
                       Contact & Réseaux sociaux
@@ -726,9 +654,9 @@ export default function ConfigurationsPage() {
                       <StatusBadge msg={status.contact} />
                     </div>
                   </div>
-                  <div className="p-4 sm:p-6 space-y-5">
+                  <div className="px-5 py-4 space-y-5">
                     <div>
-                      <p className="text-[10px] uppercase tracking-wider font-bold text-stone-400 mb-3">Coordonnées</p>
+                      <p className="text-xs font-semibold uppercase tracking-[0.06em] text-[#767676] mb-3">Coordonnées</p>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                           <label className={labelCls}>WhatsApp Business (sans +)</label>
@@ -745,7 +673,7 @@ export default function ConfigurationsPage() {
                       </div>
                     </div>
                     <div>
-                      <p className="text-[10px] uppercase tracking-wider font-bold text-stone-400 mb-3">Réseaux sociaux (URLs complètes)</p>
+                      <p className="text-xs font-semibold uppercase tracking-[0.06em] text-[#767676] mb-3">Réseaux sociaux (URLs complètes)</p>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         {[
                           { key: 'instagram', placeholder: 'https://instagram.com/mk_bazaar' },
@@ -767,7 +695,7 @@ export default function ConfigurationsPage() {
                       </div>
                     </div>
                   </div>
-                  <div className="p-4 sm:p-6 border-t border-stone-100 flex justify-end">
+                  <div className="px-5 py-4 border-t border-[#ececec] flex justify-end">
                     <button onClick={saveContact} disabled={isSavingContact} className={saveBtnCls}>
                       {isSavingContact ? 'Enregistrement…' : 'Enregistrer le contact'}
                     </button>
@@ -776,14 +704,14 @@ export default function ConfigurationsPage() {
               )}
 
               {activeTab === 'zones' && (
-                <div className="bg-white border border-stone-200 border-l-4 border-l-[#c07b5a] rounded-xl shadow-sm overflow-hidden">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 sm:p-6 border-b border-stone-100">
+                <div className="bg-white border border-[#ececec] rounded overflow-hidden">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-5 py-4 border-b border-[#ececec]">
                     <h3 className={sectionTitle}><TruckIcon /> Zones de livraison ({shippingZones.length})</h3>
                     <div className="flex items-center gap-2">
                       <ConfigBadge configured={shippingZones.length > 0} />
                       <StatusBadge msg={status.zones} />
-                      <button onClick={loadDefaultZones} className="px-3 sm:px-4 py-2 border border-stone-200 text-stone-700 rounded-lg text-xs font-medium hover:bg-stone-50 transition-colors">Zones par défaut</button>
-                      <button onClick={() => { setEditingZone(null); setShowAddForm(true); }} className="px-3 sm:px-4 py-2 bg-stone-100 text-stone-900 border border-stone-200 rounded-lg text-xs font-medium hover:bg-stone-200 transition-colors flex items-center gap-1.5">
+                      <button onClick={loadDefaultZones} className="px-3 sm:px-4 py-2 border border-[#e0e0e0] text-[#444] rounded text-xs font-medium hover:bg-[#fafafa] transition-colors">Zones par défaut</button>
+                      <button onClick={() => { setEditingZone(null); setShowAddForm(true); }} className="px-3 sm:px-4 py-2 bg-[#f1f1f1] text-[#111] border border-[#e0e0e0] rounded text-xs font-medium hover:bg-[#e8e8e8] transition-colors flex items-center gap-1.5">
                         <PlusIcon /> Ajouter
                       </button>
                     </div>
@@ -791,8 +719,8 @@ export default function ConfigurationsPage() {
                   <AnimatePresence>
                     {(showAddForm || editingZone) && (
                       <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
-                        <div className="p-4 sm:p-6 border-b border-stone-100 bg-stone-50">
-                          <p className="text-xs font-medium text-stone-600 mb-3">
+                        <div className="px-5 py-4 border-b border-[#ececec] bg-[#fafafa]">
+                          <p className="text-xs font-medium text-[#555] mb-3">
                             {editingZone ? 'Modifier la zone' : 'Nouvelle zone'}
                           </p>
                           <ZoneForm
@@ -805,26 +733,26 @@ export default function ConfigurationsPage() {
                     )}
                   </AnimatePresence>
                   {shippingZones.length === 0 ? (
-                    <p className="text-sm text-stone-400 text-center py-10">Aucune zone configurée.</p>
+                    <p className="text-sm text-[#767676] text-center py-10">Aucune zone configurée.</p>
                   ) : (
                     <div className="overflow-x-auto">
                       <table className="w-full text-sm">
-                        <thead className="bg-stone-50 border-b border-stone-200">
+                        <thead className="bg-[#fafafa] border-b border-[#e0e0e0]">
                           <tr>
-                            <th className="text-left py-3 px-4 sm:px-6 font-bold uppercase text-[10px] tracking-wider text-stone-500">Zone</th>
-                            <th className="text-right py-3 px-4 sm:px-6 font-bold uppercase text-[10px] tracking-wider text-stone-500">Tarif</th>
-                            <th className="text-center py-3 px-4 sm:px-6 font-bold uppercase text-[10px] tracking-wider text-stone-500">Actions</th>
+                            <th className="text-left py-3 px-4 sm:px-6 text-[12.5px] font-medium text-[#666]">Zone</th>
+                            <th className="text-right py-3 px-4 sm:px-6 text-[12.5px] font-medium text-[#666]">Tarif</th>
+                            <th className="text-center py-3 px-4 sm:px-6 text-[12.5px] font-medium text-[#666]">Actions</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-stone-100">
+                        <tbody className="divide-y divide-[#f0f0f0]">
                           {shippingZones.map(zone => (
-                            <tr key={zone.id} className="hover:bg-stone-50 transition-colors">
-                              <td className="py-3 px-4 sm:px-6 font-medium text-stone-800">{zone.name}</td>
+                            <tr key={zone.id} className="hover:bg-[#fafafa] transition-colors">
+                              <td className="py-3 px-4 sm:px-6 font-medium text-[#222]">{zone.name}</td>
                               <td className="py-3 px-4 sm:px-6 text-right tabular-nums">{zone.price.toLocaleString()} FCFA</td>
                               <td className="py-3 px-4 sm:px-6">
                                 <div className="flex justify-center gap-2">
-                                  <button onClick={() => { setShowAddForm(false); setEditingZone(zone); }} className="p-1.5 text-stone-500 hover:text-stone-800 hover:bg-stone-100 rounded-lg transition-colors"><EditIcon /></button>
-                                  <button onClick={() => handleDeleteZone(zone.id)} className="p-1.5 text-stone-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"><TrashIcon /></button>
+                                  <button onClick={() => { setShowAddForm(false); setEditingZone(zone); }} className="p-1.5 text-[#666] hover:text-[#222] hover:bg-[#f1f1f1] rounded transition-colors"><EditIcon /></button>
+                                  <button onClick={() => handleDeleteZone(zone.id)} className="p-1.5 text-[#767676] hover:text-red-600 hover:bg-red-50 rounded transition-colors"><TrashIcon /></button>
                                 </div>
                               </td>
                             </tr>
@@ -833,7 +761,7 @@ export default function ConfigurationsPage() {
                       </table>
                     </div>
                   )}
-                  <div className="p-4 sm:p-6 border-t border-stone-100 flex justify-end">
+                  <div className="px-5 py-4 border-t border-[#ececec] flex justify-end">
                     <button onClick={saveShippingTariffs} disabled={isSavingZones || shippingZones.length === 0} className={saveBtnCls}>
                       {isSavingZones ? 'Enregistrement…' : 'Enregistrer les tarifs'}
                     </button>

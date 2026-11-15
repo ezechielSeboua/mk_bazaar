@@ -1,613 +1,412 @@
-import { useState, useEffect, useRef } from 'react';
-
-// S-07 : liste blanche MIME — exclut SVG (vecteur XSS)
-const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-// S-06 : limite 4 Mo
-const MAX_FILE_SIZE = 4 * 1024 * 1024;
-import { createPortal } from 'react-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useEffect, useMemo, useState } from 'react';
+import { ArrowDown, ArrowUp, Folder, FolderOpen, ImagePlus, Info, Pencil, Plus, Trash2 } from 'lucide-react';
 import DashboardLayout from '../../components/DashboardLayout';
 import ConfirmDialog from '../../components/ConfirmDialog';
+import { useDashboardData, extractList } from '../../contexts/DashboardDataContext';
 import {
     createCategory,
+    deleteCategory,
+    getAllCategories,
+    reorderCategories,
     updateCategory,
-    deleteCategory
 } from '../../services/category';
-import { useDashboardData } from '../../contexts/DashboardDataContext';
+import { getProductTypes } from '../../services/catalog';
 import { resolveMediaUrl } from '../../config/env';
+import { Badge, Drawer, Notice, PageHeader, Panel, Switch, Tip } from '../../components/admin/AdminUI';
+import { buttonClass, fieldClass, labelClass, td, th } from '../../components/admin/adminFormat';
 
-/* ---------- Icônes SVG (inchangé) ---------- */
-function ColonIcon() {
-    return (
-        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-            <circle cx="12" cy="6" r="2" />
-            <circle cx="12" cy="12" r="2" />
-            <circle cx="12" cy="18" r="2" />
-        </svg>
-    );
-}
+/** Au-delà, les catégories du menu passent dans l'onglet « Plus » (Category::MENU_LIMIT). */
+const MENU_LIMIT = 5;
 
-function EditIcon() {
-    return (
-        <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M12 20h9" />
-            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
-        </svg>
-    );
-}
-
-function TrashIcon() {
-    return (
-        <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="3 6 5 6 21 6" />
-            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-        </svg>
-    );
-}
-
-function UploadIcon() {
-    return (
-        <svg className="w-6 h-6 text-stone-400 group-hover:text-black transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z" />
-        </svg>
-    );
-}
-
-const tableRow = {
-    hidden: { opacity: 0, y: 8 },
-    visible: (i) => ({
-        opacity: 1,
-        y: 0,
-        transition: { delay: i * 0.03, duration: 0.25, ease: "easeOut" },
-    }),
+const EMPTY_FORM = {
+    name: '',
+    description: '',
+    parent_id: '',
+    product_type_id: '',
+    is_active: true,
+    show_in_menu: true,
 };
 
-function SkeletonRow() {
+const byMenuOrder = (a, b) => (a.menu_order ?? 0) - (b.menu_order ?? 0) || a.id - b.id;
+
+/** Envoie un champ booléen ou vide comme Laravel l'attend en multipart. */
+const toFormData = (values, imageFile) => {
+    const data = new FormData();
+    Object.entries(values).forEach(([key, value]) => {
+        if (typeof value === 'boolean') data.append(key, value ? '1' : '0');
+        else data.append(key, value ?? '');
+    });
+    if (imageFile) data.append('image_path', imageFile);
+    return data;
+};
+
+function CategoryForm({ form, setForm, parents, productTypes, editing, hasChildren, imagePreview, onImage }) {
+    const parent = parents.find((p) => String(p.id) === String(form.parent_id));
+    const inheritedType = parent?.product_type?.name;
+    const isChild = Boolean(form.parent_id);
+
     return (
-        <motion.tr
-            className="border-b border-stone-100"
-            animate={{ opacity: [0.6, 1, 0.6] }}
-            transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
-        >
-            <td className="py-4 px-4 md:px-6"><div className="h-4 w-32 bg-stone-100 rounded animate-pulse" /></td>
-            <td className="py-4 px-4 md:px-6"><div className="h-4 w-24 bg-stone-100 rounded animate-pulse" /></td>
-            <td className="py-4 px-4 md:px-6"><div className="h-4 w-48 bg-stone-100 rounded animate-pulse" /></td>
-            <td className="py-4 px-4 md:px-6"><div className="h-10 w-10 bg-stone-100 rounded animate-pulse" /></td>
-            <td className="py-4 px-4 md:px-6"><div className="h-5 w-14 bg-stone-100 rounded-full animate-pulse" /></td>
-            <td className="py-4 px-4 md:px-6"><div className="h-8 w-8 bg-stone-100 rounded-full animate-pulse ml-auto" /></td>
-        </motion.tr>
+        <div className="space-y-5">
+            <div>
+                <label htmlFor="cat-name" className={labelClass}>Nom</label>
+                <input id="cat-name" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={`${fieldClass} w-full`} />
+            </div>
+
+            <div>
+                <label htmlFor="cat-parent" className={labelClass}>Emplacement</label>
+                <select
+                    id="cat-parent"
+                    value={form.parent_id}
+                    disabled={hasChildren}
+                    onChange={(e) => setForm({ ...form, parent_id: e.target.value })}
+                    className={`${fieldClass} w-full`}
+                >
+                    <option value="">Catégorie principale</option>
+                    {parents.filter((p) => p.id !== editing?.id).map((p) => (
+                        <option key={p.id} value={p.id}>Sous-catégorie de « {p.name} »</option>
+                    ))}
+                </select>
+                {hasChildren && <p className="mt-1.5 text-[12.5px] text-[#666]">Elle contient des sous-catégories : elle reste une catégorie principale.</p>}
+            </div>
+
+            <div>
+                <label htmlFor="cat-type" className={labelClass}>Type de produit</label>
+                <select id="cat-type" value={form.product_type_id} onChange={(e) => setForm({ ...form, product_type_id: e.target.value })} className={`${fieldClass} w-full`}>
+                    <option value="">
+                        {isChild
+                            ? (inheritedType ? `Hérité du parent (${inheritedType})` : 'Aucun')
+                            : 'Défini par sous-catégorie'}
+                    </option>
+                    {productTypes.map((type) => <option key={type.id} value={type.id}>{type.name}</option>)}
+                </select>
+                <p className="mt-1.5 text-[12.5px] text-[#666]">Détermine les options proposées au client (taille, couleur, longueur…) et les filtres du catalogue.</p>
+            </div>
+
+            <div>
+                <label htmlFor="cat-description" className={labelClass}>Description <span className="font-normal text-[#767676]">(facultatif)</span></label>
+                <textarea id="cat-description" rows={3} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className={`${fieldClass} w-full h-auto py-2.5 resize-none`} />
+            </div>
+
+            <div>
+                <span className={labelClass}>Visuel</span>
+                <label className="flex items-center gap-4 border border-dashed border-[#cfcfcf] rounded p-3.5 cursor-pointer hover:bg-[#fafafa]">
+                    {imagePreview ? (
+                        <img src={imagePreview} alt="" className="w-16 h-20 object-cover rounded-sm" />
+                    ) : (
+                        <span className="w-16 h-20 rounded-sm bg-[#f1f1f1] grid place-items-center text-[#999]"><ImagePlus className="w-5 h-5" strokeWidth={1.6} aria-hidden="true" /></span>
+                    )}
+                    <span className="flex-1 text-[12.5px] text-[#666]">
+                        <b className="block text-sm font-medium text-[#111]">{imagePreview ? 'Remplacer le visuel' : 'Ajouter un visuel'}</b>
+                        JPEG, PNG ou WebP · 4 Mo maximum
+                    </span>
+                    <input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={(e) => onImage(e.target.files?.[0] ?? null)} />
+                </label>
+            </div>
+
+            <div className="space-y-3 pt-1">
+                <Switch showLabel label="Active sur la boutique" checked={form.is_active} onChange={(v) => setForm({ ...form, is_active: v })} />
+                {!isChild && (
+                    <div>
+                        <Switch showLabel label="Afficher dans le menu" checked={form.show_in_menu} onChange={(v) => setForm({ ...form, show_in_menu: v })} />
+                    </div>
+                )}
+            </div>
+        </div>
     );
 }
 
 export default function CategoriesPage() {
-    const { categories, setCategories, isLoading } = useDashboardData();
-    const [showForm, setShowForm] = useState(false);
-    const [editingId, setEditingId] = useState(null);
-    
-    const [formData, setFormData] = useState({
-        name: '',
-        slug: '',
-        description: '',
-        is_active: true,
-    });
-    
+    const { categories, setCategories } = useDashboardData();
+    const [productTypes, setProductTypes] = useState([]);
+    const [error, setError] = useState(null);
+
+    const [drawerOpen, setDrawerOpen] = useState(false);
+    const [editing, setEditing] = useState(null);
+    const [form, setForm] = useState(EMPTY_FORM);
     const [imageFile, setImageFile] = useState(null);
     const [imagePreview, setImagePreview] = useState(null);
-    const [isDragOver, setIsDragOver] = useState(false);
-    const [isSlugManual, setIsSlugManual] = useState(false);
+    const [saving, setSaving] = useState(false);
+    const [formError, setFormError] = useState(null);
 
-    const [errors, setErrors] = useState({});
-    const [openMenuId, setOpenMenuId] = useState(null);
-    const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 }); // pour le portail
-    const [isSubmitting, setIsSubmitting] = useState(false);
-    const [apiError, setApiError] = useState(null);
-    const [successMessage, setSuccessMessage] = useState(null);
-    
-    const fileInputRef = useRef(null);
-    const formRef = useRef(null);
-    const menuButtonRef = useRef(null);
-    const [confirmDelete, setConfirmDelete] = useState({ show: false, id: null, name: "" });
-    const [deletingId, setDeletingId] = useState(null);
+    const [toDelete, setToDelete] = useState(null);
+    const [deleting, setDeleting] = useState(false);
+    const [busyId, setBusyId] = useState(null);
 
-    // Fermeture du menu contextuel (clic extérieur)
     useEffect(() => {
-        const handleClickOutside = (event) => {
-            if (
-                menuButtonRef.current &&
-                !menuButtonRef.current.contains(event.target)
-            ) {
-                const portal = document.getElementById('menu-portal-cat');
-                if (portal && !portal.contains(event.target)) {
-                    setOpenMenuId(null);
-                } else if (!portal) {
-                    setOpenMenuId(null);
-                }
-            }
-        };
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
+        getProductTypes().then((res) => { if (res?.success) setProductTypes(res.data ?? []); });
     }, []);
 
-    const generateSlug = (text) => {
-        return text
-            .toLowerCase()
-            .normalize("NFD")
-            .replace(/[\u0300-\u036f]/g, "")
-            .replace(/[^a-z0-9]+/g, '-')
-            .replace(/(^-|-$)+/g, '');
+    const refresh = async () => {
+        const res = await getAllCategories();
+        if (res?.success) setCategories(extractList(res));
     };
 
-    const handleChange = (e) => {
-        const { name, value, type, checked } = e.target;
-        
-        if (name === 'slug') {
-            setIsSlugManual(value.trim() !== "");
-        }
+    // Arbre : catégories principales dans l'ordre du menu, sous-catégories en dessous.
+    const { parents, childrenOf } = useMemo(() => {
+        const roots = categories.filter((c) => !c.parent_id).sort(byMenuOrder);
+        const map = {};
+        categories.filter((c) => c.parent_id).forEach((c) => { (map[c.parent_id] ??= []).push(c); });
+        Object.values(map).forEach((list) => list.sort(byMenuOrder));
+        return { parents: roots, childrenOf: map };
+    }, [categories]);
 
-        setFormData((prev) => {
-            const newData = { ...prev, [name]: type === 'checkbox' ? checked : value };
-            if (name === 'name' && !editingId && !isSlugManual) {
-                newData.slug = generateSlug(value);
-            }
-            return newData;
-        });
-    };
+    const menuPosition = useMemo(() => {
+        const positions = {};
+        parents.filter((p) => p.show_in_menu && p.is_active).forEach((p, index) => { positions[p.id] = index; });
+        return positions;
+    }, [parents]);
 
-    const processFile = (file) => {
-        if (!file) return;
-        if (!ALLOWED_IMAGE_TYPES.includes(file.type)) return; // S-07
-        if (file.size > MAX_FILE_SIZE) return; // S-06
-        setImageFile(file);
-        setImagePreview(URL.createObjectURL(file));
-    };
+    const childCount = categories.length - parents.length;
 
-    const handleFileChange = (e) => {
-        processFile(e.target.files[0]);
-    };
-
-    const handleDragLeave = (e) => {
-        e.preventDefault();
-        setIsDragOver(false);
-    };
-
-    const handleDrop = (e) => {
-        e.preventDefault();
-        setIsDragOver(false);
-        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-            processFile(e.dataTransfer.files[0]);
-        }
-    };
-
-    const validateForm = () => {
-        const newErrors = {};
-        if (!formData.name.trim()) newErrors.name = 'Nom requis';
-        if (!formData.slug.trim()) newErrors.slug = 'Slug requis';
-        return newErrors;
-    };
-
-    const resetForm = () => {
-        setFormData({ name: '', slug: '', description: '', is_active: true });
+    const openCreate = (parentId = '') => {
+        setEditing(null);
+        setForm({ ...EMPTY_FORM, parent_id: parentId ? String(parentId) : '' });
         setImageFile(null);
         setImagePreview(null);
-        setIsSlugManual(false);
-        if (fileInputRef.current) fileInputRef.current.value = "";
-        setEditingId(null);
-        setErrors({});
-        setShowForm(false);
+        setFormError(null);
+        setDrawerOpen(true);
     };
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        const newErrors = validateForm();
-        if (Object.keys(newErrors).length > 0) {
-            setErrors(newErrors);
+    const openEdit = (category) => {
+        setEditing(category);
+        setForm({
+            name: category.name ?? '',
+            description: category.description ?? '',
+            parent_id: category.parent_id ? String(category.parent_id) : '',
+            product_type_id: category.product_type_id ? String(category.product_type_id) : '',
+            is_active: Boolean(category.is_active),
+            show_in_menu: Boolean(category.show_in_menu),
+        });
+        setImageFile(null);
+        setImagePreview(category.image_path ? resolveMediaUrl(category.image_path) : null);
+        setFormError(null);
+        setDrawerOpen(true);
+    };
+
+    const onImage = (file) => {
+        setImageFile(file);
+        if (file) setImagePreview(URL.createObjectURL(file));
+    };
+
+    const save = async (event) => {
+        event?.preventDefault();
+        if (!form.name.trim()) { setFormError('Le nom est obligatoire.'); return; }
+        setSaving(true);
+        setFormError(null);
+        const values = { ...form, name: form.name.trim() };
+        if (values.parent_id) values.show_in_menu = false;
+        const res = editing
+            ? await updateCategory(editing.id, toFormData(values, imageFile))
+            : await createCategory(toFormData(values, imageFile));
+        setSaving(false);
+        if (!res?.success) {
+            const firstError = res?.data?.errors ? Object.values(res.data.errors)[0]?.[0] : null;
+            setFormError(firstError || res?.error || "L'enregistrement a échoué.");
             return;
         }
+        setDrawerOpen(false);
+        await refresh();
+    };
 
-        setIsSubmitting(true);
-        setApiError(null);
-
-        const dataToSend = new FormData();
-        dataToSend.append('name', formData.name);
-        dataToSend.append('slug', formData.slug);
-        dataToSend.append('description', formData.description);
-        dataToSend.append('is_active', formData.is_active ? '1' : '0');
-        
-        if (imageFile) {
-            dataToSend.append('image_path', imageFile);
+    const toggle = async (category, key, value) => {
+        setBusyId(category.id);
+        setError(null);
+        setCategories((prev) => prev.map((c) => (c.id === category.id ? { ...c, [key]: value } : c)));
+        const res = await updateCategory(category.id, toFormData({ [key]: value }));
+        if (!res?.success) {
+            setError(res?.error || 'La modification a échoué.');
+            await refresh();
         }
+        setBusyId(null);
+    };
 
-        try {
-            let result;
-            if (editingId) {
-                dataToSend.append('_method', 'PUT');
-                result = await updateCategory(editingId, dataToSend); 
-                
-                if (result.success) {
-                    const updatedData = result.data?.data || result.data;
-                    setCategories(categories.map(c => c.id === editingId ? updatedData : c));
-                    triggerNotification('Catégorie mise à jour avec succès');
-                    resetForm();
-                }
-            } else {
-                result = await createCategory(dataToSend);
-                if (result.success) {
-                    const createdData = result.data?.data || result.data;
-                    setCategories([...categories, createdData]);
-                    triggerNotification('Catégorie créée avec succès');
-                    resetForm();
-                }
-            }
-
-            if (!result?.success) {
-                setApiError(result?.error || 'Une erreur est survenue lors de la communication avec le serveur.');
-            }
-        } catch (err) {
-            setApiError('Erreur de connexion réseau inattendue.');
-        } finally {
-            setIsSubmitting(false);
+    const move = async (siblings, index, delta) => {
+        const target = index + delta;
+        if (target < 0 || target >= siblings.length) return;
+        const reordered = [...siblings];
+        [reordered[index], reordered[target]] = [reordered[target], reordered[index]];
+        const positions = Object.fromEntries(reordered.map((c, i) => [c.id, i]));
+        setCategories((prev) => prev.map((c) => (c.id in positions ? { ...c, menu_order: positions[c.id] } : c)));
+        const res = await reorderCategories(reordered.map((c) => c.id));
+        if (!res?.success) {
+            setError(res?.error || "L'ordre n'a pas pu être enregistré.");
+            await refresh();
         }
     };
 
-    const triggerNotification = (message) => {
-        setSuccessMessage(message);
-        setTimeout(() => setSuccessMessage(null), 4000);
-    };
-
-    const handleEdit = (category) => {
-        setFormData({
-            name: category.name,
-            slug: category.slug,
-            description: category.description || '',
-            is_active: category.is_active === 1 || category.is_active === true,
-        });
-        
-        setImagePreview(category.image_path || null);
-        setImageFile(null);
-        setIsSlugManual(true);
-        setEditingId(category.id);
-        setShowForm(true);
-        setOpenMenuId(null);
-        
-        setTimeout(() => {
-            formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }, 100);
-    };
-
-    const handleDelete = async () => {
-        const id = confirmDelete.id;
-        if (!id) return;
-        setDeletingId(id);
-        try {
-            const result = await deleteCategory(id);
-            if (result.success) {
-                setCategories(categories.filter(c => c.id !== id));
-                triggerNotification('Catégorie supprimée définitivement');
-            } else {
-                setApiError(result?.error || 'Impossible de supprimer cette catégorie.');
-            }
-        } catch (err) {
-            setApiError('Erreur système lors du traitement de la suppression.');
-        } finally {
-            setDeletingId(null);
-            setConfirmDelete({ show: false, id: null, name: "" });
-        }
-    };
-
-    // Gestion du menu contextuel avec portail
-    const handleMenuToggle = (categoryId, event) => {
-        event.stopPropagation();
-        if (openMenuId === categoryId) {
-            setOpenMenuId(null);
+    const confirmDelete = async () => {
+        setDeleting(true);
+        const res = await deleteCategory(toDelete.id);
+        setDeleting(false);
+        if (res?.success) {
+            setCategories((prev) => prev.filter((c) => c.id !== toDelete.id));
+            setToDelete(null);
         } else {
-            const rect = event.currentTarget.getBoundingClientRect();
-            setMenuPosition({
-                top: rect.bottom + 4,
-                left: rect.right - 160, // largeur w-36 = 144px ≈ 160 pour marge
-            });
-            setOpenMenuId(categoryId);
+            setToDelete(null);
+            setError(res?.error || 'La suppression a échoué.');
         }
     };
 
-    const requestDelete = (category) => {
-        setConfirmDelete({ show: true, id: category.id, name: category.name });
-        setOpenMenuId(null);
+    const typeBadge = (category, isChild) => {
+        if (category.product_type?.name) return <Badge>{category.product_type.name}</Badge>;
+        if (isChild) {
+            const parentType = parents.find((p) => p.id === category.parent_id)?.product_type?.name;
+            return parentType ? <span className="text-[12.5px] text-[#6b6b6b]">Hérité · {parentType}</span> : <span className="text-[12.5px] text-[#b42318]">Aucun type</span>;
+        }
+        return <span className="text-[12.5px] text-[#6b6b6b]">{childrenOf[category.id]?.length ? 'Défini par sous-catégorie' : 'Aucun type'}</span>;
     };
+
+    const orderButtons = (siblings, index, name) => (
+        <span className="inline-flex flex-col -my-1 mr-1">
+            <button type="button" onClick={() => move(siblings, index, -1)} disabled={index === 0} className="p-0.5 text-[#999] hover:text-[#111] disabled:opacity-30" aria-label={`Monter « ${name} »`}>
+                <ArrowUp className="w-3 h-3" strokeWidth={2} aria-hidden="true" />
+            </button>
+            <button type="button" onClick={() => move(siblings, index, 1)} disabled={index === siblings.length - 1} className="p-0.5 text-[#999] hover:text-[#111] disabled:opacity-30" aria-label={`Descendre « ${name} »`}>
+                <ArrowDown className="w-3 h-3" strokeWidth={2} aria-hidden="true" />
+            </button>
+        </span>
+    );
+
+    const actions = (category) => (
+        <div className="flex justify-end gap-1">
+            {!category.parent_id && (
+                <button type="button" onClick={() => openCreate(category.id)} className="p-1.5 rounded text-[#666] hover:text-[#111] hover:bg-[#f1f1f1]" aria-label={`Ajouter une sous-catégorie à « ${category.name} »`} title="Ajouter une sous-catégorie">
+                    <Plus className="w-4 h-4" strokeWidth={1.6} aria-hidden="true" />
+                </button>
+            )}
+            <button type="button" onClick={() => openEdit(category)} className="p-1.5 rounded text-[#666] hover:text-[#111] hover:bg-[#f1f1f1]" aria-label={`Modifier « ${category.name} »`} title="Modifier">
+                <Pencil className="w-4 h-4" strokeWidth={1.6} aria-hidden="true" />
+            </button>
+            <button type="button" onClick={() => setToDelete(category)} className="p-1.5 rounded text-[#666] hover:text-[#b42318] hover:bg-[#fdeaea]" aria-label={`Supprimer « ${category.name} »`} title="Supprimer">
+                <Trash2 className="w-4 h-4" strokeWidth={1.6} aria-hidden="true" />
+            </button>
+        </div>
+    );
+
+    const statusBadge = (category) => (
+        <button type="button" onClick={() => toggle(category, 'is_active', !category.is_active)} disabled={busyId === category.id} title="Cliquer pour changer" className="rounded-full">
+            <Badge tone={category.is_active ? 'success' : 'neutral'} dot>{category.is_active ? 'Active' : 'Inactive'}</Badge>
+        </button>
+    );
 
     return (
         <DashboardLayout>
-            <div className="space-y-6 max-w-[1600px] mx-auto relative px-1">
-                
-                {/* Notification Floating System */}
-                <div className="fixed top-6 right-6 z-50 flex flex-col gap-3 w-80 pointer-events-none">
-                    <AnimatePresence>
-                        {apiError && (
-                            <motion.div
-                                initial={{ opacity: 0, x: 50, scale: 0.9 }}
-                                animate={{ opacity: 1, x: 0, scale: 1 }}
-                                exit={{ opacity: 0, x: 20, scale: 0.9 }}
-                                className="pointer-events-auto bg-stone-900 border border-red-500 text-red-200 p-4 rounded text-xs tracking-wide uppercase font-medium shadow-xl"
-                            >
-                                <div className="flex justify-between items-start">
-                                    <span>{apiError}</span>
-                                    <button onClick={() => setApiError(null)} className="ml-2 text-stone-400 hover:text-white">✕</button>
-                                </div>
-                            </motion.div>
-                        )}
-                        {successMessage && (
-                            <motion.div
-                                initial={{ opacity: 0, x: 50, scale: 0.9 }}
-                                animate={{ opacity: 1, x: 0, scale: 1 }}
-                                exit={{ opacity: 0, x: 20, scale: 0.9 }}
-                                className="pointer-events-auto bg-black text-[#F9F9F7] border border-stone-800 p-4 rounded text-xs tracking-wide uppercase font-medium shadow-xl"
-                            >
-                                {successMessage}
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
-                </div>
+            <PageHeader
+                title="Catégories et menu"
+                subtitle={`${parents.length} catégorie${parents.length > 1 ? 's' : ''} principale${parents.length > 1 ? 's' : ''} · ${childCount} sous-catégorie${childCount > 1 ? 's' : ''}`}
+                actions={
+                    <button type="button" onClick={() => openCreate()} className={buttonClass('primary')}>
+                        <Plus className="w-4 h-4" strokeWidth={1.8} aria-hidden="true" />
+                        Nouvelle catégorie
+                    </button>
+                }
+            />
 
-                {/* Header Section */}
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-stone-100 pb-5">
-                    <div>
-                        <h1 className="text-xl md:text-2xl font-light uppercase tracking-wider text-stone-900">Catégories</h1>
-                        <p className="text-stone-500 text-xs mt-1">
-                            {isLoading && categories.length === 0 ? (
-                                <span className="inline-block w-16 h-3 bg-stone-100 rounded animate-pulse" />
-                            ) : (
-                                <span>{categories.length} entité(s) enregistrée(s)</span>
-                            )}
-                        </p>
-                    </div>
-                    {!showForm && (
-                        <button
-                            onClick={() => setShowForm(true)}
-                            className="bg-black text-[#F9F9F7] px-5 py-2.5 text-[11px] uppercase tracking-widest font-semibold hover:bg-stone-800 transition-all active:scale-[0.98]"
-                        >
-                            + Nouvelle catégorie
-                        </button>
-                    )}
-                </div>
+            <Tip icon={Info}>
+                Seules les <b>catégories principales</b> cochées « Dans le menu » apparaissent dans l'en-tête, dans l'ordre ci-dessous
+                (flèches pour réordonner). Au-delà de {MENU_LIMIT}, les suivantes passent automatiquement dans un onglet « Plus ».
+                Les sous-catégories s'affichent dans le menu déroulant.
+            </Tip>
 
-                {/* Interactive Form Section */}
-                <AnimatePresence>
-                    {showForm && (
-                        <motion.div
-                            ref={formRef}
-                            initial={{ opacity: 0, y: -15 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -15 }}
-                            transition={{ duration: 0.25, ease: "easeOut" }}
-                            className="bg-white border border-stone-200 shadow-sm rounded-lg p-5 md:p-6"
-                        >
-                            {/* … le reste du formulaire, inchangé … */}
-                            <h2 className="text-xs font-bold uppercase tracking-widest text-stone-400 mb-6">
-                                {editingId ? 'Modification de la fiche' : 'Création de fiche'}
-                            </h2>
-                            <form onSubmit={handleSubmit} className="space-y-5 max-w-4xl">
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                                    <div>
-                                        <label className="text-[10px] uppercase tracking-wider font-bold text-stone-700 block mb-2">Nom complet *</label>
-                                        <input
-                                            type="text" name="name" value={formData.name} onChange={handleChange}
-                                            className={`w-full px-3 py-2.5 border text-sm focus:outline-none transition-colors ${errors.name ? 'border-red-500 bg-red-50/20' : 'border-stone-300 focus:border-black'}`}
-                                            placeholder="Ex: Électronique, Mobilier..."
-                                        />
-                                        {errors.name && <p className="text-red-500 text-[10px] mt-1.5 uppercase font-medium tracking-wide">{errors.name}</p>}
-                                    </div>
-                                    <div>
-                                        <label className="text-[10px] uppercase tracking-wider font-bold text-stone-700 block mb-2">Lien URL (Slug) *</label>
-                                        <input
-                                            type="text" name="slug" value={formData.slug} onChange={handleChange}
-                                            className={`w-full px-3 py-2.5 border text-sm focus:outline-none transition-colors ${errors.slug ? 'border-red-500 bg-red-50/20' : 'border-stone-300 focus:border-black'}`}
-                                            placeholder="Ex: electronique-de-salon"
-                                        />
-                                        {errors.slug && <p className="text-red-500 text-[10px] mt-1.5 uppercase font-medium tracking-wide">{errors.slug}</p>}
-                                    </div>
-                                </div>
-                                
-                                <div>
-                                    <label className="text-[10px] uppercase tracking-wider font-bold text-stone-700 block mb-2">Description descriptive</label>
-                                    <textarea
-                                        name="description" value={formData.description} onChange={handleChange}
-                                        rows="2" className="w-full px-3 py-2.5 border border-stone-300 text-sm focus:outline-none focus:border-black transition-colors resize-none"
-                                        placeholder="Description facultative de la gamme de produits..."
-                                    />
-                                </div>
-                                
-                                <div>
-                                    <label className="text-[10px] uppercase tracking-wider font-bold text-stone-700 block mb-2">Image d'illustration</label>
-                                    <div 
-                                        onClick={() => fileInputRef.current?.click()}
-                                        onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
-                                        onDragLeave={handleDragLeave}
-                                        onDrop={handleDrop}
-                                        className={`group relative border-2 border-dashed rounded-lg p-5 flex flex-col items-center justify-center gap-3 cursor-pointer transition-all ${
-                                            isDragOver ? 'border-black bg-stone-50' : 'border-stone-200 bg-stone-50/50 hover:bg-stone-50 hover:border-stone-400'
-                                        }`}
-                                    >
-                                        <input
-                                            type="file" ref={fileInputRef} accept="image/jpeg,image/jpg,image/png,image/webp" onChange={handleFileChange} className="hidden"
-                                        />
-                                        
-                                        {imagePreview ? (
-                                            <div className="flex items-center gap-5 w-full">
-                                                <div className="w-16 h-16 rounded overflow-hidden border border-stone-200 bg-white shadow-sm flex-shrink-0">
-                                                    <img src={imagePreview.startsWith('blob:') ? imagePreview : resolveMediaUrl(imagePreview)} alt="Preview" className="w-full h-full object-cover" />
-                                                </div>
-                                                <div className="text-left">
-                                                    <p className="text-xs font-medium text-stone-900">Image sélectionnée</p>
-                                                    <p className="text-[11px] text-stone-500 mt-0.5">Cliquez ou glissez à nouveau pour remplacer.</p>
-                                                </div>
-                                            </div>
-                                        ) : (
-                                            <>
-                                                <UploadIcon />
-                                                <div className="text-center">
-                                                    <p className="text-xs font-medium text-stone-800">Glissez-déposez un fichier ici, ou <span className="underline font-bold">parcourez</span></p>
-                                                    <p className="text-[10px] text-stone-400 mt-1 uppercase tracking-wider">Format WebP, JPG, PNG jusqu'à 2 Mo</p>
-                                                </div>
-                                            </>
-                                        )}
-                                    </div>
-                                </div>
+            {error && <div className="mb-4"><Notice>{error}</Notice></div>}
 
-                                <div className="inline-flex items-center gap-2.5 pt-1">
-                                    <input
-                                        type="checkbox" name="is_active" id="is_active" checked={formData.is_active} onChange={handleChange}
-                                        className="w-4 h-4 rounded border-stone-300 text-black focus:ring-transparent checked:bg-black accent-black cursor-pointer"
-                                    />
-                                    <label htmlFor="is_active" className="text-xs font-semibold uppercase tracking-wider text-stone-700 select-none cursor-pointer">
-                                        Rendre cette catégorie visible sur le catalogue
-                                    </label>
-                                </div>
-
-                                <div className="flex gap-3 border-t border-stone-100 pt-5 mt-2">
-                                    <button type="submit" disabled={isSubmitting}
-                                        className="bg-black text-[#F9F9F7] px-5 py-2.5 text-[11px] uppercase tracking-widest font-semibold hover:bg-stone-800 disabled:opacity-40 transition-colors">
-                                        {isSubmitting ? 'Opération en cours...' : editingId ? 'Valider les modifications' : 'Enregistrer la catégorie'}
-                                    </button>
-                                    <button type="button" onClick={resetForm}
-                                        className="border border-stone-300 text-stone-700 px-5 py-2.5 text-[11px] uppercase tracking-widest font-semibold hover:bg-stone-50 hover:text-black transition-colors">
-                                        Annuler
-                                    </button>
-                                </div>
-                            </form>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
-
-                {/* Table View Component */}
-                <motion.div
-                    className="bg-white border border-stone-200 rounded-lg shadow-sm"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ duration: 0.3, delay: 0.1 }}
-                >
-                    <div className="overflow-x-auto min-h-[300px]">
-                        <table className="w-full text-left border-collapse">
-                            <thead>
-                                <tr className="bg-stone-50/70 border-b border-stone-200">
-                                    <th className="py-3 px-4 md:px-6 font-bold uppercase text-[10px] text-stone-500 tracking-wider">Nom</th>
-                                    <th className="py-3 px-4 md:px-6 font-bold uppercase text-[10px] text-stone-500 tracking-wider">Identifiant URL</th>
-                                    <th className="py-3 px-4 md:px-6 font-bold uppercase text-[10px] text-stone-500 tracking-wider hidden md:table-cell">Description</th>
-                                    <th className="py-3 px-4 md:px-6 font-bold uppercase text-[10px] text-stone-500 tracking-wider w-16 text-center">Visuel</th>
-                                    <th className="py-3 px-4 md:px-6 font-bold uppercase text-[10px] text-stone-500 tracking-wider w-24">Statut</th>
-                                    <th className="py-3 px-4 md:px-6 font-bold uppercase text-[10px] text-stone-500 tracking-wider w-16 text-right">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {isLoading && categories.length === 0 ? (
-                                    <>
-                                        <SkeletonRow />
-                                        <SkeletonRow />
-                                        <SkeletonRow />
-                                    </>
-                                ) : categories.length === 0 ? (
-                                    <tr>
-                                        <td colSpan="6" className="py-14 text-center text-stone-400 text-xs uppercase tracking-widest bg-stone-50/20">
-                                            Aucune donnée disponible pour le moment.
+            <Panel>
+                <div className="overflow-x-auto">
+                    <table className="w-full border-collapse text-sm">
+                        <thead>
+                            <tr>
+                                <th scope="col" className={th}>Catégorie</th>
+                                <th scope="col" className={th}>Type de produit</th>
+                                <th scope="col" className={`${th} text-right`}>Produits</th>
+                                <th scope="col" className={th}>Dans le menu</th>
+                                <th scope="col" className={th}>Statut</th>
+                                <th scope="col" className={th}><span className="sr-only">Actions</span></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {parents.map((parent, index) => {
+                                const children = childrenOf[parent.id] ?? [];
+                                const position = menuPosition[parent.id];
+                                return [
+                                    <tr key={parent.id} className="bg-[#fcfcfc]">
+                                        <td className={td}>
+                                            <span className="flex items-center gap-2">
+                                                {orderButtons(parents, index, parent.name)}
+                                                {children.length ? <FolderOpen className="w-4 h-4 text-[#666]" strokeWidth={1.6} aria-hidden="true" /> : <Folder className="w-4 h-4 text-[#666]" strokeWidth={1.6} aria-hidden="true" />}
+                                                <b className="font-semibold">{parent.name}</b>
+                                            </span>
                                         </td>
-                                    </tr>
-                                ) : (
-                                    categories.map((category, index) => (
-                                        <motion.tr
-                                            key={category.id}
-                                            className="group border-b border-stone-100 hover:bg-stone-50/40 transition-colors"
-                                            custom={index}
-                                            variants={tableRow}
-                                            initial="hidden"
-                                            animate="visible"
-                                        >
-                                            <td className="py-4 px-4 md:px-6 font-medium text-stone-900 text-xs md:text-sm">{category.name}</td>
-                                            <td className="py-4 px-4 md:px-6 text-stone-500 font-mono text-[11px]">{category.slug}</td>
-                                            <td className="py-4 px-4 md:px-6 text-stone-500 text-xs hidden md:table-cell max-w-xs truncate">{category.description || '—'}</td>
-                                            <td className="py-4 px-4 md:px-6 text-center">
-                                                <div className="w-9 h-9 border border-stone-200 rounded bg-stone-100 mx-auto overflow-hidden shadow-sm">
-                                                    {category.image_path ? (
-                                                        <img src={resolveMediaUrl(category.image_path)} alt={category.name} className="w-full h-full object-cover" />
-                                                    ) : (
-                                                        <div className="w-full h-full flex items-center justify-center text-[9px] text-stone-400 uppercase font-bold">N/A</div>
-                                                    )}
-                                                </div>
-                                            </td>
-                                            <td className="py-4 px-4 md:px-6">
-                                                <span className={`inline-flex px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide rounded ${
-                                                    (category.is_active === 1 || category.is_active === true) ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-stone-100 text-stone-500'
-                                                }`}>
-                                                    {(category.is_active === 1 || category.is_active === true) ? 'Activé' : 'Masqué'}
+                                        <td className={td}>{typeBadge(parent, false)}</td>
+                                        <td className={`${td} text-right tabular-nums`}>{parent.total_products_count ?? parent.products_count ?? 0}</td>
+                                        <td className={td}>
+                                            <span className="flex items-center gap-2.5">
+                                                <Switch label={`Afficher « ${parent.name} » dans le menu`} checked={Boolean(parent.show_in_menu)} disabled={busyId === parent.id} onChange={(v) => toggle(parent, 'show_in_menu', v)} />
+                                                {position !== undefined && position >= MENU_LIMIT && <span className="text-[12.5px] text-[#6b6b6b]">Onglet « Plus »</span>}
+                                            </span>
+                                        </td>
+                                        <td className={td}>{statusBadge(parent)}</td>
+                                        <td className={td}>{actions(parent)}</td>
+                                    </tr>,
+                                    ...children.map((child, childIndex) => (
+                                        <tr key={child.id}>
+                                            <td className={`${td} pl-[62px]`}>
+                                                <span className="flex items-center">
+                                                    <span className="text-[#bbb] mr-2" aria-hidden="true">└</span>
+                                                    {orderButtons(children, childIndex, child.name)}
+                                                    {child.name}
                                                 </span>
                                             </td>
-                                            
-                                            {/* Bouton d'action sans menu imbriqué */}
-                                            <td className="py-4 px-4 md:px-6 text-right relative">
-                                                <button
-                                                    ref={openMenuId === category.id ? menuButtonRef : null}
-                                                    onClick={(e) => handleMenuToggle(category.id, e)}
-                                                    className="p-1 text-stone-400 hover:text-black hover:bg-stone-100 rounded-full transition-all inline-flex items-center justify-center"
-                                                >
-                                                    <ColonIcon />
-                                                </button>
-                                            </td>
-                                        </motion.tr>
-                                    ))
-                                )}
-                            </tbody>
-                        </table>
+                                            <td className={td}>{typeBadge(child, true)}</td>
+                                            <td className={`${td} text-right tabular-nums`}>{child.products_count ?? 0}</td>
+                                            <td className={`${td} text-[12.5px] text-[#6b6b6b]`}>Menu déroulant</td>
+                                            <td className={td}>{statusBadge(child)}</td>
+                                            <td className={td}>{actions(child)}</td>
+                                        </tr>
+                                    )),
+                                ];
+                            })}
+                            {categories.length === 0 && (
+                                <tr><td colSpan={6} className="px-5 py-12 text-center text-sm text-[#666]">Aucune catégorie. Créez la première.</td></tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </Panel>
+
+            <Drawer
+                open={drawerOpen}
+                onClose={() => setDrawerOpen(false)}
+                title={editing ? `Modifier « ${editing.name} »` : 'Nouvelle catégorie'}
+                footer={
+                    <div className="flex justify-end gap-2.5">
+                        <button type="button" onClick={() => setDrawerOpen(false)} className={buttonClass('secondary')}>Annuler</button>
+                        <button type="button" onClick={save} disabled={saving} className={buttonClass('primary')}>{saving ? 'Enregistrement…' : 'Enregistrer'}</button>
                     </div>
-                </motion.div>
-
-                {/* Menu contextuel via Portail */}
-                {openMenuId &&
-                    createPortal(
-                        <motion.div
-                            id="menu-portal-cat"
-                            initial={{ opacity: 0, scale: 0.95, y: -5 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.95, y: -5 }}
-                            transition={{ duration: 0.12 }}
-                            className="fixed z-[100] w-36 bg-white border border-stone-200 rounded shadow-xl py-1 text-left overflow-hidden"
-                            style={{ top: menuPosition.top, left: menuPosition.left }}
-                        >
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    const category = categories.find(c => c.id === openMenuId);
-                                    if (category) handleEdit(category);
-                                }}
-                                className="w-full text-left px-3.5 py-2 text-xs hover:bg-stone-50 transition-colors flex items-center gap-2 text-stone-700 hover:text-black font-medium"
-                            >
-                                <EditIcon /> Éditer
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    const category = categories.find(c => c.id === openMenuId);
-                                    if (category) requestDelete(category);
-                                }}
-                                className="w-full text-left px-3.5 py-2 text-xs text-red-600 hover:bg-red-50 transition-colors flex items-center gap-2 font-medium border-t border-stone-50"
-                            >
-                                <TrashIcon /> Supprimer
-                            </button>
-                        </motion.div>,
-                        document.body
-                    )
                 }
+            >
+                <form onSubmit={save} className="space-y-5">
+                    <Notice>{formError}</Notice>
+                    <CategoryForm
+                        form={form}
+                        setForm={setForm}
+                        parents={parents}
+                        productTypes={productTypes}
+                        editing={editing}
+                        hasChildren={Boolean(editing && childrenOf[editing.id]?.length)}
+                        imagePreview={imagePreview}
+                        onImage={onImage}
+                    />
+                </form>
+            </Drawer>
 
-                {/* Modale de confirmation de suppression */}
-                <ConfirmDialog
-                    open={confirmDelete.show}
-                    title="Demande de suppression"
-                    message={
-                        <>
-                            Êtes-vous certain de vouloir supprimer la catégorie <span className="font-bold text-black">"{confirmDelete.name}"</span> ? Tous les produits associés perdront leur liaison d'arborescence.
-                        </>
-                    }
-                    onConfirm={handleDelete}
-                    onCancel={() => setConfirmDelete({ show: false, id: null, name: "" })}
-                    loading={deletingId === confirmDelete.id}
-                />
-            </div>
+            <ConfirmDialog
+                open={Boolean(toDelete)}
+                title="Supprimer la catégorie"
+                message={toDelete ? `Supprimer « ${toDelete.name} » ? Une catégorie qui contient des produits ou des sous-catégories ne peut pas être supprimée.` : ''}
+                onConfirm={confirmDelete}
+                onCancel={() => setToDelete(null)}
+                loading={deleting}
+            />
         </DashboardLayout>
     );
 }

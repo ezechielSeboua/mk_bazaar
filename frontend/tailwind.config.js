@@ -6,6 +6,8 @@ export default {
       fontFamily: {
         serif: ['"Playfair Display"', 'Georgia', 'serif'],
         sans: ['"Plus Jakarta Sans"', 'system-ui', '-apple-system', 'sans-serif'],
+        // Back-office (maquette « Retail premium »)
+        admin: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
       },
       colors: {
         brand: {

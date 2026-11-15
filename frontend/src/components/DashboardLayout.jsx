@@ -1,253 +1,183 @@
 import { useEffect, useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, NavLink, useNavigate } from "react-router-dom";
+import { AnimatePresence, motion } from "framer-motion";
+import {
+  BarChart3,
+  CircleDollarSign,
+  ClipboardList,
+  Folder,
+  Home,
+  Layers,
+  LogOut,
+  Menu,
+  Search,
+  Settings,
+  SlidersHorizontal,
+  Tag,
+  Users,
+  X,
+} from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { useDashboardData } from "../contexts/DashboardDataContext";
+import { useSiteSettings } from "../contexts/SiteSettingsContext";
+import { resolveMediaUrl } from "../config/env";
 import ConfirmDialog from "../components/ConfirmDialog";
-import LoadingScreen from "./LoadingScreen"; // <-- 1. Importation de ton écran de chargement
-import { motion, AnimatePresence } from "framer-motion";
+import LoadingScreen from "./LoadingScreen";
+import { buttonClass } from "./admin/adminFormat";
 
-/* ---------- Icônes SVG ---------- */
-function ChartIcon() {
-  return (
-    <svg
-      className="w-full h-full"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M18 20V10" />
-      <path d="M12 20V4" />
-      <path d="M6 20v-6" />
-    </svg>
-  );
-}
+/*
+ * Habillage du back-office (maquette « Retail premium ») : barre latérale
+ * blanche groupée par rubriques, barre supérieure avec recherche, fond #fafafa.
+ * Les pages passent leur contenu en `children`.
+ */
 
-function FolderIcon() {
-  return (
-    <svg
-      className="w-full h-full"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2v11z" />
-    </svg>
-  );
-}
+const ICON_PROPS = { className: "w-[17px] h-[17px] shrink-0", strokeWidth: 1.6, "aria-hidden": true };
 
-function PackageIcon() {
-  return (
-    <svg
-      className="w-full h-full"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M12 2L2 7l10 5 10-5-10-5z" />
-      <path d="M2 17l10 5 10-5" />
-      <path d="M2 12l10 5 10-5" />
-    </svg>
-  );
-}
+const NAV_SECTIONS = [
+  {
+    title: "Pilotage",
+    items: [
+      { to: "/dashboard", label: "Tableau de bord", icon: BarChart3, end: true },
+      { to: "/dashboard/finances", label: "Finances", icon: CircleDollarSign },
+    ],
+  },
+  {
+    title: "Catalogue",
+    items: [
+      { to: "/dashboard/products", label: "Produits", icon: Layers },
+      { to: "/dashboard/categories", label: "Catégories et menu", icon: Folder },
+      { to: "/dashboard/attributes", label: "Attributs et types", icon: SlidersHorizontal },
+    ],
+  },
+  {
+    title: "Ventes",
+    items: [
+      { to: "/dashboard/commands", label: "Commandes", icon: ClipboardList, badge: "pending" },
+      { to: "/dashboard/promotions", label: "Promotions et bandeaux", icon: Tag },
+      { to: "/dashboard/users", label: "Clients et utilisateurs", icon: Users },
+    ],
+  },
+  {
+    title: "Boutique",
+    items: [
+      { to: "/dashboard/configurations", label: "Contenu du site", icon: Settings },
+      { to: "/", label: "Voir la boutique", icon: Home, end: true },
+    ],
+  },
+];
 
-function UsersIcon() {
-  return (
-    <svg
-      className="w-full h-full"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-      <circle cx="9" cy="7" r="4" />
-      <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-    </svg>
-  );
-}
+const initials = (name = "") =>
+  name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("") || "A";
 
-function FinanceIcon() {
-  return (
-    <svg
-      className="w-full h-full"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <line x1="12" y1="1" x2="12" y2="23" />
-      <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-    </svg>
-  );
-}
+const todayLabel = () => {
+  const label = new Date().toLocaleDateString("fr-FR", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+  return label.charAt(0).toUpperCase() + label.slice(1);
+};
 
-function SettingsIcon() {
+function Sidebar({ logoSrc, user, pendingCount, onNavigate, onLogout, onClose }) {
   return (
-    <svg
-      className="w-full h-full"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <circle cx="12" cy="12" r="3" />
-      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-    </svg>
-  );
-}
+    <aside className="flex flex-col h-full bg-white border-r border-[#ececec]">
+      <div className="h-[68px] shrink-0 flex items-center gap-2.5 px-[22px] border-b border-[#ececec] text-sm font-semibold text-[#111]">
+        <Link to="/" onClick={onNavigate} className="shrink-0" aria-label="Retour à la boutique">
+          <img src={logoSrc} alt="MK Bazaar" className="h-7 w-auto" />
+        </Link>
+        Back-office
+        <small className="text-[11px] font-medium text-[#666] border border-[#e3e3e3] rounded-[3px] px-1.5 py-px">
+          Admin
+        </small>
+        {onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            className="ml-auto -mr-2 p-2 text-[#666] hover:text-[#111]"
+            aria-label="Fermer le menu"
+          >
+            <X className="w-5 h-5" strokeWidth={1.6} aria-hidden="true" />
+          </button>
+        )}
+      </div>
 
-function LogoutIcon() {
-  return (
-    <svg
-      className="w-full h-full"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-      <polyline points="16 17 21 12 16 7" />
-      <line x1="21" y1="12" x2="9" y2="12" />
-    </svg>
-  );
-}
+      <nav className="flex-1 overflow-y-auto px-3 py-[18px]" aria-label="Back-office">
+        {NAV_SECTIONS.map((section) => (
+          <div key={section.title}>
+            <h2 className="px-2.5 pt-3 pb-2 text-[11.5px] font-semibold uppercase tracking-[0.06em] text-[#767676]">
+              {section.title}
+            </h2>
+            {section.items.map(({ to, label, icon: Icon, end, badge }) => (
+              <NavLink
+                key={to}
+                to={to}
+                end={end}
+                onClick={onNavigate}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 h-10 px-2.5 mb-0.5 rounded text-sm transition-colors ${
+                    isActive && to !== "/"
+                      ? "bg-[#f1f1f1] text-[#111] font-semibold"
+                      : "text-[#444] hover:bg-[#f7f7f7] hover:text-[#111]"
+                  }`
+                }
+              >
+                <Icon {...ICON_PROPS} />
+                {label}
+                {badge === "pending" && pendingCount > 0 && (
+                  <span className="ml-auto min-w-[22px] text-center bg-[#111] text-white text-[11px] rounded-full px-[7px] py-px">
+                    {pendingCount}
+                  </span>
+                )}
+              </NavLink>
+            ))}
+          </div>
+        ))}
+      </nav>
 
-function ChevronLeftIcon() {
-  return (
-    <svg
-      className="w-full h-full"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <polyline points="15 18 9 12 15 6" />
-    </svg>
-  );
-}
-
-function ChevronRightIcon() {
-  return (
-    <svg
-      className="w-full h-full"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <polyline points="9 18 15 12 9 6" />
-    </svg>
-  );
-}
-
-function StoreIcon() {
-  return (
-    <svg
-      className="w-full h-full"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M3 9l9-6 9 6v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-      <line x1="9" y1="22" x2="9" y2="12" />
-      <line x1="15" y1="22" x2="15" y2="12" />
-    </svg>
-  );
-}
-
-function HamburgerIcon() {
-  return (
-    <svg
-      className="w-6 h-6"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <line x1="3" y1="6" x2="21" y2="6" />
-      <line x1="3" y1="12" x2="21" y2="12" />
-      <line x1="3" y1="18" x2="21" y2="18" />
-    </svg>
-  );
-}
-
-function CloseIcon() {
-  return (
-    <svg
-      className="w-6 h-6"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <line x1="18" y1="6" x2="6" y2="18" />
-      <line x1="6" y1="6" x2="18" y2="18" />
-    </svg>
-  );
-}
-
-function ClipboardIcon() {
-  return (
-    <svg
-      className="w-full h-full"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
-      <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
-      <line x1="12" y1="11" x2="12" y2="17" />
-      <line x1="9" y1="14" x2="15" y2="14" />
-    </svg>
+      <div className="flex items-center gap-3 px-[18px] py-4 border-t border-[#ececec] text-[13.5px]">
+        {user?.avatar ? (
+          <img src={resolveMediaUrl(user.avatar)} alt="" className="w-[34px] h-[34px] rounded-full object-cover shrink-0" />
+        ) : (
+          <span className="w-[34px] h-[34px] rounded-full bg-[#111] text-white grid place-items-center text-xs font-semibold shrink-0" aria-hidden="true">
+            {initials(user?.name)}
+          </span>
+        )}
+        <span className="min-w-0">
+          <b className="block font-semibold text-[#111] truncate">{user?.name || "Administrateur"}</b>
+          <span className="block text-xs text-[#6b6b6b]">Administration</span>
+        </span>
+        <button
+          type="button"
+          onClick={onLogout}
+          className="ml-auto p-2 -mr-2 text-[#767676] hover:text-[#111]"
+          aria-label="Se déconnecter"
+          title="Se déconnecter"
+        >
+          <LogOut {...ICON_PROPS} />
+        </button>
+      </div>
+    </aside>
   );
 }
 
 export default function DashboardLayout({ children }) {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const location = useLocation();
+  const [search, setSearch] = useState("");
   const navigate = useNavigate();
   const { user, isAdmin, handleLogout } = useAuth();
-
-  // 2. Récupération de l'état de chargement initial (adapte la clé si ton contexte utilise un autre nom comme 'loading')
-  const { isLoading, isRefreshing } = useDashboardData();
+  const { isLoading, isRefreshing, metrics } = useDashboardData();
+  const { logo } = useSiteSettings();
+  const logoSrc = logo?.url ? resolveMediaUrl(logo.url) : "/mk_bazaar_logo.png";
 
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [logoutLoading, setLogoutLoading] = useState(false);
-
-  const [isAuthCheckComplete, setIsAuthCheckComplete] = useState(false); // 3. Nouvel état
+  const isAuthCheckComplete = Boolean(user && isAdmin);
 
   useEffect(() => {
     if (!user) {
@@ -255,8 +185,6 @@ export default function DashboardLayout({ children }) {
     } else if (!isAdmin) {
       // S-05 : défense en profondeur — bloquer les non-admins même si ProtectedRoute est contourné
       navigate("/", { replace: true });
-    } else {
-      setIsAuthCheckComplete(true);
     }
   }, [user, isAdmin, navigate]);
 
@@ -272,184 +200,108 @@ export default function DashboardLayout({ children }) {
     navigate("/login");
   };
 
-  const menuItems = [
-    { path: "/", label: "Ma Boutique", icon: <StoreIcon /> },
-    { path: "/dashboard", label: "Accueil", icon: <ChartIcon /> },
-    {
-      path: "/dashboard/categories",
-      label: "Catégories",
-      icon: <FolderIcon />,
-    },
-    { path: "/dashboard/products", label: "Produits", icon: <PackageIcon /> },
-    {
-      path: "/dashboard/commands",
-      label: "Commandes",
-      icon: <ClipboardIcon />,
-    },
-    { path: "/dashboard/users", label: "Utilisateurs", icon: <UsersIcon /> },
-    { path: "/dashboard/finances", label: "Finances", icon: <FinanceIcon /> },
-    {
-      path: "/dashboard/configurations",
-      label: "Configurations",
-      icon: <SettingsIcon />,
-    },
-  ];
+  const submitSearch = (event) => {
+    event.preventDefault();
+    const query = search.trim();
+    navigate(query ? `/dashboard/commands?search=${encodeURIComponent(query)}` : "/dashboard/commands");
+  };
 
-  const isActive = (path) => location.pathname === path;
+  const pendingCount = metrics?.pending_orders_count ?? 0;
+  const sidebarProps = {
+    logoSrc,
+    user,
+    pendingCount,
+    onLogout: () => {
+      setMobileMenuOpen(false);
+      setShowLogoutConfirm(true);
+    },
+  };
 
-  // 3. On enveloppe tout le rendu dans le LoadingScreen
   return (
     <LoadingScreen isLoading={isLoading}>
-      <div className="flex h-screen bg-[#F9F9F7]">
-        {/* Sidebar Desktop */}
-        <div
-          className={`hidden md:flex ${sidebarOpen ? "w-64" : "w-20"} bg-black text-[#F9F9F7] transition-all duration-300 flex-col`}
-        >
-          <div className="p-6 flex items-center justify-between border-b border-stone-700">
-            {sidebarOpen && (
-              <h1 className="text-sm font-bold uppercase tracking-widest">
-                MK Admin
-              </h1>
-            )}
-            <button
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="text-lg hover:text-stone-300 transition-colors w-5 h-5 flex items-center justify-center"
-              aria-label={sidebarOpen ? "Réduire le menu" : "Agrandir le menu"}
-            >
-              {sidebarOpen ? <ChevronLeftIcon /> : <ChevronRightIcon />}
-            </button>
-          </div>
-          <nav className="flex-1 px-3 py-6 space-y-2 overflow-y-auto">
-            {menuItems.map((item) => (
-              <Link
-                key={item.path}
-                to={item.path}
-                className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                  isActive(item.path)
-                    ? "bg-stone-700 text-white"
-                    : "text-stone-400 hover:text-white hover:bg-stone-900"
-                }`}
-              >
-                <span className="w-5 h-5 flex-shrink-0">{item.icon}</span>
-                {sidebarOpen && (
-                  <span className="text-sm font-medium">{item.label}</span>
-                )}
-              </Link>
-            ))}
-          </nav>
-          <div className="p-6 border-t border-stone-700">
-            <button
-              onClick={() => setShowLogoutConfirm(true)}
-              className="w-full text-left px-4 py-3 text-stone-400 hover:text-white transition-colors text-sm flex items-center gap-3"
-            >
-              <span className="w-5 h-5 flex-shrink-0">
-                <LogoutIcon />
-              </span>
-              {sidebarOpen && "Déconnexion"}
-            </button>
-          </div>
+      <div className="font-admin antialiased flex h-screen bg-[#fafafa] text-[#111]">
+        {/* Barre latérale (bureau) */}
+        <div className="hidden lg:block w-[248px] shrink-0">
+          <Sidebar {...sidebarProps} />
         </div>
 
-        {/* Sidebar Mobile */}
+        {/* Barre latérale (mobile / tablette) */}
         <AnimatePresence>
           {mobileMenuOpen && (
             <>
               <motion.div
-                className="fixed inset-0 bg-black/50 z-40 md:hidden"
+                className="fixed inset-0 bg-black/40 z-40 lg:hidden"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 onClick={() => setMobileMenuOpen(false)}
               />
               <motion.div
-                className="fixed top-0 left-0 h-full w-64 bg-black text-[#F9F9F7] z-50 md:hidden flex flex-col shadow-xl"
+                className="fixed inset-y-0 left-0 w-[280px] max-w-[85vw] z-50 lg:hidden shadow-xl"
                 initial={{ x: "-100%" }}
                 animate={{ x: 0 }}
                 exit={{ x: "-100%" }}
-                transition={{ type: "tween", duration: 0.3 }}
+                transition={{ type: "tween", duration: 0.25 }}
+                role="dialog"
+                aria-modal="true"
+                aria-label="Menu du back-office"
               >
-                <div className="p-6 flex items-center justify-between border-b border-stone-700">
-                  <h1 className="text-sm font-bold uppercase tracking-widest">
-                    MK Admin
-                  </h1>
-                  <button
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="p-1 text-white hover:text-stone-300"
-                  >
-                    <CloseIcon />
-                  </button>
-                </div>
-                <nav className="flex-1 px-3 py-6 space-y-2 overflow-y-auto">
-                  {menuItems.map((item) => (
-                    <Link
-                      key={item.path}
-                      to={item.path}
-                      onClick={() => setMobileMenuOpen(false)}
-                      className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                        isActive(item.path)
-                          ? "bg-stone-700 text-white"
-                          : "text-stone-400 hover:text-white hover:bg-stone-900"
-                      }`}
-                    >
-                      <span className="w-5 h-5 flex-shrink-0">{item.icon}</span>
-                      <span className="text-sm font-medium">{item.label}</span>
-                    </Link>
-                  ))}
-                </nav>
-                <div className="p-6 border-t border-stone-700">
-                  <button
-                    onClick={() => {
-                      setMobileMenuOpen(false);
-                      setShowLogoutConfirm(true);
-                    }}
-                    className="w-full text-left px-4 py-3 text-stone-400 hover:text-white transition-colors text-sm flex items-center gap-3"
-                  >
-                    <span className="w-5 h-5 flex-shrink-0">
-                      <LogoutIcon />
-                    </span>
-                    Déconnexion
-                  </button>
-                </div>
+                <Sidebar
+                  {...sidebarProps}
+                  onNavigate={() => setMobileMenuOpen(false)}
+                  onClose={() => setMobileMenuOpen(false)}
+                />
               </motion.div>
             </>
           )}
         </AnimatePresence>
 
-        {/* Main Content */}
-        <div className="flex-1 flex flex-col overflow-hidden">
-          <div className="bg-white border-b border-stone-200 px-4 md:px-8 py-4 flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <button
-                className="md:hidden p-2 -ml-2 text-black hover:text-stone-500"
-                onClick={() => setMobileMenuOpen(true)}
-                aria-label="Menu"
-              >
-                <HamburgerIcon />
-              </button>
-              <h2 className="text-lg md:text-xl font-light uppercase tracking-wider text-black">
-                Dashboard
-              </h2>
+        {/* Contenu */}
+        <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
+          <header className="h-[68px] shrink-0 bg-white border-b border-[#ececec] flex items-center gap-3 sm:gap-4 px-4 lg:px-8">
+            <button
+              type="button"
+              className="lg:hidden p-2 -ml-2 text-[#111]"
+              onClick={() => setMobileMenuOpen(true)}
+              aria-label="Ouvrir le menu"
+            >
+              <Menu className="w-6 h-6" strokeWidth={1.6} aria-hidden="true" />
+            </button>
+
+            <form onSubmit={submitSearch} role="search" className="flex-1 sm:flex-none sm:w-[340px] min-w-0">
+              <label htmlFor="admin-search" className="sr-only">
+                Rechercher une commande
+              </label>
+              <div className="flex items-center gap-2.5 h-10 px-3 border border-[#e0e0e0] rounded bg-[#fafafa] text-[#767676] focus-within:border-[#111] focus-within:bg-white">
+                <Search className="w-4 h-4 shrink-0" strokeWidth={1.6} aria-hidden="true" />
+                <input
+                  id="admin-search"
+                  type="search"
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="Rechercher une commande, un client…"
+                  className="w-full min-w-0 bg-transparent text-[13.5px] text-[#111] placeholder:text-[#767676] outline-none"
+                />
+              </div>
+            </form>
+
+            <div className="ml-auto flex items-center gap-4 text-[13.5px]">
               {isRefreshing && (
-                <span className="text-[10px] uppercase tracking-wider text-stone-400 animate-pulse">
+                <span className="hidden sm:inline text-xs text-[#767676] animate-pulse" aria-live="polite">
                   Actualisation…
                 </span>
               )}
+              <span className="hidden xl:inline text-[#6b6b6b]">{todayLabel()}</span>
+              <Link to="/" className={`${buttonClass("secondary", "sm")} hidden sm:inline-flex`}>
+                <Home className="w-[15px] h-[15px]" strokeWidth={1.6} aria-hidden="true" />
+                Voir la boutique
+              </Link>
             </div>
-            <div className="flex items-center gap-4">
-              <span className="text-sm text-stone-600 hidden sm:block">
-                <strong>Bienvenue</strong> , {user?.name || "Admin"}
-              </span>
-              <div className="w-14 h-14 rounded-full flex items-center justify-center text-stone-700 font-bold">
-                {/* {user?.name?.charAt(0)?.toUpperCase() || "A"} */}
-                <img
-                  className="w-14 h-14 object-contain"
-                  src="/mk_bazaar_logo.png"
-                  alt="Logo"
-                />
-              </div>
-            </div>
-          </div>
-          <div className="flex-1 overflow-auto p-4 md:p-8">{children}</div>
+          </header>
+
+          <main className="flex-1 overflow-auto">
+            <div className="px-4 py-6 sm:px-8 sm:pt-7 sm:pb-12 max-w-[1440px]">{children}</div>
+          </main>
         </div>
 
         <ConfirmDialog

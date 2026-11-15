@@ -33,9 +33,17 @@ import { fetchAPI } from './apiConfig';
  * Récupérer les commandes paginées (admin)
  * @param {{ page?: number, perPage?: number, status?: string }} options
  */
-export const getOrders = async ({ page = 1, perPage = 25, status = null } = {}) => {
+export const getOrders = async ({
+    page = 1, perPage = 25, status = null, sort = null, search = null,
+    deliveryLocation = null, dateFrom = null, dateTo = null,
+} = {}) => {
     const params = new URLSearchParams({ page, per_page: perPage });
     if (status) params.set('status', status);
+    if (sort) params.set('sort', sort);       // 'oldest' | (défaut : plus récentes)
+    if (search) params.set('search', search); // n° de commande, client, téléphone
+    if (deliveryLocation) params.set('delivery_location', deliveryLocation);
+    if (dateFrom) params.set('date_from', dateFrom); // AAAA-MM-JJ
+    if (dateTo) params.set('date_to', dateTo);
     return fetchAPI(`/orders?${params.toString()}`, { method: 'GET' });
 };
 

@@ -10,6 +10,27 @@ export const getCategories = async () => {
 };
 
 /**
+ * Back-office : toutes les catégories, inactives comprises
+ */
+export const getAllCategories = async () => {
+    return fetchAPI('/categories?all=1', { method: 'GET' });
+};
+
+/**
+ * Menu de l'en-tête : { items: [...6 max], more: [...] }
+ */
+export const getCategoryMenu = async () => {
+    return fetchAPI('/categories/menu', { method: 'GET' });
+};
+
+/**
+ * Réordonner des catégories sœurs (ids dans le nouvel ordre)
+ */
+export const reorderCategories = async (ids) => {
+    return fetchAPI('/categories/reorder', { method: 'PUT', body: { ids } });
+};
+
+/**
  * Créer une nouvelle catégorie (Supporte l'envoi d'une image)
  * @param {FormData} categoryFormData - Doit être une instance de FormData
  */

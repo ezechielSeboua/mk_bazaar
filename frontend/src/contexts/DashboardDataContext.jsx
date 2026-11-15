@@ -8,7 +8,7 @@ import {
     useRef,
 } from 'react';
 import { getAllProducts } from '../services/product';
-import { getCategories } from '../services/category';
+import { getAllCategories } from '../services/category';
 import { getUsers } from '../services/users';
 import { getOrders } from '../services/order';
 import dashboardService from '../services/dashboard';
@@ -112,7 +112,7 @@ export const DashboardDataProvider = ({ children }) => {
                 settings,
             ] = await Promise.all([
                 getAllProducts(),
-                getCategories(),
+                getAllCategories(),
                 getUsers(),
                 getOrders(),
                 dashboardService.getSettings().catch(() => ({

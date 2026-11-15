@@ -294,8 +294,30 @@ export const getProductsByCategory = async (categoryId) => {
 };
 
 // Une page brute (dashboard / admin)
+/**
+ * Catalogue côté boutique : transmet les filtres tels quels à l'API.
+ * filters : { page, per_page, category_slug, sort, search, in_stock, min_price,
+ *             max_price, on_sale, attr: { taille: 'M', finition: 'Doré' } }
+ */
+export const fetchCatalog = async (filters = {}) => {
+    const params = new URLSearchParams();
+    Object.entries(filters).forEach(([key, value]) => {
+        if (value === null || value === undefined || value === '') return;
+        if (key === 'attr') {
+            Object.entries(value).forEach(([slug, v]) => { if (v) params.set(`attr[${slug}]`, v); });
+        } else {
+            params.set(key, value);
+        }
+    });
+    return fetchAPI(`/products?${params.toString()}`, { method: 'GET' });
+};
+
+/** Une variante avec son prix à jour (`pricing`) et son produit. */
+export const getVariant = async (variantId) => fetchAPI(`/variants/${variantId}`, { method: 'GET' });
+
+/** Back-office : inclut les produits et variantes désactivés (brouillons). */
 export const getProductsPage = async (page = 1, perPage = DASHBOARD_PER_PAGE) => {
-    return fetchAPI(`/products?page=${page}&per_page=${perPage}`, {
+    return fetchAPI(`/products?page=${page}&per_page=${perPage}&include_inactive=1`, {
         method: 'GET'
     });
 };

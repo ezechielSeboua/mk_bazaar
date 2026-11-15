@@ -1,458 +1,228 @@
-import { useState, useEffect, useRef, useCallback } from "react";
-import { createPortal } from "react-dom";
-import { MoreVertical, Pencil, Trash2 } from "lucide-react";
-import DashboardLayout from "../../components/DashboardLayout";
-import ConfirmDialog from "../../components/ConfirmDialog";
-import { DashboardTableSkeleton } from "../../components/DashboardSkeletons";
-import { createUser, updateUser, deleteUser } from "../../services/users";
-import { useDashboardData } from "../../contexts/DashboardDataContext";
+import { useMemo, useState } from 'react';
+import { Pencil, Plus, Search, Trash2 } from 'lucide-react';
+import DashboardLayout from '../../components/DashboardLayout';
+import ConfirmDialog from '../../components/ConfirmDialog';
+import { useAuth } from '../../contexts/AuthContext';
+import { useDashboardData } from '../../contexts/DashboardDataContext';
+import { createUser, deleteUser, updateUser } from '../../services/users';
+import { resolveMediaUrl } from '../../config/env';
+import { Badge, Drawer, Notice, PageHeader, Pagination, Panel, Switch, Tabs } from '../../components/admin/AdminUI';
+import { buttonClass, fieldClass, formatDate, labelClass, td, th } from '../../components/admin/adminFormat';
 
-/* ─── Constantes ─────────────────────────────────────────────────── */
+const PER_PAGE = 20;
+const EMPTY_FORM = { id: null, name: '', email: '', phone: '', password: '', is_admin: false };
 
-const EMPTY_FORM = { name: "", email: "", phone: "", password: "", is_admin: false };
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const initials = (name = '') =>
+    name.split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase()).join('') || '?';
 
-const DATE_FMT = new Intl.DateTimeFormat("fr-FR", {
-  day: "2-digit", month: "short", year: "numeric",
-});
-
-/* ─── Micro-composants ───────────────────────────────────────────── */
-
-function Field({ label, error, children }) {
-  return (
-    <div className="space-y-2">
-      <label className="text-[10px] uppercase tracking-wider font-bold block">
-        {label}
-      </label>
-      {children}
-      {error && (
-        <p className="text-red-600 text-[10px] mt-1 animate-[fadeIn_0.2s_ease-out]">
-          {error}
-        </p>
-      )}
-    </div>
-  );
-}
-
-const inputCls = (hasError) =>
-  `w-full px-3 py-2 border text-sm transition-colors duration-200 focus:outline-none focus:border-stone-950 ${
-    hasError ? "border-red-400 bg-red-50/30" : "border-stone-300"
-  }`;
-
-/* ─── Page ───────────────────────────────────────────────────────── */
+const firstError = (res, fallback) =>
+    (res?.data?.errors ? Object.values(res.data.errors)[0]?.[0] : null) || res?.error || fallback;
 
 export default function UsersPage() {
-  const { users, setUsers, isLoading } = useDashboardData();
+    const { users, setUsers } = useDashboardData();
+    const { user: currentUser } = useAuth();
 
-  // Formulaire
-  const [showForm, setShowForm] = useState(false);
-  const [editingId, setEditingId] = useState(null);
-  const [formData, setFormData] = useState(EMPTY_FORM);
-  const [errors, setErrors] = useState({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
+    const [tab, setTab] = useState('all');
+    const [search, setSearch] = useState('');
+    const [page, setPage] = useState(1);
+    const [error, setError] = useState(null);
 
-  // Feedback
-  const [apiError, setApiError] = useState(null);
-  const [successMessage, setSuccessMessage] = useState(null);
-  const successTimerRef = useRef(null);
-  const [confirmDelete, setConfirmDelete] = useState({ show: false, id: null, name: "" });
-  const [deletingId, setDeletingId] = useState(null);
+    const [form, setForm] = useState(null);
+    const [saving, setSaving] = useState(false);
+    const [formError, setFormError] = useState(null);
+    const [toDelete, setToDelete] = useState(null);
+    const [deleting, setDeleting] = useState(false);
 
-  // Menu contextuel
-  const [openMenuId, setOpenMenuId] = useState(null);
-  const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
-  const menuButtonRef = useRef(null);
+    const admins = users.filter((u) => u.is_admin).length;
+    const clients = users.length - admins;
 
-  /* ── Fermeture menu au clic extérieur ── */
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (menuButtonRef.current && !menuButtonRef.current.contains(e.target)) {
-        // Vérifie aussi le menu portail
-        const portalMenu = document.getElementById("menu-portal-container");
-        if (portalMenu && !portalMenu.contains(e.target)) {
-          setOpenMenuId(null);
-        } else if (!portalMenu) {
-          setOpenMenuId(null);
-        }
-      }
+    const filtered = useMemo(() => {
+        const q = search.trim().toLowerCase();
+        return [...users]
+            .filter((u) => tab === 'all' || (tab === 'admins' ? u.is_admin : !u.is_admin))
+            .filter((u) => !q || u.name?.toLowerCase().includes(q) || u.email?.toLowerCase().includes(q) || (u.phone ?? '').includes(q))
+            .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    }, [users, tab, search]);
+
+    const lastPage = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
+    const currentPage = Math.min(page, lastPage);
+    const pageItems = filtered.slice((currentPage - 1) * PER_PAGE, currentPage * PER_PAGE);
+
+    const save = async () => {
+        if (!form.name.trim() || !form.email.trim()) { setFormError('Le nom et l\'e-mail sont obligatoires.'); return; }
+        if (!form.id && form.password.length < 8) { setFormError('Le mot de passe doit contenir au moins 8 caractères.'); return; }
+        if (form.id && form.password && form.password.length < 8) { setFormError('Le nouveau mot de passe doit contenir au moins 8 caractères.'); return; }
+
+        const payload = { name: form.name.trim(), email: form.email.trim(), phone: form.phone.trim() || null, is_admin: form.is_admin };
+        if (form.password) payload.password = form.password;
+
+        setSaving(true);
+        setFormError(null);
+        const res = form.id ? await updateUser(form.id, payload) : await createUser(payload);
+        setSaving(false);
+        if (!res?.success) { setFormError(firstError(res, "L'enregistrement a échoué.")); return; }
+
+        setUsers((prev) => (form.id
+            ? prev.map((u) => (u.id === form.id ? { ...u, ...res.data, orders_count: u.orders_count } : u))
+            : [{ ...res.data, orders_count: 0 }, ...prev]));
+        setForm(null);
     };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
 
-  /* ── Afficher un message de succès temporaire ── */
-  const showSuccess = useCallback((msg) => {
-    setSuccessMessage(msg);
-    clearTimeout(successTimerRef.current);
-    successTimerRef.current = setTimeout(() => setSuccessMessage(null), 3000);
-  }, []);
+    const confirmDelete = async () => {
+        setDeleting(true);
+        const res = await deleteUser(toDelete.id);
+        setDeleting(false);
+        if (res?.success) setUsers((prev) => prev.filter((u) => u.id !== toDelete.id));
+        else setError(firstError(res, 'La suppression a échoué.'));
+        setToDelete(null);
+    };
 
-  useEffect(() => {
-    return () => clearTimeout(successTimerRef.current);
-  }, []);
+    return (
+        <DashboardLayout>
+            <PageHeader
+                title="Clients et utilisateurs"
+                subtitle={`${users.length} compte${users.length > 1 ? 's' : ''} · ${admins} administrateur${admins > 1 ? 's' : ''}`}
+                actions={
+                    <button type="button" onClick={() => { setFormError(null); setForm(EMPTY_FORM); }} className={buttonClass('primary')}>
+                        <Plus className="w-4 h-4" strokeWidth={1.8} aria-hidden="true" />
+                        Ajouter un utilisateur
+                    </button>
+                }
+            />
 
-  /* ── Formulaire ── */
+            {error && <div className="mb-4"><Notice>{error}</Notice></div>}
 
-  const handleChange = useCallback((e) => {
-    const { name, value, type, checked } = e.target;
-    const newValue = type === "checkbox"
-      ? checked
-      : name === "is_admin"
-        ? value === "1"
-        : value;
+            <Panel>
+                <Tabs
+                    label="Filtrer par rôle"
+                    value={tab}
+                    onChange={(v) => { setTab(v); setPage(1); }}
+                    items={[
+                        { value: 'all', label: 'Tous', count: users.length },
+                        { value: 'clients', label: 'Clients', count: clients },
+                        { value: 'admins', label: 'Administrateurs', count: admins },
+                    ]}
+                />
+                <div className="px-5 py-3.5 border-b border-[#ececec]">
+                    <label className="flex items-center gap-2.5 h-10 px-3 border border-[#e0e0e0] rounded bg-[#fafafa] text-[#767676] w-full sm:w-[320px] focus-within:border-[#111] focus-within:bg-white">
+                        <Search className="w-4 h-4 shrink-0" strokeWidth={1.6} aria-hidden="true" />
+                        <span className="sr-only">Rechercher</span>
+                        <input type="search" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} placeholder="Nom, e-mail ou téléphone…" className="w-full bg-transparent text-[13.5px] text-[#111] placeholder:text-[#767676] outline-none" />
+                    </label>
+                </div>
 
-    setFormData((prev) => ({ ...prev, [name]: newValue }));
-    setErrors((prev) => prev[name] ? { ...prev, [name]: "" } : prev);
-  }, []);
+                <div className="overflow-x-auto">
+                    <table className="w-full border-collapse text-sm">
+                        <thead>
+                            <tr>
+                                <th scope="col" className={th}>Nom</th>
+                                <th scope="col" className={th}>E-mail</th>
+                                <th scope="col" className={th}>Téléphone</th>
+                                <th scope="col" className={th}>Rôle</th>
+                                <th scope="col" className={`${th} text-right`}>Commandes</th>
+                                <th scope="col" className={th}>Inscription</th>
+                                <th scope="col" className={th}><span className="sr-only">Actions</span></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {pageItems.map((u) => (
+                                <tr key={u.id} className="hover:bg-[#fafafa]">
+                                    <td className={td}>
+                                        <span className="flex items-center gap-3">
+                                            {u.avatar ? (
+                                                <img src={resolveMediaUrl(u.avatar)} alt="" className="w-8 h-8 rounded-full object-cover shrink-0" />
+                                            ) : (
+                                                <span className="w-8 h-8 rounded-full bg-[#111] text-white grid place-items-center text-[11px] font-semibold shrink-0" aria-hidden="true">{initials(u.name)}</span>
+                                            )}
+                                            <span className="font-medium text-[#111]">{u.name}</span>
+                                            {u.id === currentUser?.id && <span className="text-[12px] text-[#767676]">(vous)</span>}
+                                        </span>
+                                    </td>
+                                    <td className={`${td} text-[#444]`}>{u.email}</td>
+                                    <td className={`${td} text-[#6b6b6b] whitespace-nowrap`}>{u.phone || '—'}</td>
+                                    <td className={td}><Badge tone={u.is_admin ? 'info' : 'neutral'}>{u.is_admin ? 'Administrateur' : 'Client'}</Badge></td>
+                                    <td className={`${td} text-right tabular-nums`}>{u.orders_count ?? 0}</td>
+                                    <td className={`${td} text-[#6b6b6b] whitespace-nowrap`}>{formatDate(u.created_at)}</td>
+                                    <td className={td}>
+                                        <div className="flex justify-end gap-1">
+                                            <button
+                                                type="button"
+                                                onClick={() => { setFormError(null); setForm({ id: u.id, name: u.name ?? '', email: u.email ?? '', phone: u.phone ?? '', password: '', is_admin: Boolean(u.is_admin) }); }}
+                                                className="p-1.5 rounded text-[#666] hover:text-[#111] hover:bg-[#f1f1f1]"
+                                                aria-label={`Modifier ${u.name}`}
+                                            >
+                                                <Pencil className="w-4 h-4" strokeWidth={1.6} aria-hidden="true" />
+                                            </button>
+                                            {u.id !== currentUser?.id && (
+                                                <button type="button" onClick={() => setToDelete(u)} className="p-1.5 rounded text-[#666] hover:text-[#b42318] hover:bg-[#fdeaea]" aria-label={`Supprimer ${u.name}`}>
+                                                    <Trash2 className="w-4 h-4" strokeWidth={1.6} aria-hidden="true" />
+                                                </button>
+                                            )}
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}
+                            {pageItems.length === 0 && (
+                                <tr><td colSpan={7} className="px-5 py-12 text-center text-sm text-[#666]">Aucun compte ne correspond.</td></tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
 
-  const validateForm = useCallback(() => {
-    const e = {};
-    if (!formData.name.trim()) e.name = "Le nom est requis";
-    if (!formData.email.trim()) e.email = "L'email est requis";
-    else if (!EMAIL_RE.test(formData.email)) e.email = "Email invalide";
-    if (!editingId && !formData.password.trim())
-      e.password = "Mot de passe requis pour un nouvel utilisateur";
-    return e;
-  }, [formData, editingId]);
+                <Pagination page={currentPage} lastPage={lastPage} total={filtered.length} perPage={PER_PAGE} onChange={setPage} noun={filtered.length > 1 ? 'comptes' : 'compte'} />
+            </Panel>
 
-  const resetForm = useCallback(() => {
-    setShowForm(false);
-    setEditingId(null);
-    setFormData(EMPTY_FORM);
-    setErrors({});
-  }, []);
-
-  const handleSubmit = useCallback(async (e) => {
-    e.preventDefault();
-    const newErrors = validateForm();
-    if (Object.keys(newErrors).length) { setErrors(newErrors); return; }
-
-    setIsSubmitting(true);
-    setApiError(null);
-
-    try {
-      const payload = {
-        name: formData.name,
-        email: formData.email,
-        is_admin: Boolean(formData.is_admin),
-        ...(formData.phone.trim() && { phone: formData.phone }),
-        ...(formData.password.trim() && { password: formData.password }),
-      };
-
-      if (editingId) {
-        const result = await updateUser(editingId, payload);
-        if (result.success) {
-          setUsers((prev) =>
-            prev.map((u) => (u.id === editingId ? { ...u, ...payload } : u))
-          );
-          showSuccess("Utilisateur mis à jour avec succès.");
-          resetForm();
-        } else {
-          setApiError(result?.error || "Erreur lors de la mise à jour");
-        }
-      } else {
-        const result = await createUser(payload);
-        if (result.success) {
-          setUsers((prev) => [...prev, result.data]);
-          showSuccess("Utilisateur créé avec succès.");
-          resetForm();
-        } else {
-          setApiError(result?.error || "Erreur lors de la création");
-        }
-      }
-    } catch (err) {
-      console.error(err);
-      setApiError("Erreur inattendue");
-    } finally {
-      setIsSubmitting(false);
-    }
-  }, [formData, editingId, validateForm, resetForm, setUsers, showSuccess]);
-
-  const handleEdit = useCallback((user) => {
-    setFormData({
-      name: user.name ?? "",
-      email: user.email ?? "",
-      phone: user.phone ?? "",
-      password: "",
-      is_admin: user.is_admin === 1 || user.is_admin === true,
-    });
-    setEditingId(user.id);
-    setShowForm(true);
-    setOpenMenuId(null);
-  }, []);
-
-  /* ── Suppression ── */
-  const requestDelete = useCallback((user) => {
-    setConfirmDelete({ show: true, id: user.id, name: user.name });
-    setOpenMenuId(null);
-  }, []);
-
-  const handleDelete = useCallback(async () => {
-    const { id } = confirmDelete;
-    if (!id) return;
-    setDeletingId(id);
-    try {
-      const result = await deleteUser(id);
-      if (result?.success !== false) {
-        setUsers((prev) => prev.filter((u) => u.id !== id));
-        showSuccess("Utilisateur supprimé.");
-      } else {
-        setApiError(result?.error || "Erreur lors de la suppression");
-      }
-    } catch (err) {
-      console.error(err);
-      setApiError("Erreur inattendue");
-    } finally {
-      setDeletingId(null);
-      setConfirmDelete({ show: false, id: null, name: "" });
-    }
-  }, [confirmDelete, setUsers, showSuccess]);
-
-  /* ── Gestion du menu contextuel avec portail ── */
-  const handleMenuToggle = useCallback(
-    (userId, event) => {
-      event.stopPropagation();
-      if (openMenuId === userId) {
-        setOpenMenuId(null);
-      } else {
-        const rect = event.currentTarget.getBoundingClientRect();
-        // Positionne le menu juste en dessous du bouton, aligné à droite
-        setMenuPosition({
-          top: rect.bottom + 4,
-          left: rect.right - 160, // largeur approximative du menu w-40 = 160px
-        });
-        setOpenMenuId(userId);
-      }
-    },
-    [openMenuId]
-  );
-
-  /* ─── Rendu ─────────────────────────────────────────────────────── */
-  return (
-    <DashboardLayout>
-      <style>{`
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        @keyframes slideDown { from { opacity: 0; transform: translateY(-12px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes scaleIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
-        @keyframes tableFadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-      `}</style>
-
-      <div className="space-y-4 md:space-y-6">
-
-        {/* Erreur API */}
-        {apiError && (
-          <div className="bg-red-50 border border-red-200 p-3 text-red-700 text-sm animate-[slideDown_0.25s_ease-out]">
-            {apiError}
-          </div>
-        )}
-
-        {/* Message de succès */}
-        {successMessage && (
-          <div className="bg-green-50 border border-green-200 p-3 text-green-700 text-sm animate-[slideDown_0.25s_ease-out]">
-            {successMessage}
-          </div>
-        )}
-
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div>
-            <h1 className="text-2xl md:text-3xl font-light uppercase tracking-tight">
-              Utilisateurs
-            </h1>
-            <p className="text-stone-600 text-sm mt-1 transition-all duration-300">
-              {isLoading && users.length === 0
-                ? <span className="inline-block w-24 h-4 bg-stone-200 rounded animate-pulse" />
-                : `${users.length} utilisateur(s)`
-              }
-            </p>
-          </div>
-          {!showForm && (
-            <button
-              onClick={() => setShowForm(true)}
-              className="self-start sm:self-auto bg-black text-[#F9F9F7] px-4 py-2.5 sm:px-6 sm:py-3 text-[10px] sm:text-[11px] uppercase tracking-wider font-medium hover:bg-stone-900 transition-all duration-200 active:scale-[0.98] animate-[fadeIn_0.2s_ease-out]"
+            <Drawer
+                open={Boolean(form)}
+                onClose={() => setForm(null)}
+                title={form?.id ? `Modifier ${form.name}` : 'Ajouter un utilisateur'}
+                footer={
+                    <div className="flex justify-end gap-2.5">
+                        <button type="button" onClick={() => setForm(null)} className={buttonClass('secondary')}>Annuler</button>
+                        <button type="button" onClick={save} disabled={saving} className={buttonClass('primary')}>{saving ? 'Enregistrement…' : 'Enregistrer'}</button>
+                    </div>
+                }
             >
-              + Ajouter un utilisateur
-            </button>
-          )}
-        </div>
-
-        {/* Formulaire */}
-        {showForm && (
-          <div className="bg-white border border-stone-200 rounded-lg p-4 sm:p-6 shadow-sm origin-top animate-[slideDown_0.28s_cubic-bezier(0.16,1,0.3,1)]">
-            <h2 className="text-base sm:text-lg font-medium uppercase tracking-wider mb-4 sm:mb-6 text-stone-800">
-              {editingId ? "Éditer l'utilisateur" : "Nouvel utilisateur"}
-            </h2>
-            <form onSubmit={handleSubmit} className="space-y-4 max-w-2xl">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Field label="Nom complet *" error={errors.name}>
-                  <input type="text" name="name" value={formData.name}
-                    onChange={handleChange} className={inputCls(errors.name)} />
-                </Field>
-                <Field label="Email *" error={errors.email}>
-                  <input type="email" name="email" value={formData.email}
-                    onChange={handleChange} className={inputCls(errors.email)} />
-                </Field>
-              </div>
-
-              <Field label="Téléphone" error={errors.phone}>
-                <input type="tel" name="phone" value={formData.phone}
-                  onChange={handleChange}
-                  placeholder="07 XX XX XX XX"
-                  className={inputCls(errors.phone)} />
-              </Field>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Field label="Rôle">
-                  <select name="is_admin" value={formData.is_admin ? "1" : "0"}
-                    onChange={handleChange}
-                    className="w-full px-3 py-2 border border-stone-300 text-sm transition-colors focus:outline-none focus:border-stone-950"
-                  >
-                    <option value="0">Client</option>
-                    <option value="1">Administrateur(trice)</option>
-                  </select>
-                </Field>
-                <Field label={`Mot de passe${!editingId ? " *" : ""}`} error={errors.password}>
-                  <input type="password" name="password" value={formData.password}
-                    onChange={handleChange}
-                    placeholder={editingId ? "Laisser vide pour conserver" : ""}
-                    className={inputCls(errors.password)} />
-                </Field>
-              </div>
-
-              <div className="flex gap-3 pt-4">
-                <button type="submit" disabled={isSubmitting}
-                  className="bg-black text-[#F9F9F7] px-4 sm:px-6 py-2 text-[10px] sm:text-[11px] uppercase tracking-wider font-medium hover:bg-stone-900 disabled:opacity-50 transition-all active:scale-[0.98]"
-                >
-                  {isSubmitting ? "Enregistrement..." : editingId ? "Mettre à jour" : "Créer"}
-                </button>
-                <button type="button" onClick={resetForm}
-                  className="border border-stone-300 px-4 sm:px-6 py-2 text-[10px] sm:text-[11px] uppercase tracking-wider font-medium hover:bg-stone-50 transition-colors"
-                >
-                  Annuler
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
-
-        {/* Tableau */}
-        <div
-          className="bg-white border border-stone-200 rounded-lg shadow-sm overflow-hidden animate-[tableFadeIn_0.45s_ease-out]"
-          key={users.length}
-        >
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs md:text-sm">
-              <thead className="bg-stone-50 border-b border-stone-200">
-                <tr>
-                  {["Nom", "Email", "Rôle", "Date", "Actions"].map((h) => (
-                    <th key={h} className="text-left py-3 px-2 md:px-4 font-bold uppercase text-[10px] tracking-wider text-stone-500">
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-stone-100">
-                {isLoading && users.length === 0 ? (
-                  <DashboardTableSkeleton rows={4} cols={5} />
-                ) : users.length === 0 ? (
-                  <tr>
-                    <td colSpan="5" className="py-12 text-center text-stone-400 text-sm animate-[fadeIn_0.3s_ease-out]">
-                      Aucun utilisateur
-                    </td>
-                  </tr>
-                ) : (
-                  users.map((user) => {
-                    return (
-                      <tr key={user.id} className="hover:bg-stone-50/80 transition-colors duration-150">
-                        <td className="py-3 px-2 md:py-4 md:px-4 font-medium text-stone-900 truncate max-w-[120px] sm:max-w-none">
-                          {user.name}
-                        </td>
-                        <td className="py-3 px-2 md:py-4 md:px-4 text-stone-600 truncate max-w-[150px] sm:max-w-none">
-                          {user.email}
-                        </td>
-                        <td className="py-3 px-2 md:py-4 md:px-4">
-                          <span className={`inline-block px-2 py-0.5 md:px-2.5 md:py-1 rounded text-[10px] font-bold tracking-wide ${
-                            user.is_admin
-                              ? "bg-purple-50 text-purple-700 border border-purple-100"
-                              : "bg-stone-100 text-stone-800"
-                          }`}>
-                            {user.is_admin ? "Admin" : "Client"}
-                          </span>
-                        </td>
-                        <td className="py-3 px-2 md:py-4 md:px-4 text-stone-600 whitespace-nowrap">
-                          {user.created_at ? DATE_FMT.format(new Date(user.created_at)) : "—"}
-                        </td>
-
-                        {/* Bouton d'action */}
-                        <td className="py-3 px-2 md:py-4 md:px-4 relative">
-                          <button
-                            ref={openMenuId === user.id ? menuButtonRef : null}
-                            onClick={(e) => handleMenuToggle(user.id, e)}
-                            className={`p-1 rounded transition-all duration-150 ${
-                              openMenuId === user.id ? "bg-stone-100 text-stone-900" : "text-stone-400 hover:text-stone-700 hover:bg-stone-50"
-                            }`}
-                          >
-                            <MoreVertical className="w-4 h-4" />
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })
+                {form && (
+                    <div className="space-y-5">
+                        <Notice>{formError}</Notice>
+                        <div>
+                            <label htmlFor="u-name" className={labelClass}>Nom complet</label>
+                            <input id="u-name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={`${fieldClass} w-full`} />
+                        </div>
+                        <div>
+                            <label htmlFor="u-email" className={labelClass}>Adresse e-mail</label>
+                            <input id="u-email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className={`${fieldClass} w-full`} />
+                        </div>
+                        <div>
+                            <label htmlFor="u-phone" className={labelClass}>Téléphone WhatsApp <span className="font-normal text-[#767676]">(facultatif)</span></label>
+                            <input id="u-phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="+225 07 00 00 00 00" className={`${fieldClass} w-full`} />
+                        </div>
+                        <div>
+                            <label htmlFor="u-password" className={labelClass}>{form.id ? 'Nouveau mot de passe' : 'Mot de passe'} {form.id && <span className="font-normal text-[#767676]">(laisser vide pour ne pas changer)</span>}</label>
+                            <input id="u-password" type="password" autoComplete="new-password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} className={`${fieldClass} w-full`} />
+                            <p className="mt-1.5 text-[12.5px] text-[#666]">8 caractères minimum.</p>
+                        </div>
+                        <Switch
+                            showLabel
+                            label="Accès administrateur au back-office"
+                            checked={form.is_admin}
+                            disabled={form.id === currentUser?.id}
+                            onChange={(v) => setForm({ ...form, is_admin: v })}
+                        />
+                        {form.id === currentUser?.id && <p className="-mt-3 text-[12.5px] text-[#666]">Vous ne pouvez pas retirer vos propres droits.</p>}
+                    </div>
                 )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+            </Drawer>
 
-        {/* Portail du menu contextuel */}
-        {openMenuId &&
-          createPortal(
-            <div
-              id="menu-portal-container"
-              className="fixed z-[100] w-40 bg-white border border-stone-200 rounded shadow-xl py-1 animate-[scaleIn_0.15s_cubic-bezier(0.16,1,0.3,1)]"
-              style={{ top: menuPosition.top, left: menuPosition.left }}
-            >
-              <button
-                onClick={() => {
-                  const user = users.find((u) => u.id === openMenuId);
-                  if (user) handleEdit(user);
-                }}
-                className="w-full text-left px-4 py-2 text-[13px] text-stone-700 hover:bg-stone-50 transition-colors flex items-center gap-2"
-              >
-                <Pencil className="w-3.5 h-3.5 text-stone-400" /> Éditer
-              </button>
-              {!users.find((u) => u.id === openMenuId)?.is_admin && (
-                <button
-                  onClick={() => {
-                    const user = users.find((u) => u.id === openMenuId);
-                    if (user) requestDelete(user);
-                  }}
-                  className="w-full text-left px-4 py-2 text-[13px] text-red-600 hover:bg-red-50/60 transition-colors flex items-center gap-2"
-                >
-                  <Trash2 className="w-3.5 h-3.5 text-red-400" /> Supprimer
-                </button>
-              )}
-            </div>,
-            document.body
-          )
-        }
-
-        {/* Confirmation suppression */}
-        <ConfirmDialog
-          open={confirmDelete.show}
-          title="Confirmer la suppression"
-          message={
-            <>
-              Voulez-vous vraiment supprimer{" "}
-              <span className="font-semibold text-black">"{confirmDelete.name}"</span>
-              {" "}? Cette action est irréversible.
-            </>
-          }
-          onConfirm={handleDelete}
-          onCancel={() => setConfirmDelete({ show: false, id: null, name: "" })}
-          loading={deletingId === confirmDelete.id}
-        />
-      </div>
-    </DashboardLayout>
-  );
+            <ConfirmDialog
+                open={Boolean(toDelete)}
+                title="Supprimer le compte"
+                message={`Supprimer le compte de ${toDelete?.name ?? ''} ? Ses commandes sont conservées, sans lien avec un compte.`}
+                onConfirm={confirmDelete}
+                onCancel={() => setToDelete(null)}
+                loading={deleting}
+            />
+        </DashboardLayout>
+    );
 }
