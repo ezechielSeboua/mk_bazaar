@@ -1,340 +1,133 @@
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
-import { Star, ShoppingBag, Heart, Check, Eye } from "lucide-react";
-import { resolveMediaUrl, DEFAULT_PLACEHOLDER_IMAGE } from "../config/env";
-import QuickShopModal from "./QuickShopModal";
+import { Heart, Plus } from "lucide-react";
 import { useWishlist } from "../contexts/WishlistContext";
+import VariantOrderDrawer from "./shop/VariantOrderDrawer";
+import {
+  activeVariants,
+  addToCart,
+  categoryLabel,
+  formatFCFA,
+  getPricing,
+  isInStock,
+  productImage,
+  productSwatches,
+  showStrikethrough,
+} from "./shop/shopUtils";
 
-const COLOR_MAP = {
-  original: "#C5A880",
-  indigo: "#1E3A8A",
-  terre: "#9A3412",
-  noir: "#18181B",
-  blanc: "#FAFAFA",
-  beige: "#E7E5E4",
-  dore: "#D97706",
-  argente: "#94A3B8",
-  bordeaux: "#881337",
-  vert: "#166534",
-  bleu: "#2563EB",
-  marron: "#78350F",
-  ocre: "#B45309",
-  kaki: "#3F6212",
-};
-
-function getHexColor(colorName) {
-  if (!colorName) return "#E7E5E4";
-  const clean = colorName.toLowerCase().trim();
-  return COLOR_MAP[clean] || "#A8A29E";
-}
-
-export default function ProductCard({ product, delay = 0 }) {
-  const [showQuickShop, setShowQuickShop] = useState(false);
-  const [isHovered, setIsHovered] = useState(false);
-  const [addedFeedback, setAddedFeedback] = useState(false);
+/**
+ * Carte produit (maquette « Retail premium »).
+ *
+ * layout="catalog"   : catégorie, nom et prix alignés à gauche, pastilles couleur (catalogue, favoris).
+ * layout="editorial" : nom et prix centrés, plus discrets (sections de l'accueil).
+ *
+ * Badge : remise (« −20 % ») en priorité, sinon « Nouveau ». Survol : seconde photo
+ * et bouton « Ajout rapide ».
+ */
+export default function ProductCard({ product, layout = "catalog" }) {
   const { toggleWishlist, isInWishlist } = useWishlist();
+  const [quickOpen, setQuickOpen] = useState(false);
+  const [hovered, setHovered] = useState(false);
+
   const loved = isInWishlist(product.id);
+  const pricing = getPricing(product);
+  const strike = showStrikethrough(pricing) && !pricing.from;
+  const inStock = isInStock(product);
+  const variants = activeVariants(product);
+  const swatches = productSwatches(product);
+  const secondImage = productImage(product, 1);
+  const image = hovered && secondImage ? secondImage : productImage(product);
 
-  const primaryImage = product.image_path?.[0]
-    ? resolveMediaUrl(product.image_path[0])
-    : DEFAULT_PLACEHOLDER_IMAGE;
-  const secondaryImage = product.image_path?.[1]
-    ? resolveMediaUrl(product.image_path[1])
-    : null;
+  const badge = pricing.discount_percent > 0
+    ? `−${pricing.discount_percent} %`
+    : product.is_new ? "Nouveau" : null;
 
-  const [activeImageOverride, setActiveImageOverride] = useState(null);
-  const [activeColorName, setActiveColorName] = useState(null);
-
-  const name = product.name || "Sans titre";
-  const categoryName =
-    typeof product.category === "object"
-      ? product.category?.name
-      : product.category || "Collection";
-  const currentPrice = product.price || 0;
-  const oldPrice = product.old_price;
-  const hasDiscount = oldPrice && oldPrice > currentPrice;
-  const discountPercentage = hasDiscount
-    ? Math.round(((oldPrice - currentPrice) / oldPrice) * 100)
-    : 0;
-  const variants = product.variants || [];
-  const hasVariants = variants.length > 0;
-  const hasStock = hasVariants
-    ? variants.some((v) => v.stock > 0)
-    : (product.stock ?? 0) > 0;
-  const isAvailable = product.is_active && hasStock;
-
-  // Extraction des couleurs uniques
-  const colors = useMemo(() => {
-    const map = new Map();
-    variants.forEach((v) => {
-      const col = v.attributes?.couleur;
-      if (col && !map.has(col)) {
-        map.set(col, {
-          name: col,
-          image: v.image_path ? resolveMediaUrl(v.image_path) : null,
-          hex: getHexColor(col),
-        });
-      }
-    });
-    return Array.from(map.values());
-  }, [variants]);
-
-  // Extraction des tailles uniques
-  const sizeCount = useMemo(() => {
-    const set = new Set();
-    variants.forEach((v) => {
-      const s = v.attributes?.taille || v.attributes?.pointure;
-      if (s) set.add(s);
-    });
-    return set.size;
-  }, [variants]);
-
-  const displayedImage = activeImageOverride || (isHovered && secondaryImage ? secondaryImage : primaryImage);
-
-  const addToCart = (variant, qty = 1) => {
-    try {
-      const localCartRaw = localStorage.getItem("mk_bazaar_cart");
-      const currentCart = localCartRaw ? JSON.parse(localCartRaw) : [];
-      const variantId = variant?.id || null;
-      const existingIndex = currentCart.findIndex(
-        (item) => item.id === product.id && item.variant_id === variantId
-      );
-
-      const itemPrice = variant?.price || currentPrice;
-      const itemImage = variant?.image_path ? resolveMediaUrl(variant.image_path) : primaryImage;
-
-      if (existingIndex > -1) {
-        currentCart[existingIndex].quantity += qty;
-      } else {
-        currentCart.push({
-          id: product.id,
-          variant_id: variantId,
-          name: name,
-          price: itemPrice,
-          quantity: qty,
-          image: itemImage,
-          attributes: variant?.attributes || null,
-          category: categoryName,
-          slug: product.slug,
-        });
-      }
-      localStorage.setItem("mk_bazaar_cart", JSON.stringify(currentCart));
-      window.dispatchEvent(new Event("cart-updated"));
-      window.dispatchEvent(new Event("show-basket-preview"));
-
-      setAddedFeedback(true);
-      setTimeout(() => setAddedFeedback(false), 2000);
-    } catch (e) {
-      console.error("Erreur ajout panier:", e);
-    }
-    setShowQuickShop(false);
+  const quickAdd = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!inStock) return;
+    if (variants.length > 1) setQuickOpen(true);
+    else addToCart({ product, variant: variants[0] ?? null, quantity: 1 });
   };
 
-  const handleQuickAction = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (!isAvailable) return;
-    if (variants.length > 1) {
-      setShowQuickShop(true);
-    } else {
-      addToCart(variants[0] || { id: null, price: currentPrice }, 1);
-    }
-  };
+  const price = (
+    <span className="tabular-nums">
+      {pricing.from && "dès "}
+      {strike && <s className="mr-2 font-normal text-[#767676]">{formatFCFA(pricing.base_price)}</s>}
+      <span className={pricing.discount > 0 ? "text-[#111]" : undefined}>{formatFCFA(pricing.final_price)}</span>
+    </span>
+  );
+
+  const editorial = layout === "editorial";
 
   return (
-    <motion.article
-      initial={{ opacity: 0, y: 16 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, amount: 0.1 }}
-      transition={{ duration: 0.4, delay }}
-      className="group relative flex flex-col h-full bg-white rounded-2xl border border-stone-200/80 transition-all duration-300 hover:border-stone-400 hover:shadow-xl hover:-translate-y-1 overflow-hidden"
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => {
-        setIsHovered(false);
-        setActiveImageOverride(null);
-        setActiveColorName(null);
-      }}
-    >
-      {/* Conteneur Image & Actions visuelles */}
-      <div className="relative aspect-[3/4] bg-[#FAF9F6] overflow-hidden">
-        <Link
-          to={`/products/${product.slug}`}
-          className="block w-full h-full"
-          aria-label={`Voir la fiche détaillée de ${name}`}
-        >
-          {/* Image Principale ou Secondaire avec fondu fluide */}
+    <>
+      <Link
+        to={`/products/${product.slug}`}
+        className={`group block font-admin antialiased ${editorial ? "text-center" : ""}`}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+      >
+        <div className={`relative aspect-[3/4] overflow-hidden ${editorial ? "bg-[#f4f3f1]" : "bg-[#f3f3f3] rounded-sm"}`}>
           <img
-            src={displayedImage}
-            alt={name}
-            className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
+            src={image}
+            alt={product.name}
+            loading="lazy"
+            decoding="async"
+            className={`w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.02] ${inStock ? "" : "opacity-60"}`}
           />
 
-          {/* Badge Remise */}
-          {hasDiscount && (
-            <div className="absolute top-3 left-3 z-10">
-              <span className="inline-flex items-center px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider bg-stone-900 text-white rounded-full shadow-md">
-                -{discountPercentage}%
-              </span>
-            </div>
+          {badge && (
+            <span className="absolute top-2.5 left-2.5 bg-white text-[#111] text-[11px] font-semibold px-2 py-1 rounded-sm">{badge}</span>
           )}
-        </Link>
+          {!inStock && (
+            <span className="absolute bottom-2.5 left-2.5 bg-white/95 text-[#444] text-[11px] font-semibold px-2 py-1 rounded-sm">Épuisé</span>
+          )}
 
-        {/* Bouton Favori ergonomique */}
-        <button
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            toggleWishlist(product);
-          }}
-          className="absolute top-3 right-3 z-10 w-9 h-9 rounded-full bg-white/90 backdrop-blur-md shadow-sm flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-90"
-          aria-label={loved ? "Retirer des favoris" : "Ajouter aux favoris"}
-        >
-          <Heart
-            className={`w-4 h-4 transition-colors ${
-              loved ? "fill-rose-500 text-rose-500" : "text-stone-400 hover:text-rose-500"
-            }`}
-          />
-        </button>
+          <button
+            type="button"
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleWishlist(product); }}
+            aria-pressed={loved}
+            aria-label={loved ? `Retirer ${product.name} des favoris` : `Ajouter ${product.name} aux favoris`}
+            className={`absolute top-2.5 right-2.5 w-[34px] h-[34px] rounded-full bg-white grid place-items-center transition-colors ${loved ? "text-[#c2410c]" : "text-[#333] hover:text-[#111]"}`}
+          >
+            <Heart className="w-4 h-4" strokeWidth={1.6} fill={loved ? "currentColor" : "none"} aria-hidden="true" />
+          </button>
 
-        {/* Badge Épuisé si indisponible */}
-        {!isAvailable && (
-          <div className="absolute inset-0 bg-stone-950/60 backdrop-blur-[2px] flex items-center justify-center pointer-events-none">
-            <span className="text-xs font-bold uppercase text-white tracking-widest bg-stone-900/90 px-3.5 py-1.5 rounded-full border border-white/20">
-              Épuisé
-            </span>
-          </div>
-        )}
-
-        {/* Bouton Ajout Rapide flottant (Desktop : glisse au hover / Mobile : visible discret) */}
-        {isAvailable && (
-          <div className="absolute inset-x-3 bottom-3 z-10">
-            {/* Desktop Quick-Add */}
+          {inStock && (
             <button
-              onClick={handleQuickAction}
-              className={`hidden sm:flex w-full py-2.5 px-3 rounded-xl text-xs font-semibold uppercase tracking-wider items-center justify-center gap-2 backdrop-blur-md shadow-lg transition-all duration-300 transform ${
-                addedFeedback
-                  ? "bg-emerald-600 text-white opacity-100 translate-y-0"
-                  : "bg-stone-950/90 hover:bg-brand-terracotta text-white opacity-0 translate-y-3 group-hover:opacity-100 group-hover:translate-y-0"
-              }`}
+              type="button"
+              onClick={quickAdd}
+              className="absolute left-2.5 right-2.5 bottom-2.5 h-[38px] rounded-[3px] bg-white/95 text-[13px] font-semibold flex items-center justify-center gap-2 opacity-0 translate-y-1 group-hover:opacity-100 group-hover:translate-y-0 focus-visible:opacity-100 focus-visible:translate-y-0 transition-all"
             >
-              {addedFeedback ? (
-                <>
-                  <Check className="w-3.5 h-3.5 stroke-[2.5]" />
-                  <span>Ajouté !</span>
-                </>
-              ) : (
-                <>
-                  <ShoppingBag className="w-3.5 h-3.5" />
-                  <span>{variants.length > 1 ? "Choisir une option" : "Ajout express"}</span>
-                </>
-              )}
+              <Plus className="w-4 h-4" strokeWidth={1.8} aria-hidden="true" />
+              {variants.length > 1 ? "Choisir et ajouter" : "Ajouter au panier"}
             </button>
-
-            {/* Mobile Quick-Add Button (rond au coin droit de l'image) */}
-            <button
-              onClick={handleQuickAction}
-              className="sm:hidden absolute right-0 bottom-0 w-9 h-9 rounded-full bg-stone-950/90 text-white shadow-md flex items-center justify-center active:scale-95 transition-all"
-              aria-label="Ajouter au panier"
-            >
-              {addedFeedback ? (
-                <Check className="w-4 h-4 text-emerald-400 stroke-[3]" />
-              ) : (
-                <ShoppingBag className="w-4 h-4" />
-              )}
-            </button>
-          </div>
-        )}
-      </div>
-
-      {/* Informations produit */}
-      <div className="flex flex-col flex-1 p-3.5 sm:p-4 space-y-2">
-        {/* Catégorie & Note */}
-        <div className="flex items-center justify-between text-[11px] text-stone-500 font-medium">
-          <span className="truncate max-w-[120px] uppercase tracking-wider text-brand-terracotta font-semibold">
-            {categoryName}
-          </span>
-          {product.rating != null && (
-            <div className="flex items-center font-bold text-stone-800">
-              <Star className="w-3 h-3 fill-amber-400 text-amber-400 mr-1" />
-              {product.rating}
-            </div>
           )}
         </div>
 
-        {/* Titre */}
-        <Link
-          to={`/products/${product.slug}`}
-          className="text-xs sm:text-sm font-medium text-stone-900 hover:text-brand-terracotta line-clamp-1 leading-snug transition-colors"
-        >
-          {name}
-        </Link>
-
-        {/* Pastilles de couleurs si le produit en a */}
-        {colors.length > 1 && (
-          <div className="flex items-center gap-1.5 pt-0.5" onClick={(e) => e.stopPropagation()}>
-            {colors.slice(0, 4).map((c) => {
-              const isActive = activeColorName === c.name;
-              return (
-                <button
-                  key={c.name}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    if (c.image) setActiveImageOverride(c.image);
-                    setActiveColorName(c.name);
-                  }}
-                  onMouseEnter={() => {
-                    if (c.image) setActiveImageOverride(c.image);
-                    setActiveColorName(c.name);
-                  }}
-                  className={`w-4 h-4 rounded-full border transition-all ${
-                    isActive ? "scale-125 border-stone-900 shadow-sm" : "border-stone-300 hover:scale-110"
-                  }`}
-                  style={{ backgroundColor: c.hex }}
-                  title={c.name}
-                  aria-label={`Couleur ${c.name}`}
-                />
-              );
-            })}
-            {colors.length > 4 && (
-              <span className="text-[10px] text-stone-400 font-medium">
-                +{colors.length - 4}
-              </span>
+        {editorial ? (
+          <>
+            <p className="text-[13px] text-[#111] mt-3.5">{product.name}</p>
+            <p className="text-[13px] text-[#6b6b6b] mt-1">{price}</p>
+          </>
+        ) : (
+          <div className="pt-3">
+            {categoryLabel(product) && <p className="text-xs text-[#767676]">{categoryLabel(product)}</p>}
+            <p className="text-[14.5px] font-medium text-[#111] mt-[3px] mb-1.5">{product.name}</p>
+            <p className="text-[14.5px] font-semibold">{price}</p>
+            {swatches.length > 1 && (
+              <div className="flex gap-[5px] mt-[9px]" aria-label={`${swatches.length} coloris`}>
+                {swatches.slice(0, 6).map((s) => (
+                  <i key={s.name} title={s.name} className="block w-[11px] h-[11px] rounded-full shadow-[inset_0_0_0_1px_rgba(0,0,0,.12)]" style={{ background: s.hex }} />
+                ))}
+              </div>
             )}
           </div>
         )}
+      </Link>
 
-        {/* Prix et déclinaisons */}
-        <div className="mt-auto pt-2 border-t border-stone-100 flex items-baseline justify-between gap-2">
-          <div className="flex items-baseline gap-1.5 flex-wrap">
-            <span className="text-sm sm:text-base font-serif font-bold text-stone-950">
-              {currentPrice.toLocaleString()} FCFA
-            </span>
-            {hasDiscount && (
-              <span className="text-xs text-stone-400 line-through">
-                {oldPrice.toLocaleString()}
-              </span>
-            )}
-          </div>
-          {(colors.length > 1 || sizeCount > 1) && (
-            <span className="text-[10px] font-medium text-stone-400 shrink-0">
-              {colors.length > 1 && `${colors.length} couleurs`}
-              {colors.length > 1 && sizeCount > 1 && " · "}
-              {sizeCount > 1 && `${sizeCount} tailles`}
-            </span>
-          )}
-        </div>
-      </div>
-
-      {/* Modal de sélection rapide */}
-      {showQuickShop && (
-        <QuickShopModal
-          product={product}
-          variants={variants}
-          onSelect={addToCart}
-          onClose={() => setShowQuickShop(false)}
-        />
-      )}
-    </motion.article>
+      {quickOpen && <VariantOrderDrawer product={product} onClose={() => setQuickOpen(false)} />}
+    </>
   );
 }

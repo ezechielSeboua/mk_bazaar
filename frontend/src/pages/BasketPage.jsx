@@ -1,513 +1,285 @@
-import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
-import { MapPin, AlertCircle, Eye, Trash2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { MessageCircle, Minus, Plus, ShoppingBag, Trash2 } from "lucide-react";
 import Header from "../components/Header";
-import { useCatalogData } from "../contexts/CatalogContext";
-import { getWhatsAppLink, resolveMediaUrl } from "../config/env";
-import { buildOrderMessage, formatVariantLabel } from "../utils/whatsappMessage";
-import { createOrder } from "../services/order";
 import Footer from "../components/Footer";
+import Seo from "../components/Seo";
+import DeliveryFields from "../components/shop/DeliveryFields";
+import { useCatalogData } from "../contexts/CatalogContext";
 import { useAuth } from "../contexts/AuthContext";
 import { useSiteSettings } from "../contexts/SiteSettingsContext";
+import { getProductById, getVariant } from "../services/product";
+import { submitOrder, validateCheckout } from "../components/shop/checkout";
+import { scrollToElement } from "../hooks/useBodyScrollLock";
+import { formatFCFA, promotionLabel, readCart, shopButton, wrapClass, writeCart } from "../components/shop/shopUtils";
 
-/* ---------- Icône WhatsApp ---------- */
-function WhatsAppIcon() {
+/*
+ * Panier (maquettes « 04 · Panier » et « 04b · Panier sans compte ») :
+ * articles avec prix à jour, coordonnées de livraison, récapitulatif avec
+ * remises, puis envoi de la commande sur WhatsApp. Aucun paiement sur le site.
+ */
+
+/** Retire les drapeaux d'affichage avant d'enregistrer le panier. */
+const stripFlags = (list) => list.map((item) => {
+  const copy = { ...item };
+  delete copy.unavailable;
+  return copy;
+});
+
+const optionsLabel = (attributes) => Object.entries(attributes ?? {})
+  .filter(([, v]) => v)
+  .map(([k, v]) => `${k.charAt(0).toUpperCase()}${k.slice(1).replace(/_/g, " ")} ${v}`)
+  .join(" · ");
+
+function Steps() {
+  const steps = ["Panier", "Livraison", "Validation et paiement sur WhatsApp"];
   return (
-    <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24" className="w-5 h-5 mr-2">
-      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L0 24l6.335-1.662c1.746.953 3.71 1.458 5.704 1.46h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
-    </svg>
+    <ol className="flex flex-wrap gap-x-6 gap-y-2 text-[13px] text-[#666]">
+      {steps.map((step, index) => (
+        <li key={step} className="flex items-center gap-2">
+          <span className={`w-6 h-6 rounded-full grid place-items-center text-xs font-semibold ${index === 0 ? "bg-[#111] text-white" : "bg-[#f1f1f1] text-[#444]"}`}>{index + 1}</span>
+          {step}
+        </li>
+      ))}
+    </ol>
   );
 }
 
+/** Relit prix, stock et disponibilité de chaque ligne auprès de l'API. */
+async function refreshLines(items) {
+  return Promise.all(items.map(async (item) => {
+    try {
+      if (item.variant_id) {
+        const res = await getVariant(item.variant_id);
+        if (!res?.success) return { ...item, unavailable: true };
+        const v = res.data;
+        const ok = v.is_active !== false && v.product?.is_active !== false && (v.stock ?? 0) > 0;
+        return {
+          ...item,
+          price: v.pricing?.final_price ?? item.price,
+          base_price: v.pricing?.base_price ?? item.base_price,
+          promotion: v.pricing?.promotion?.name ?? null,
+          stock: v.stock,
+          quantity: ok ? Math.min(item.quantity, v.stock) : item.quantity,
+          unavailable: !ok,
+        };
+      }
+      const res = await getProductById(item.id);
+      if (!res?.success) return { ...item, unavailable: true };
+      const p = res.data;
+      const ok = p.is_active !== false && (p.stock ?? 0) > 0;
+      return {
+        ...item,
+        price: p.pricing?.final_price ?? item.price,
+        base_price: p.pricing?.base_price ?? item.base_price,
+        promotion: p.pricing?.promotion?.name ?? null,
+        stock: p.stock,
+        quantity: ok ? Math.min(item.quantity, p.stock) : item.quantity,
+        unavailable: !ok,
+      };
+    } catch {
+      return item;
+    }
+  }));
+}
 
-/* ---------- BasketPage ---------- */
 export default function BasketPage() {
   const { shippingZones } = useCatalogData();
   const { user } = useAuth();
   const { contactInfo } = useSiteSettings();
+  const navigate = useNavigate();
 
-  const [cartItems, setCartItems] = useState(() => {
-    const savedCart = localStorage.getItem("mk_bazaar_cart");
-    if (!savedCart) return [];
-    const parsed = JSON.parse(savedCart);
-    const grouped = [];
-    parsed.forEach((item) => {
-      const variantKey = item.variant_id ?? null;
-      const existing = grouped.find(
-        (g) => g.id === item.id && (g.variant_id ?? null) === variantKey
-      );
-      if (existing) {
-        existing.quantity += item.quantity;
-      } else {
-        grouped.push({ ...item, variant_id: item.variant_id ?? null });
-      }
+  const [items, setItems] = useState(() => readCart());
+  const [checked, setChecked] = useState(() => readCart().length === 0);
+  const [values, setValues] = useState({ name: "", phone: "", zoneId: null, address: "" });
+  const [errors, setErrors] = useState({});
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const current = readCart();
+    if (!current.length) return undefined;
+    refreshLines(current).then((fresh) => {
+      if (cancelled) return;
+      setItems(fresh);
+      writeCart(stripFlags(fresh));
+      setChecked(true);
     });
-    localStorage.setItem("mk_bazaar_cart", JSON.stringify(grouped));
-    return grouped;
-  });
+    return () => { cancelled = true; };
+  }, []);
 
-  const [selectedZone, setSelectedZone] = useState(null);
-  const [addressDetail, setAddressDetail] = useState("");
-  const [customerName, setCustomerName] = useState("");
-  const [customerPhone, setCustomerPhone] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [orderError, setOrderError] = useState(null);
-  const [validationErrors, setValidationErrors] = useState({
-    zone: false,
-    address: false,
-    customerName: false,
-    customerPhone: false,
-  });
-
-  useEffect(() => {
-    localStorage.setItem("mk_bazaar_cart", JSON.stringify(cartItems));
-    window.dispatchEvent(new Event("cart-updated"));
-  }, [cartItems]);
-
-  useEffect(() => {
-    setAddressDetail("");
-    setValidationErrors((prev) => ({ ...prev, address: false }));
-  }, [selectedZone]);
-
-  const updateQuantity = (id, variantId, amount) => {
-    setCartItems((prev) =>
-      prev.map((item) =>
-        item.id === id && (item.variant_id ?? null) === (variantId ?? null)
-          ? { ...item, quantity: Math.max(1, item.quantity + amount) }
-          : item
-      )
-    );
+  const save = (next) => {
+    setItems(next);
+    writeCart(stripFlags(next));
   };
+  const setQuantity = (index, quantity) => save(items.map((item, i) => (i === index ? { ...item, quantity: Math.max(1, Math.min(quantity, item.stock || quantity)) } : item)));
+  const remove = (index) => save(items.filter((_, i) => i !== index));
 
-  const removeItem = (id, variantId) => {
-    setCartItems((prev) =>
-      prev.filter(
-        (item) =>
-          !(item.id === id && (item.variant_id ?? null) === (variantId ?? null))
-      )
-    );
-  };
+  const sellable = items.filter((item) => !item.unavailable);
+  const count = sellable.reduce((sum, item) => sum + item.quantity, 0);
+  const subtotal = sellable.reduce((sum, item) => sum + (item.base_price ?? item.price) * item.quantity, 0);
+  const byPromo = new Map();
+  sellable.forEach((item) => {
+    const saved = ((item.base_price ?? item.price) - item.price) * item.quantity;
+    const key = promotionLabel(item.promotion) || "Promotion";
+    if (saved > 0) byPromo.set(key, (byPromo.get(key) ?? 0) + saved);
+  });
+  const discounts = [...byPromo.entries()];
+  const discountTotal = discounts.reduce((sum, [, v]) => sum + v, 0);
+  const zone = shippingZones.find((z) => z.id === values.zoneId) ?? null;
+  const total = subtotal - discountTotal + (zone?.price ?? 0);
 
-  const calculateSubtotal = () =>
-    cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
-
-  const deliveryPrice = selectedZone ? selectedZone.price : 0;
-  const totalAmount = calculateSubtotal() + deliveryPrice;
-
-  const handleWhatsAppCheckout = async () => {
-    const hasZoneError = !selectedZone;
-    const hasAddressError = selectedZone && addressDetail.trim() === "";
-    const hasNameError = !user && customerName.trim() === "";
-    const hasPhoneError = !user && customerPhone.trim() === "";
-
-    if (hasZoneError || hasAddressError || hasNameError || hasPhoneError) {
-      setValidationErrors({
-        zone: hasZoneError,
-        address: hasAddressError,
-        customerName: hasNameError,
-        customerPhone: hasPhoneError,
-      });
+  const checkout = async () => {
+    const found = validateCheckout({ user, name: values.name, phone: values.phone, zone, address: values.address });
+    setErrors(found);
+    if (Object.keys(found).length) {
+      scrollToElement(document.getElementById("livraison"));
       return;
     }
-
-    const resolvedName  = user ? user.name  : customerName.trim();
-    const resolvedPhone = user ? user.phone : customerPhone.trim();
-
-    // Onglet pré-ouvert DANS le geste utilisateur : après l'await de création de
-    // commande, l'activation transitoire est consommée et window.open serait
-    // bloqué (systématiquement sur Safari, au-delà de ~5 s sur Chrome).
-    const waWindow = window.open("", "_blank");
-
-    setIsSubmitting(true);
+    setSubmitting(true);
+    setSubmitError(null);
     try {
-      setOrderError(null);
-      const orderData = {
-        delivery_location: selectedZone.name,
-        detailed_address: addressDetail.trim(),
-        ...(!user && { customer_name: resolvedName, customer_phone: resolvedPhone }),
-        items: cartItems.map((item) => ({
-          ...(item.variant_id
-            ? { product_variant_id: item.variant_id }
-            : { product_id: item.id }),
-          quantity: item.quantity,
-        })),
-      };
-
-      const response = await createOrder(orderData);
-      if (response.success) {
-        // Montants et référence pris sur la réponse serveur : les totaux locaux
-        // ne servent qu'à l'affichage de la page.
-        const message = buildOrderMessage({
-          order: response.data?.order,
-          items: cartItems.map((item) => ({
-            name: item.name,
-            variantLabel: formatVariantLabel(item.attributes),
-            quantity: item.quantity,
-          })),
-          customerName: resolvedName,
-          customerPhone: resolvedPhone,
-        });
-
-        setCartItems([]);
-        setSelectedZone(null);
-        setAddressDetail("");
-        if (!user) {
-          setCustomerName("");
-          setCustomerPhone("");
-        }
-
-        const waLink = getWhatsAppLink(message, contactInfo.whatsapp);
-        if (!waLink) {
-          // Aucun numéro configuré : la commande existe, on donne sa référence
-          // au client plutôt que de le laisser sans retour.
-          if (waWindow) waWindow.close();
-          setOrderError(
-            `Commande enregistrée sous la référence #${response.data?.order?.order_number ?? "—"}, ` +
-            `mais aucun numéro WhatsApp n'est configuré. Contactez-nous avec cette référence.`
-          );
-        } else if (waWindow) {
-          waWindow.location.href = waLink;
-        } else {
-          // L'onglet a été bloqué : on bascule dans l'onglet courant plutôt que
-          // de laisser le client sans redirection après une commande créée.
-          window.location.assign(waLink);
-        }
-      } else {
-        if (waWindow) waWindow.close();
-        setOrderError(response.error || "Erreur lors de la validation. Veuillez réessayer.");
-      }
+      const { order, whatsappLink } = await submitOrder({
+        items: sellable.map((item) => ({ product_id: item.id, variant_id: item.variant_id, quantity: item.quantity, name: item.name, attributes: item.attributes })),
+        user,
+        name: values.name,
+        phone: values.phone,
+        zone,
+        address: values.address,
+        whatsappNumber: contactInfo?.whatsapp,
+        title: "NOUVELLE COMMANDE — MK BAZAAR",
+      });
+      save(items.filter((item) => item.unavailable));
+      navigate("/commande-envoyee", { state: { order, whatsappLink, guest: !user } });
     } catch (error) {
-      if (waWindow) waWindow.close();
-      console.error("Erreur de commande:", error);
-      setOrderError("Une erreur réseau est survenue. Veuillez réessayer.");
+      setSubmitError(error.message);
     } finally {
-      setIsSubmitting(false);
+      setSubmitting(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#F9F9F7] text-black antialiased">
+    <div className="min-h-screen bg-white text-[#111] font-admin antialiased">
+      <Seo title="Panier" path="/panier" noindex />
       <Header />
 
-      <main className="flex-1 py-6 sm:py-10 px-3 sm:px-6 md:px-10 lg:px-16">
-        <div className="max-w-6xl mx-auto">
-          <h1 className="text-lg sm:text-xl md:text-2xl font-light uppercase tracking-widest mb-6 sm:mb-10 border-b border-stone-200/80 pb-3 text-stone-950">
-            Mon Panier
+      <main className={wrapClass}>
+        <nav className="text-[13px] text-[#777] py-[22px]" aria-label="Fil d'Ariane">
+          <Link to="/" className="hover:underline">Accueil</Link> / <b className="font-medium text-[#111]">Panier</b>
+        </nav>
+
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
+          <h1 className="text-[26px] sm:text-[32px] font-semibold tracking-[-0.02em]">
+            Mon panier {count > 0 && <span className="text-[#767676] font-normal">({count})</span>}
           </h1>
-
-          <AnimatePresence mode="wait">
-            {cartItems.length === 0 ? (
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0 }}
-                className="text-center py-20 sm:py-24 flex flex-col items-center justify-center"
-              >
-                <p className="text-stone-500 uppercase tracking-widest text-xs mb-6 font-light">
-                  Votre panier est actuellement vide.
-                </p>
-                <Link
-                  to="/products"
-                  className="inline-block bg-black text-white text-xs uppercase tracking-widest font-semibold px-8 py-4 hover:bg-stone-900 transition-colors duration-200 shadow-sm rounded-xl"
-                >
-                  Découvrir nos collections
-                </Link>
-              </motion.div>
-            ) : (
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-10 items-start">
-                {/* ---------- Liste des articles ---------- */}
-                <div className="lg:col-span-2 space-y-4">
-                  <AnimatePresence>
-                    {cartItems.map((item) => (
-                      <motion.div
-                        key={`${item.id}-${item.variant_id ?? "base"}`}
-                        layout
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: 50, transition: { duration: 0.2 } }}
-                        className="bg-white border border-stone-200/60 shadow-sm hover:shadow-md transition-shadow rounded-xl overflow-hidden"
-                      >
-                        {/* Conteneur flexible : colonne sur mobile, ligne sur sm+ */}
-                        <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-3 sm:p-4">
-                          {/* Image + Infos (toujours côte à côte) */}
-                          <div className="flex items-start gap-3 w-full sm:flex-1 min-w-0">
-                            <img
-                              src={resolveMediaUrl(item.image)}
-                              alt={item.name}
-                              className="w-16 h-20 sm:w-20 sm:h-24 object-cover bg-stone-100 flex-shrink-0 rounded-lg"
-                            />
-                            <div className="flex-1 min-w-0">
-                              <span className="text-[9px] uppercase tracking-widest text-stone-400 font-bold block mb-1">
-                                {item.category}
-                              </span>
-                              <h2 className="text-sm font-medium uppercase tracking-wider text-black line-clamp-2">
-                                {item.name}
-                              </h2>
-                              {item.attributes && (
-                                <p className="text-[10px] text-stone-400 font-mono mt-0.5">
-                                  {Object.entries(item.attributes)
-                                    .map(([k, v]) => `${k.toUpperCase()}: ${v}`)
-                                    .join(", ")}
-                                </p>
-                              )}
-                              <p className="text-xs text-stone-600 mt-1 font-medium font-mono">
-                                {item.price.toLocaleString()} FCFA
-                              </p>
-                            </div>
-                          </div>
-
-                          {/* Bloc quantité + prix + actions */}
-                          <div className="flex flex-row sm:flex-col items-center sm:items-end gap-3 sm:gap-4 w-full sm:w-auto mt-1 sm:mt-0">
-                            {/* Quantité et prix total sur la même ligne en mobile, empilés sur desktop */}
-                            <div className="flex items-center gap-3 sm:gap-4 flex-1 sm:flex-initial justify-between sm:justify-end w-full sm:w-auto">
-                              {/* Quantité */}
-                              <div className="flex items-center border border-stone-200 rounded-lg bg-stone-50 overflow-hidden shadow-inner">
-                                <button
-                                  onClick={() => updateQuantity(item.id, item.variant_id, -1)}
-                                  className="px-2 sm:px-2.5 py-1.5 sm:py-2 text-stone-600 hover:bg-stone-200/60 transition-colors font-bold text-xs"
-                                  aria-label="Diminuer la quantité"
-                                >
-                                  −
-                                </button>
-                                <span className="text-xs font-medium px-2 sm:px-3 min-w-[2rem] text-center font-mono select-none bg-white">
-                                  {item.quantity}
-                                </span>
-                                <button
-                                  onClick={() => updateQuantity(item.id, item.variant_id, 1)}
-                                  className="px-2 sm:px-2.5 py-1.5 sm:py-2 text-stone-600 hover:bg-stone-200/60 transition-colors font-bold text-xs"
-                                  aria-label="Augmenter la quantité"
-                                >
-                                  +
-                                </button>
-                              </div>
-
-                              {/* Prix total */}
-                              <span className="text-xs sm:text-sm font-semibold tracking-wider text-black font-mono whitespace-nowrap">
-                                Total : {(item.price * item.quantity).toLocaleString()} FCFA
-                              </span>
-                            </div>
-
-                            {/* Actions (Voir, Supprimer) */}
-                            <div className="flex items-center gap-1 sm:gap-2 w-full sm:w-auto justify-end">
-                              <Link
-                                to={`/products/${item.slug}`}
-                                className="inline-flex items-center gap-1 text-xs font-medium text-stone-600 hover:text-stone-900 hover:bg-stone-100 px-2 py-1.5 rounded-lg transition-colors duration-200"
-                              >
-                                <Eye className="w-3.5 h-3.5" />
-                                <span className="hidden sm:inline">Voir</span>
-                              </Link>
-                              <button
-                                onClick={() => removeItem(item.id, item.variant_id)}
-                                className="inline-flex items-center gap-1 text-xs font-medium text-rose-600 hover:text-rose-700 hover:bg-rose-50 px-2 py-1.5 rounded-lg transition-colors duration-200"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                                <span className="hidden sm:inline">Supprimer</span>
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      </motion.div>
-                    ))}
-                  </AnimatePresence>
-                </div>
-
-                {/* ---------- Résumé commande ---------- */}
-                <div className="space-y-4 lg:sticky lg:top-24">
-                  <div className="bg-white p-4 sm:p-5 border border-stone-200/60 shadow-sm rounded-xl space-y-4">
-                    <div className="flex items-center gap-2 text-xs uppercase tracking-widest font-bold text-black border-b border-stone-100 pb-2">
-                      <MapPin className="w-4 h-4 text-stone-500" />
-                      <h2>Ville / Commune</h2>
-                    </div>
-
-                    {/* Infos client */}
-                    {user ? (
-                      <div className="flex items-center gap-3 bg-stone-50 border border-stone-200 rounded-xl px-4 py-3">
-                        <div className="w-7 h-7 rounded-full bg-stone-200 flex items-center justify-center flex-shrink-0">
-                          <span className="text-[10px] font-bold text-stone-600 uppercase">
-                            {user.name?.charAt(0) || "?"}
-                          </span>
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-xs font-semibold text-stone-900 truncate">{user.name}</p>
-                          <p className="text-[10px] text-stone-400 truncate">
-                            {user.phone || "Aucun téléphone enregistré"}
-                          </p>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        <div>
-                          <input
-                            type="text"
-                            value={customerName}
-                            onChange={(e) => {
-                              setCustomerName(e.target.value);
-                              setValidationErrors((prev) => ({ ...prev, customerName: false }));
-                            }}
-                            placeholder="Nom complet"
-                            className={`w-full px-4 py-3 rounded-xl border bg-white text-xs text-stone-950 placeholder-stone-400 focus:outline-none focus:border-stone-950 transition-all ${
-                              validationErrors.customerName ? "border-rose-500 bg-rose-50/20" : "border-stone-200"
-                            }`}
-                          />
-                        </div>
-                        <div>
-                          <input
-                            type="tel"
-                            value={customerPhone}
-                            onChange={(e) => {
-                              setCustomerPhone(e.target.value);
-                              setValidationErrors((prev) => ({ ...prev, customerPhone: false }));
-                            }}
-                            placeholder="Téléphone (07 XX XX XX XX)"
-                            className={`w-full px-4 py-3 rounded-xl border bg-white text-xs text-stone-950 placeholder-stone-400 focus:outline-none focus:border-stone-950 transition-all ${
-                              validationErrors.customerPhone ? "border-rose-500 bg-rose-50/20" : "border-stone-200"
-                            }`}
-                          />
-                        </div>
-                      </div>
-                    )}
-
-                    <div className="space-y-3">
-                      <div>
-                        <select
-                          value={selectedZone?.name || ""}
-                          onChange={(e) => {
-                            const zone = shippingZones.find((z) => z.name === e.target.value);
-                            setSelectedZone(zone || null);
-                            setValidationErrors((prev) => ({ ...prev, zone: false }));
-                          }}
-                          className={`w-full px-4 py-3 rounded-xl border bg-white text-xs md:text-sm text-stone-900 focus:outline-none focus:border-stone-950 transition-all cursor-pointer ${
-                            validationErrors.zone ? "border-rose-500 bg-rose-50/20" : "border-stone-200"
-                          }`}
-                        >
-                          <option value="" disabled>
-                            Lieu de livraison...
-                          </option>
-                          {shippingZones &&
-                            shippingZones.map(({ id, name, price }) => (
-                              <option key={id} value={name}>
-                                {name} (+{price.toLocaleString()} FCFA)
-                              </option>
-                            ))}
-                        </select>
-                      </div>
-                      <AnimatePresence>
-                        {selectedZone && (
-                          <motion.div
-                            initial={{ opacity: 0, y: -5 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -5 }}
-                          >
-                            <input
-                              type="text"
-                              value={addressDetail}
-                              onChange={(e) => {
-                                setAddressDetail(e.target.value);
-                                setValidationErrors((prev) => ({ ...prev, address: false }));
-                              }}
-                              placeholder="Repères ou adresse précise de livraison..."
-                              className={`w-full px-4 py-3 rounded-xl border bg-white text-xs md:text-sm text-stone-950 placeholder-stone-400 focus:outline-none focus:border-stone-950 transition-all ${
-                                validationErrors.address
-                                  ? "border-rose-500 bg-rose-50/20"
-                                  : "border-stone-200"
-                              }`}
-                            />
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </div>
-                  </div>
-
-                  <div className="bg-white p-4 sm:p-6 border border-stone-200/60 shadow-sm rounded-xl">
-                    <h2 className="text-xs sm:text-sm uppercase tracking-widest font-bold text-black border-b border-stone-200 pb-3 mb-4">
-                      Résumé de la commande
-                    </h2>
-                    <div className="space-y-3 text-xs sm:text-sm uppercase tracking-wider font-medium text-stone-600">
-                      <div className="flex justify-between">
-                        <span>Sous-total</span>
-                        <span className="text-black font-semibold font-mono">
-                          {calculateSubtotal().toLocaleString()} FCFA
-                        </span>
-                      </div>
-                      <div className="flex justify-between text-[11px] items-center">
-                        <span className="normal-case tracking-normal text-stone-400">
-                          Frais de livraison
-                        </span>
-                        <span className="text-black font-semibold font-mono">
-                          {selectedZone
-                            ? `${deliveryPrice.toLocaleString()} FCFA`
-                            : "Sélectionner un lieu"}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="border-t border-stone-200 my-4 pt-4 flex justify-between items-baseline">
-                      <span className="text-xs sm:text-sm uppercase tracking-widest font-bold text-black">
-                        Total Général
-                      </span>
-                      <span className="text-lg font-bold tracking-wider text-black font-mono">
-                        {totalAmount.toLocaleString()}{" "}
-                        <span className="text-xs font-light">FCFA</span>
-                      </span>
-                    </div>
-                    {(validationErrors.zone || validationErrors.address || validationErrors.customerName || validationErrors.customerPhone) && (
-                      <div className="mb-4 p-3 bg-rose-50 border border-rose-100 rounded-xl text-[11px] text-rose-800 flex items-start gap-2">
-                        <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                        <span>
-                          Veuillez remplir tous les champs obligatoires avant de continuer.
-                        </span>
-                      </div>
-                    )}
-                    {orderError && (
-                      <div className="mb-4 p-3 bg-rose-50 border border-rose-100 rounded-xl text-[11px] text-rose-800 flex items-start gap-2">
-                        <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                        <span>{orderError}</span>
-                      </div>
-                    )}
-                    <button
-                      onClick={handleWhatsAppCheckout}
-                      disabled={isSubmitting}
-                      className="w-full bg-black text-[#F9F9F7] text-xs sm:text-sm uppercase tracking-widest font-bold py-3 sm:py-4 flex items-center justify-center hover:bg-stone-900 transition-colors duration-200 shadow-md rounded-xl"
-                    >
-                      {isSubmitting ? (
-                        <span className="inline-flex items-center gap-2">
-                          <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
-                            <circle
-                              className="opacity-25"
-                              cx="12"
-                              cy="12"
-                              r="10"
-                              stroke="currentColor"
-                              strokeWidth="4"
-                            />
-                            <path
-                              className="opacity-75"
-                              fill="currentColor"
-                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                            />
-                          </svg>
-                          Validation en cours...
-                        </span>
-                      ) : (
-                        <>
-                          <WhatsAppIcon />
-                          Commander via WhatsApp
-                        </>
-                      )}
-                    </button>
-                    <Link
-                      to="/products"
-                      className="block text-center text-[10px] uppercase tracking-widest font-semibold text-stone-500 hover:text-black mt-4 transition-colors duration-200"
-                    >
-                      Continuer mes achats
-                    </Link>
-                  </div>
-                </div>
-              </div>
-            )}
-          </AnimatePresence>
+          {items.length > 0 && <Steps />}
         </div>
+
+        {items.length === 0 ? (
+          <div className="text-center py-20 border-t border-[#ececec]">
+            <ShoppingBag className="w-10 h-10 mx-auto text-[#bbb]" strokeWidth={1.2} aria-hidden="true" />
+            <p className="text-[17px] font-medium mt-4">Votre panier est vide</p>
+            <p className="text-sm text-[#666] mt-1">Parcourez la boutique et ajoutez vos pièces préférées.</p>
+            <Link to="/products" className={`${shopButton("primary")} mt-6`}>Découvrir la boutique</Link>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_380px] gap-10 items-start">
+            <div className="space-y-10 min-w-0">
+              <section aria-label="Articles">
+                <div className="hidden md:grid grid-cols-[minmax(0,1fr)_120px_130px_120px] gap-4 pb-3 border-b border-[#ececec] text-[12.5px] text-[#666]">
+                  <span>Article</span><span className="text-right">Prix unitaire</span><span className="text-center">Quantité</span><span className="text-right">Total</span>
+                </div>
+                <ul>
+                  {items.map((item, index) => (
+                    <li key={`${item.id}-${item.variant_id ?? "u"}`} className={`grid grid-cols-[80px_minmax(0,1fr)] md:grid-cols-[minmax(0,1fr)_120px_130px_120px] gap-x-4 gap-y-3 py-5 border-b border-[#ececec] items-center ${item.unavailable ? "opacity-60" : ""}`}>
+                      <div className="contents md:flex md:gap-4 md:items-center">
+                        <Link to={`/products/${item.slug}`} className="row-span-2 md:row-span-1 shrink-0">
+                          <img src={item.image} alt="" className="w-20 h-[100px] object-cover rounded-sm bg-[#f3f3f3]" />
+                        </Link>
+                        <div className="min-w-0">
+                          <Link to={`/products/${item.slug}`} className="font-medium hover:underline">{item.name}</Link>
+                          {item.attributes && <p className="text-[13px] text-[#666] mt-0.5">{optionsLabel(item.attributes)}</p>}
+                          {item.unavailable ? (
+                            <p className="text-[13px] text-[#b42318] mt-1">Indisponible : retirez-le pour commander</p>
+                          ) : (
+                            <p className="text-[13px] text-[#166534] mt-1 flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-current" aria-hidden="true" />En stock</p>
+                          )}
+                          <button type="button" onClick={() => remove(index)} className="mt-2 inline-flex items-center gap-1.5 text-[13px] text-[#666] hover:text-[#b42318]">
+                            <Trash2 className="w-3.5 h-3.5" strokeWidth={1.6} aria-hidden="true" /> Retirer
+                          </button>
+                        </div>
+                      </div>
+                      <div className="col-start-2 md:col-start-auto md:text-right text-sm tabular-nums">
+                        {item.base_price > item.price && <s className="block text-[#767676] text-[13px]">{formatFCFA(item.base_price)}</s>}
+                        {formatFCFA(item.price)}
+                      </div>
+                      <div className="col-start-2 md:col-start-auto md:justify-self-center flex items-center gap-3">
+                        <div className="inline-flex items-center h-10 border border-[#d9d9d9] rounded" role="group" aria-label={`Quantité de ${item.name}`}>
+                          <button type="button" onClick={() => setQuantity(index, item.quantity - 1)} disabled={item.quantity <= 1 || item.unavailable} className="w-9 h-full grid place-items-center disabled:opacity-40" aria-label="Diminuer">
+                            <Minus className="w-3.5 h-3.5" strokeWidth={1.6} aria-hidden="true" />
+                          </button>
+                          <span className="w-8 text-center text-sm tabular-nums">{item.quantity}</span>
+                          <button type="button" onClick={() => setQuantity(index, item.quantity + 1)} disabled={item.unavailable || (item.stock && item.quantity >= item.stock)} className="w-9 h-full grid place-items-center disabled:opacity-40" aria-label="Augmenter">
+                            <Plus className="w-3.5 h-3.5" strokeWidth={1.6} aria-hidden="true" />
+                          </button>
+                        </div>
+                        <span className="md:hidden text-sm font-semibold tabular-nums">{formatFCFA(item.price * item.quantity)}</span>
+                      </div>
+                      <div className="hidden md:block text-right text-sm font-semibold tabular-nums">{formatFCFA(item.price * item.quantity)}</div>
+                    </li>
+                  ))}
+                </ul>
+                <Link to="/products" className="inline-block mt-5 text-sm underline">Continuer mes achats</Link>
+              </section>
+
+              <section id="livraison" aria-labelledby="delivery-title" className="scroll-mt-28">
+                <div className="flex items-center gap-3 mb-5">
+                  <h2 id="delivery-title" className="text-lg font-semibold">Vos coordonnées de livraison</h2>
+                  {!user && <span className="text-xs font-medium bg-[#f1f1f1] text-[#444] rounded-full px-2.5 py-1">Sans compte</span>}
+                </div>
+                <div className="max-w-[560px]">
+                  <DeliveryFields user={user} values={values} onChange={setValues} errors={errors} zones={shippingZones} idPrefix="cart" />
+                </div>
+              </section>
+            </div>
+
+            <aside className="lg:sticky lg:top-28 space-y-5" aria-label="Récapitulatif">
+              <div className="border border-[#ececec] rounded p-5">
+                <h2 className="text-base font-semibold mb-4">Récapitulatif</h2>
+                <dl className="space-y-2.5 text-sm tabular-nums">
+                  <div className="flex justify-between"><dt className="text-[#555]">Sous-total ({count} article{count > 1 ? "s" : ""})</dt><dd>{formatFCFA(subtotal)}</dd></div>
+                  {discounts.map(([name, value]) => (
+                    <div key={name} className="flex justify-between text-[#166534]"><dt>Remise · {name}</dt><dd>−{formatFCFA(value)}</dd></div>
+                  ))}
+                  <div className="flex justify-between"><dt className="text-[#555]">Livraison{zone ? ` · ${zone.name}` : ""}</dt><dd>{zone ? formatFCFA(zone.price) : "Selon la commune"}</dd></div>
+                  <div className="flex justify-between pt-3 mt-1 border-t border-[#ececec] text-base font-semibold">
+                    <dt>Total estimé</dt><dd>{formatFCFA(total)}</dd>
+                  </div>
+                  {!zone && <p className="text-[12.5px] text-[#666] -mt-1 text-right">hors frais de livraison</p>}
+                </dl>
+                {discountTotal > 0 && <p className="mt-3 text-[13px] font-medium text-[#166534]">Vous économisez {formatFCFA(discountTotal)}</p>}
+                {submitError && <p role="alert" className="mt-4 text-[13px] text-[#b42318] bg-[#fdeaea] rounded px-3 py-2">{submitError}</p>}
+                <button type="button" onClick={checkout} disabled={submitting || !checked || sellable.length === 0} className={`${shopButton("whatsapp", "lg")} w-full mt-5`}>
+                  <MessageCircle className="w-4 h-4" strokeWidth={1.6} aria-hidden="true" />
+                  {submitting ? "Envoi…" : "Envoyer ma commande sur WhatsApp"}
+                </button>
+              </div>
+
+              <div className="bg-[#fafafa] border border-[#ececec] rounded p-5 text-sm text-[#444]">
+                <h2 className="font-semibold text-[#111] mb-3">Comment se passe la validation ?</h2>
+                <ol className="space-y-2.5">
+                  <li className="flex gap-2.5"><b className="font-semibold text-[#111]">1</b>Vous envoyez votre panier à notre équipe sur WhatsApp.</li>
+                  <li className="flex gap-2.5"><b className="font-semibold text-[#111]">2</b><span>Nous vérifions la disponibilité et vous confirmons le <b className="font-semibold text-[#111]">montant total, livraison comprise</b>.</span></li>
+                  <li className="flex gap-2.5"><b className="font-semibold text-[#111]">3</b><span>Le paiement se fait uniquement une fois la commande et le montant <b className="font-semibold text-[#111]">validés ensemble</b> sur WhatsApp.</span></li>
+                </ol>
+                <p className="mt-3 text-[12.5px] text-[#666]">Aucun paiement n'est demandé sur le site.</p>
+              </div>
+            </aside>
+          </div>
+        )}
       </main>
+
       <Footer />
     </div>
   );

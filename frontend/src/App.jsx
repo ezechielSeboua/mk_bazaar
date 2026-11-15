@@ -13,10 +13,14 @@ import BasketPage from './pages/BasketPage';
 /* ---------- Chargement paresseux (Lazy Loading) des pages ---------- */
 // Pages de la Vitrine (Storefront)
 const Home = lazy(() => import('./pages/HomePage'));
+// Défilement fluide et GSAP chargés à part : hors du bundle initial
+const SmoothScroll = lazy(() => import('./components/motion/SmoothScroll'));
 const ProductList = lazy(() => import('./pages/ProductsList'));
 const ProductPage = lazy(() => import('./pages/ProductDetails'));
 const AboutPage = lazy(() => import('./pages/AboutPage'));
 const FavoritesPage = lazy(() => import('./pages/FavoritesPage'));
+const OffersPage = lazy(() => import('./pages/OffersPage'));
+const OrderSentPage = lazy(() => import('./pages/OrderSentPage'));
 
 // Pages d'Authentification
 const LoginPage    = lazy(() => import('./pages/Auth/LoginPage'));
@@ -33,6 +37,9 @@ const UsersPage = lazy(() => import('./pages/Dashboard/UsersPage'));
 const CommandsPage = lazy(() => import('./pages/Dashboard/OrdersPage'));
 const FinancesPage = lazy(() => import('./pages/Dashboard/FinancesPage'));
 const ConfigurationsPage = lazy(() => import('./pages/Dashboard/ConfigurationsPage'));
+const AttributesPage = lazy(() => import('./pages/Dashboard/AttributesPage'));
+const ProductEditPage = lazy(() => import('./pages/Dashboard/ProductEditPage'));
+const PromotionsPage = lazy(() => import('./pages/Dashboard/PromotionsPage'));
 
 function App() {
   return (
@@ -40,6 +47,7 @@ function App() {
       <SiteSettingsProvider>
         <WishlistProvider>
           <Suspense fallback={<LoadingScreen isLoading={true} />}>
+            <Suspense fallback={null}><SmoothScroll /></Suspense>
             <Routes>
               {/* Vitrine */}
               <Route element={<StorefrontWrapper />}>
@@ -47,6 +55,8 @@ function App() {
                 <Route path="/accueil" element={<Navigate to="/" replace />} />
                 <Route path="/products" element={<ProductList />} />
                 <Route path="/products/:slug" element={<ProductPage />} />
+                <Route path="/offres" element={<OffersPage />} />
+                <Route path="/commande-envoyee" element={<OrderSentPage />} />
                 <Route path="/panier" element={<BasketPage />} />
                 <Route path="/favoris" element={<FavoritesPage />} />
               </Route>
@@ -63,9 +73,13 @@ function App() {
                 <Route path="commands" element={<CommandsPage />} />
                 <Route path="categories" element={<CategoriesPage />} />
                 <Route path="products" element={<ProductsPage />} />
+                <Route path="products/new" element={<ProductEditPage />} />
+                <Route path="products/:id" element={<ProductEditPage key="edit" />} />
                 <Route path="users" element={<UsersPage />} />
                 <Route path="configurations" element={<ConfigurationsPage />} />
                 <Route path="finances" element={<FinancesPage />} />
+                <Route path="attributes" element={<AttributesPage />} />
+                <Route path="promotions" element={<PromotionsPage />} />
               </Route>
             </Routes>
           </Suspense>

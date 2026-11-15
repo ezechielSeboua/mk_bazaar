@@ -1,606 +1,417 @@
-import { useState, useEffect, useRef } from "react";
-import { useParams, useNavigate, Link } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
-import {
-  ChevronLeft,
-  Truck,
-  ShieldCheck,
-  RotateCcw,
-  Heart,
-  Share2,
-  ShoppingBag,
-  Sparkles,
-  X,
-  CheckCircle,
-  AlertCircle,
-  Clock,
-} from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Link, useParams } from "react-router-dom";
+import { AnimatePresence, motion } from "framer-motion";
+import { Expand, Heart, MessageCircle, RefreshCcw, Share2, ShieldCheck, ShoppingBag, Tag, Truck, X } from "lucide-react";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
-import ProductGallery from "../components/ProductGallery";
-import RelatedProducts from "../components/RelatedProducts";
-import ProductVariantSelector from "../components/ProductVariantSelector";
-import SizeGuideModal from "../components/SizeGuideModal";
-import WhatsAppOrderDrawer from "../components/WhatsAppOrderDrawer";
-import StickyMobileBar from "../components/StickyMobileBar";
-import ProductAccordions from "../components/ProductAccordions";
-import { getProductBySlug } from "../services/product";
+import ProductCard from "../components/ProductCard";
 import Seo from "../components/Seo";
-import { absoluteImageUrl } from "../config/seo";
-import {
-  buildProductJsonLd,
-  buildBreadcrumbJsonLd,
-} from "../utils/seoStructuredData";
-import { useCatalogData, useCatalogProducts } from "../contexts/CatalogContext";
-import { resolveMediaUrl, DEFAULT_PLACEHOLDER_IMAGE } from "../config/env";
+import SizeGuideModal from "../components/SizeGuideModal";
+import VariantOrderDrawer from "../components/shop/VariantOrderDrawer";
+import useMultiVariantOrder from "../components/shop/useMultiVariantOrder";
+import { MultiVariantActions, MultiVariantPicker } from "../components/shop/MultiVariantPicker";
+import { getProductBySlug, fetchCatalog } from "../services/product";
+import useStorefrontMotion from "../hooks/useStorefrontMotion";
+import useBodyScrollLock, { scrollToElement } from "../hooks/useBodyScrollLock";
+import { useCatalogData } from "../contexts/CatalogContext";
 import { useWishlist } from "../contexts/WishlistContext";
+import { absoluteImageUrl } from "../config/seo";
+import { resolveMediaUrl } from "../config/env";
+import { buildBreadcrumbJsonLd, buildProductJsonLd } from "../utils/seoStructuredData";
+import {
+  formatFCFA,
+  isInStock,
+  getPricing,
+  productImage,
+  promotionLabel,
+  promotionUntil,
+  shopButton,
+  showStrikethrough,
+  wrapClass,
+} from "../components/shop/shopUtils";
 
-const WhatsAppIcon = () => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    viewBox="0 0 24 24"
-    fill="currentColor"
-    className="w-4 h-4 shrink-0"
-  >
-    <path d="M12.032 2.002c-5.52 0-10 4.48-10 10 0 1.832.5 3.544 1.344 5.02l-1.344 4.978 5.104-1.312c1.408.832 3.008 1.312 4.896 1.312 5.52 0 10-4.48 10-10s-4.48-10-10-10zm0 18c-1.632 0-3.2-.416-4.576-1.184l-.336-.192-3.024.784.784-3.008-.208-.336a7.955 7.955 0 0 1-1.216-4.064c0-4.416 3.584-8 8-8s8 3.584 8 8-3.584 8-8 8zm4.288-5.664c-.24-.12-1.424-.704-1.648-.784-.224-.08-.384-.12-.544.12-.16.24-.624.784-.768.944-.144.16-.288.184-.528.064-.24-.12-1.024-.376-1.952-1.2-.72-.64-1.2-1.424-1.344-1.664-.144-.24-.016-.376.112-.496.112-.112.24-.288.36-.432.12-.144.16-.24.24-.4.08-.16.04-.304-.016-.424-.064-.12-.544-1.312-.752-1.792-.192-.456-.384-.4-.528-.4h-.448c-.144 0-.384.064-.576.288-.192.224-.736.72-.736 1.76 0 1.04.752 2.048.864 2.176.112.128 1.488 2.272 3.6 3.152.512.224.912.352 1.232.448.512.16.976.144 1.344.08.416-.064 1.28-.528 1.456-1.04.176-.512.176-.944.128-1.04-.048-.096-.176-.16-.4-.28z" />
-  </svg>
-);
+/*
+ * Fiche produit (maquettes « 03 · Fiche vêtement » et « 03b · Fiche collier ») :
+ * galerie, options du type de produit, prix remisé, ajout au panier, commande
+ * express sur WhatsApp, livraison, onglets d'information et suggestions.
+ */
 
-function Skeleton() {
+const TABS = [
+  { id: "description", label: "Description" },
+  { id: "details", label: "Matières et entretien" },
+  { id: "delivery", label: "Livraison et échanges" },
+];
+
+function Gallery({ images, name, activeImage, onActiveImage }) {
+  const [zoom, setZoom] = useState(false);
+  const current = activeImage ?? images[0];
+  useBodyScrollLock(zoom);
+  useEffect(() => {
+    if (!zoom) return undefined;
+    const onKey = (e) => { if (e.key === "Escape") setZoom(false); };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [zoom]);
+
   return (
-    <div className="min-h-screen flex flex-col bg-[#F9F9F7]">
-      <Header />
-      <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12 w-full animate-pulse">
-        <div className="h-4 w-40 bg-stone-200 rounded-full mb-8" />
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-14">
-          <div className="lg:col-span-7 aspect-[3/4] bg-stone-200 rounded-2xl" />
-          <div className="lg:col-span-5 space-y-4">
-            <div className="h-4 w-28 bg-stone-200 rounded-full" />
-            <div className="h-9 w-3/4 bg-stone-200 rounded-xl" />
-            <div className="h-6 w-36 bg-stone-200 rounded-lg" />
-            <div className="h-20 w-full bg-stone-200 rounded-2xl mt-6" />
-            <div className="h-12 w-full bg-stone-200 rounded-2xl" />
-            <div className="h-12 w-full bg-stone-200 rounded-2xl" />
-          </div>
+    <div className="grid grid-cols-1 sm:grid-cols-[76px_1fr] gap-3.5">
+      {images.length > 1 && (
+        <div className="order-2 sm:order-1 flex sm:flex-col gap-2.5 overflow-x-auto sm:overflow-visible">
+          {images.map((src, index) => (
+            <button
+              key={src}
+              type="button"
+              onClick={() => onActiveImage(src)}
+              aria-label={`Photo ${index + 1}`}
+              aria-pressed={src === current}
+              className={`shrink-0 w-[76px] h-[100px] rounded-sm overflow-hidden ${src === current ? "outline outline-[1.5px] outline-[#111]" : "opacity-70 hover:opacity-100"}`}
+            >
+              <img src={src} alt="" className="w-full h-full object-cover" />
+            </button>
+          ))}
         </div>
-      </main>
+      )}
+      <div data-anim="image" data-anim-load className={`relative aspect-[3/4] bg-[#f3f3f3] rounded-sm overflow-hidden ${images.length > 1 ? "order-1 sm:order-2" : "sm:col-span-2"}`}>
+        <img src={current} alt={name} className="w-full h-full object-cover" />
+        <button type="button" onClick={() => setZoom(true)} className="absolute right-3.5 bottom-3.5 h-[34px] px-3 rounded bg-white text-[13px] font-medium flex items-center gap-1.5">
+          <Expand className="w-3.5 h-3.5" strokeWidth={1.6} aria-hidden="true" /> Agrandir
+        </button>
+      </div>
+
+      <AnimatePresence>
+        {zoom && (
+          <motion.div
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Photo de ${name}`}
+            className="fixed inset-0 z-50 bg-black/90 grid place-items-center p-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setZoom(false)}
+          >
+            <img src={current} alt={name} className="max-w-full max-h-full object-contain" />
+            <button type="button" onClick={() => setZoom(false)} className="absolute top-4 right-4 w-11 h-11 grid place-items-center rounded-full bg-white text-[#111]" aria-label="Fermer">
+              <X className="w-5 h-5" strokeWidth={1.6} aria-hidden="true" />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
 
-function Toast({ message, type, onClose }) {
-  const icons = {
-    success: <CheckCircle className="w-4 h-4 text-emerald-500" />,
-    error: <AlertCircle className="w-4 h-4 text-rose-500" />,
-    info: <AlertCircle className="w-4 h-4 text-sky-500" />,
+function ProductView({ product }) {
+  const { shippingZones } = useCatalogData();
+  const { toggleWishlist, isInWishlist } = useWishlist();
+  const order = useMultiVariantOrder(product);
+  const hasVariants = order.variants.length > 0;
+
+  const [tab, setTab] = useState("description");
+  const [activeImage, setActiveImage] = useState(null);
+  const [zoneId, setZoneId] = useState(null);
+  const [guideOpen, setGuideOpen] = useState(false);
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [addedFeedback, setAddedFeedback] = useState(null);
+  const [shared, setShared] = useState(false);
+  const [related, setRelated] = useState([]);
+  const viewRef = useRef(null);
+  useStorefrontMotion(viewRef, [related.length]);
+
+  const images = useMemo(() => {
+    const list = (product.image_path ?? []).map(resolveMediaUrl);
+    return list.length ? list : [productImage(product)];
+  }, [product]);
+
+  // La photo de la couleur (ou finition) choisie passe au premier plan
+  const variantImage = order.groupImage ? resolveMediaUrl(order.groupImage) : null;
+  const [lastVariantImage, setLastVariantImage] = useState(variantImage);
+  if (variantImage !== lastVariantImage) {
+    setLastVariantImage(variantImage);
+    if (variantImage) setActiveImage(variantImage);
+  }
+  const galleryImages = variantImage && !images.includes(variantImage) ? [variantImage, ...images] : images;
+
+  useEffect(() => {
+    if (!product.category?.slug) return undefined;
+    let cancelled = false;
+    fetchCatalog({ category_slug: product.category.slug, per_page: 5 }).then((res) => {
+      if (!cancelled && res?.success) setRelated((res.data?.data ?? []).filter((p) => p.id !== product.id).slice(0, 4));
+    });
+    return () => { cancelled = true; };
+  }, [product]);
+
+  const pricing = getPricing(product);
+  const loved = isInWishlist(product.id);
+  const zone = shippingZones.find((z) => z.id === zoneId) ?? shippingZones[0] ?? null;
+  const reference = product.sku;
+  const guideLabel = product.product_type?.guide_label || (order.attributes.some((a) => a.slug === "taille" || a.slug === "pointure") ? "Guide des tailles" : null);
+  const specs = Array.isArray(product.specs) ? product.specs : [];
+
+  const anyStock = isInStock(product);
+  const stockCount = hasVariants ? order.variants.reduce((sum, v) => sum + (v.stock ?? 0), 0) : product.stock ?? 0;
+
+  const addSelectionToCart = () => {
+    const count = order.totalQuantity;
+    order.addAllToCart();
+    setAddedFeedback(`${count} article${count > 1 ? "s" : ""} ajouté${count > 1 ? "s" : ""}`);
+    setTimeout(() => setAddedFeedback(null), 2500);
+  };
+  const scrollToPicker = () => scrollToElement(document.getElementById("achat"));
+
+  const share = async () => {
+    const url = window.location.href;
+    try {
+      if (navigator.share) await navigator.share({ title: product.name, url });
+      else { await navigator.clipboard.writeText(url); setShared(true); setTimeout(() => setShared(false), 2000); }
+    } catch { /* partage annulé */ }
   };
 
-  const bgColors = {
-    success: "bg-emerald-50 border-emerald-200 text-emerald-900",
-    error: "bg-rose-50 border-rose-200 text-rose-900",
-    info: "bg-sky-50 border-sky-200 text-sky-900",
-  };
+  const stockLine = !anyStock
+    ? { tone: "text-[#b42318]", text: "Épuisé" }
+    : stockCount <= 3
+      ? { tone: "text-[#8a4b00]", text: `Plus que ${stockCount} en stock · expédié sous 24 h` }
+      : { tone: "text-[#166534]", text: "En stock · expédié sous 24 h" };
+
+  const category = product.category;
+  const parent = category?.parent;
 
   return (
-    <motion.div
-      role="alert"
-      initial={{ opacity: 0, y: -10 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -10 }}
-      className={`fixed top-6 right-6 z-50 flex items-center gap-2 px-4 py-3 rounded-xl border shadow-lg backdrop-blur-sm ${bgColors[type]}`}
-    >
-      {icons[type]}
-      <span className="text-xs font-medium pr-6">{message}</span>
-      <button
-        onClick={onClose}
-        aria-label="Fermer la notification"
-        className="absolute right-2 top-2 text-current opacity-60 hover:opacity-100"
-      >
-        <X className="w-3 h-3" />
-      </button>
-    </motion.div>
+    <>
+      <main ref={viewRef} className={wrapClass}>
+        <nav className="text-[13px] text-[#777] py-[22px]" aria-label="Fil d'Ariane">
+          <Link to="/" className="hover:underline">Accueil</Link>
+          {parent && <> / <Link to={`/products?category=${parent.slug}`} className="hover:underline">{parent.name}</Link></>}
+          {category && <> / <Link to={`/products?category=${category.slug}`} className="hover:underline">{category.name}</Link></>}
+          {" / "}<b className="font-medium text-[#111]">{product.name}</b>
+        </nav>
+
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] gap-8 lg:gap-14">
+          <Gallery images={galleryImages} name={product.name} activeImage={activeImage && galleryImages.includes(activeImage) ? activeImage : null} onActiveImage={setActiveImage} />
+
+          <div>
+            <div className="flex justify-between items-start gap-4">
+              <p className="text-[13px] text-[#777]">{[parent?.name, category?.name].filter(Boolean).join(" · ")}</p>
+              <div className="flex gap-2">
+                <button type="button" onClick={share} className={shopButton("secondary", "sm")} aria-label="Partager">
+                  <Share2 className="w-4 h-4" strokeWidth={1.6} aria-hidden="true" />
+                  {shared && <span className="text-[12px] font-medium">Lien copié</span>}
+                </button>
+                <button type="button" onClick={() => toggleWishlist(product)} aria-pressed={loved} className={`${shopButton("secondary", "sm")} ${loved ? "text-[#c2410c]" : ""}`} aria-label={loved ? "Retirer des favoris" : "Ajouter aux favoris"}>
+                  <Heart className="w-4 h-4" strokeWidth={1.6} fill={loved ? "currentColor" : "none"} aria-hidden="true" />
+                </button>
+              </div>
+            </div>
+
+            <h1 data-anim="title" data-anim-load data-anim-delay="0.2" className="text-[28px] sm:text-[34px] font-semibold tracking-[-0.02em] mt-1.5 mb-2">{product.name}</h1>
+            {reference && <p className="text-[13px] text-[#777]">Réf. {reference}</p>}
+
+            <p className="text-2xl font-semibold tabular-nums mt-5 mb-1.5">
+              {pricing.from && <span className="text-base font-normal text-[#555] mr-1.5">dès</span>}
+              {showStrikethrough(pricing) && !pricing.from && <s className="mr-3 text-lg font-normal text-[#767676]">{formatFCFA(pricing.base_price)}</s>}
+              {formatFCFA(pricing.final_price)}
+            </p>
+            {pricing.discount > 0 && (
+              <p className="flex items-center gap-1.5 text-[13.5px] text-[#111] mb-1.5">
+                <Tag className="w-3.5 h-3.5" strokeWidth={1.6} aria-hidden="true" />
+                −{pricing.discount_percent} %{promotionLabel(pricing.promotion?.name) ? ` · ${promotionLabel(pricing.promotion.name)}` : ""}{promotionUntil(pricing.promotion) ? ` · ${promotionUntil(pricing.promotion)}` : ""}
+              </p>
+            )}
+            <p className={`flex items-center gap-2 text-[13.5px] ${stockLine.tone}`}>
+              <span className="w-1.5 h-1.5 rounded-full bg-current" aria-hidden="true" /> {stockLine.text}
+            </p>
+
+            <div id="achat" data-anim="fade" data-anim-load data-anim-delay="0.45" className="border-t border-[#ececec] mt-6 pt-[22px] scroll-mt-28">
+              {anyStock ? (
+                <>
+                  <MultiVariantPicker order={order} guideLabel={guideLabel} onGuide={() => setGuideOpen(true)} />
+                  {hasVariants && order.groupAttributes.length + (order.rowAttribute ? 1 : 0) > 1 && (
+                    <p className="mt-4 text-[13px] text-[#666]">Plusieurs tailles ou coloris ? Indiquez les quantités de chacun : elles sont conservées quand vous changez de coloris.</p>
+                  )}
+                  <div className="mt-6 pt-5 border-t border-[#ececec]">
+                    <MultiVariantActions order={order} onAddToCart={addSelectionToCart} onWhatsApp={() => setCheckoutOpen(true)} feedback={addedFeedback} />
+                  </div>
+                </>
+              ) : (
+                <p className="text-sm text-[#444]">Cet article est épuisé pour le moment. Écrivez-nous sur WhatsApp pour connaître son prochain réassort.</p>
+              )}
+
+              <div className="bg-[#fafafa] border border-[#ececec] rounded px-[18px] py-4 mt-5 text-sm space-y-2.5">
+                <div className="flex items-center gap-2.5 flex-wrap">
+                  <Truck className="w-4 h-4 text-[#555] shrink-0" strokeWidth={1.6} aria-hidden="true" />
+                  {zone ? <span>Livraison à <b className="font-semibold">{zone.name}</b> : {formatFCFA(zone.price)} · sous 24 h</span> : <span>Livraison sous 24 h</span>}
+                  {shippingZones.length > 1 && (
+                    <label className="ml-auto">
+                      <span className="sr-only">Changer de commune</span>
+                      <select value={zone?.id ?? ""} onChange={(e) => setZoneId(Number(e.target.value))} className="bg-transparent text-[13px] underline cursor-pointer max-w-[150px]">
+                        {shippingZones.map((z) => <option key={z.id} value={z.id}>{z.name}</option>)}
+                      </select>
+                    </label>
+                  )}
+                </div>
+                <p className="flex items-center gap-2.5"><RefreshCcw className="w-4 h-4 text-[#555] shrink-0" strokeWidth={1.6} aria-hidden="true" />Échange sous 48 h en cas de souci de taille</p>
+                <p className="flex items-center gap-2.5"><ShieldCheck className="w-4 h-4 text-[#555] shrink-0" strokeWidth={1.6} aria-hidden="true" />Paiement confirmé avec notre équipe sur WhatsApp</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Onglets d'information */}
+        <div role="tablist" aria-label="Informations produit" className="flex gap-7 border-b border-[#ececec] mt-16 overflow-x-auto">
+          {TABS.map((t) => (
+            <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} onClick={() => setTab(t.id)} className={`py-3.5 -mb-px text-[15px] whitespace-nowrap border-b-2 ${tab === t.id ? "border-[#111] text-[#111] font-semibold" : "border-transparent text-[#666] hover:text-[#111]"}`}>
+              {t.label}
+            </button>
+          ))}
+        </div>
+        <div role="tabpanel" className="grid grid-cols-1 md:grid-cols-[1.3fr_1fr] gap-8 md:gap-14 py-7 text-[15px] leading-[1.7] text-[#333]">
+          {tab === "description" && (
+            <>
+              <div className="whitespace-pre-line">{product.description}</div>
+              {specs.length > 0 && (
+                <dl className="border-t border-[#ececec]">
+                  {specs.map((spec) => (
+                    <div key={spec.label} className="flex justify-between gap-6 py-[11px] border-b border-[#ececec] text-sm">
+                      <dt className="text-[#777]">{spec.label}</dt><dd className="text-right">{spec.value}</dd>
+                    </div>
+                  ))}
+                  {order.attributes.map((a) => (
+                    <div key={a.slug} className="flex justify-between gap-6 py-[11px] border-b border-[#ececec] text-sm">
+                      <dt className="text-[#777]">{a.name}</dt><dd className="text-right">{a.values.map((v) => v.value).join(", ")}</dd>
+                    </div>
+                  ))}
+                </dl>
+              )}
+            </>
+          )}
+          {tab === "details" && (
+            <div>
+              {specs.length > 0 ? (
+                <dl>{specs.map((spec) => <p key={spec.label}><b className="font-semibold">{spec.label} :</b> {spec.value}</p>)}</dl>
+              ) : (
+                <p>Les détails de matière et d'entretien vous sont précisés sur WhatsApp à la commande.</p>
+              )}
+            </div>
+          )}
+          {tab === "delivery" && (
+            <div className="space-y-3">
+              <p>Expédition sous 24 h après validation de la commande, à Abidjan et à l'intérieur du pays. Les frais dépendent de votre commune et vous sont indiqués avant la validation.</p>
+              <p>Un souci de taille ? L'échange est possible sous 48 h après réception, article non porté et dans son état d'origine.</p>
+              <Link to="/about#livraison" className="underline">En savoir plus</Link>
+            </div>
+          )}
+        </div>
+
+        {related.length > 0 && (
+          <section className="mt-10">
+            <div className="flex justify-between items-end mb-6">
+              <h2 data-anim="title" className="text-[22px] sm:text-[26px] font-semibold tracking-[-0.02em]">Vous aimerez aussi</h2>
+              {category && <Link to={`/products?category=${category.slug}`} className="text-sm font-medium underline">Tout voir</Link>}
+            </div>
+            <div data-anim="stagger" className="grid grid-cols-2 lg:grid-cols-4 gap-x-3 sm:gap-x-5 gap-y-9">
+              {related.map((p) => <ProductCard key={p.id} product={p} />)}
+            </div>
+          </section>
+        )}
+      </main>
+
+      {/* Barre d'achat mobile */}
+      <div className="lg:hidden fixed inset-x-0 bottom-0 z-30 bg-white border-t border-[#ececec] px-4 py-3 flex items-center gap-3">
+        <div className="min-w-0">
+          <p className="text-[13px] truncate">{product.name}</p>
+          <p className="text-sm font-semibold tabular-nums">
+            {order.totalQuantity > 0 ? `${order.totalQuantity} art. · ${formatFCFA(order.subtotal)}` : formatFCFA(pricing.final_price)}
+          </p>
+        </div>
+        {order.totalQuantity > 0 ? (
+          <div className="ml-auto flex gap-2">
+            <button type="button" onClick={addSelectionToCart} className={shopButton("primary")} aria-label="Ajouter la sélection au panier">
+              <ShoppingBag className="w-4 h-4" strokeWidth={1.6} aria-hidden="true" />
+            </button>
+            <button type="button" onClick={() => setCheckoutOpen(true)} className={shopButton("whatsapp")}>
+              <MessageCircle className="w-4 h-4" strokeWidth={1.6} aria-hidden="true" /> WhatsApp
+            </button>
+          </div>
+        ) : (
+          <button type="button" onClick={scrollToPicker} disabled={!anyStock} className={`${shopButton("primary")} ml-auto`}>
+            Choisir les quantités
+          </button>
+        )}
+      </div>
+      <div className="h-20 lg:hidden" aria-hidden="true" />
+
+      {checkoutOpen && (
+        <VariantOrderDrawer product={product} order={order} initialStep="checkout" onClose={() => setCheckoutOpen(false)} />
+      )}
+      <SizeGuideModal
+        isOpen={guideOpen}
+        onClose={() => setGuideOpen(false)}
+        defaultTab={order.attributes.some((a) => a.slug === "pointure") ? "chaussures" : "vetements"}
+      />
+    </>
   );
 }
 
 export default function ProductDetails() {
   const { slug } = useParams();
-  const navigate = useNavigate();
-  const { shippingZones } = useCatalogData();
-  const { toggleWishlist, isInWishlist } = useWishlist();
+  const [state, setState] = useState({ slug: null, product: null, error: null });
 
-  const [product, setProduct] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-
-  const [selectedVariant, setSelectedVariant] = useState(null);
-  const [quantity, setQuantity] = useState(1);
-  const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
-  const [whatsAppDrawerOpen, setWhatsAppDrawerOpen] = useState(false);
-  const [stickyBarVisible, setStickyBarVisible] = useState(false);
-
-  const [toast, setToast] = useState(null);
-  const showToast = (message, type = "info") => {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 4000);
-  };
-
-  const buyActionsRef = useRef(null);
-
-  // Détection du scroll pour la barre d'achat mobile flottante
   useEffect(() => {
-    const handleScroll = () => {
-      if (!buyActionsRef.current) return;
-      const rect = buyActionsRef.current.getBoundingClientRect();
-      // Si les boutons principaux ont disparu vers le haut
-      setStickyBarVisible(rect.bottom < 0);
-    };
-
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
-
-  // Chargement du produit par slug
-  useEffect(() => {
-    if (!slug) return;
     let cancelled = false;
-    const fetchProduct = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const result = await getProductBySlug(slug);
-        if (cancelled) return;
-        if (result.success && result.data) {
-          const dataProduct = result.data.data || result.data;
-          setProduct(dataProduct);
-          if (dataProduct.variants && dataProduct.variants.length > 0) {
-            // Sélectionner la première variante en stock, ou la première par défaut
-            const firstInStock = dataProduct.variants.find((v) => v.stock > 0);
-            setSelectedVariant(firstInStock || dataProduct.variants[0]);
-          }
-        } else {
-          setError("Produit introuvable");
-        }
-      } catch (err) {
-        if (!cancelled) setError("Erreur réseau");
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
-    fetchProduct();
-    return () => {
-      cancelled = true;
-    };
+    getProductBySlug(slug).then((res) => {
+      if (cancelled) return;
+      const product = res?.success ? res.data?.data ?? res.data : null;
+      setState({ slug, product, error: product ? null : "Ce produit est introuvable ou n'est plus disponible." });
+    });
+    return () => { cancelled = true; };
   }, [slug]);
 
-  // Produits similaires
-  const categorySlug = product?.category?.slug ?? null;
-  const { products: relatedRaw } = useCatalogProducts({ page: 1, categorySlug });
-  const relatedProducts = relatedRaw
-    .filter((p) => p.id !== product?.id)
-    .slice(0, 8);
-
-  // Prix et stock
-  const currentPrice = selectedVariant ? selectedVariant.price : product?.price || 0;
-  const currentOldPrice = selectedVariant ? selectedVariant.old_price : product?.old_price || null;
-  const hasVariants = product?.variants && product.variants.length > 0;
-  const isAvailable = hasVariants
-    ? selectedVariant
-      ? selectedVariant.stock > 0
-      : false
-    : product
-    ? product.is_active && (product.stock ?? 0) > 0
-    : false;
-  const maxAvailableStock = hasVariants && selectedVariant
-    ? selectedVariant.stock
-    : product?.stock ?? 99;
-
-  const discountPercentage =
-    currentOldPrice && currentOldPrice > currentPrice
-      ? Math.round(((currentOldPrice - currentPrice) / currentOldPrice) * 100)
-      : null;
-
-  // Préparation des images pour la galerie
-  const productImages = Array.isArray(product?.image_path) ? product.image_path : [];
-  const allImages = (() => {
-    if (!hasVariants) return productImages;
-    const seen = new Set(productImages);
-    const extraVariantImages = product.variants
-      .map((v) => v.image_path)
-      .filter((img) => img && !seen.has(img) && seen.add(img));
-    return [...productImages, ...extraVariantImages];
-  })();
-
-  // Index de la photo synchronisée avec la variante choisie
-  const activeGalleryIndex = selectedVariant?.image_path
-    ? Math.max(0, allImages.indexOf(selectedVariant.image_path))
-    : 0;
-
-  // Ajout au panier multi-articles
-  const handleAddToCart = () => {
-    if (!isAvailable) return;
-    try {
-      const localCartRaw = localStorage.getItem("mk_bazaar_cart");
-      const currentCart = localCartRaw ? JSON.parse(localCartRaw) : [];
-      const variantId = selectedVariant?.id || null;
-      const existingIndex = currentCart.findIndex(
-        (item) => item.id === product.id && (item.variant_id ?? null) === variantId
-      );
-
-      const price = selectedVariant?.price || currentPrice;
-      const image = selectedVariant?.image_path
-        ? resolveMediaUrl(selectedVariant.image_path)
-        : allImages[0]
-        ? resolveMediaUrl(allImages[0])
-        : DEFAULT_PLACEHOLDER_IMAGE;
-
-      if (existingIndex > -1) {
-        currentCart[existingIndex].quantity += quantity;
-      } else {
-        currentCart.push({
-          id: product.id,
-          variant_id: variantId,
-          name: product.name,
-          price: price,
-          quantity: quantity,
-          image: image,
-          attributes: selectedVariant?.attributes || null,
-          category: product.category?.name || "Boutique",
-          slug: product.slug,
-        });
-      }
-
-      localStorage.setItem("mk_bazaar_cart", JSON.stringify(currentCart));
-      window.dispatchEvent(new Event("cart-updated"));
-      window.dispatchEvent(new Event("show-basket-preview"));
-      showToast(
-        `${quantity} pièce${quantity > 1 ? "s" : ""} ajoutée${quantity > 1 ? "s" : ""} au panier !`,
-        "success"
-      );
-    } catch (e) {
-      console.error(e);
-      showToast("Erreur lors de l'ajout au panier", "error");
-    }
-  };
-
-  const handleShare = async () => {
-    const shareData = {
-      title: product?.name,
-      text: `${product?.name} — ${currentPrice?.toLocaleString()} FCFA sur MK BAZAAR`,
-      url: window.location.href,
-    };
-    if (navigator.share) {
-      try {
-        await navigator.share(shareData);
-      } catch {}
-    } else {
-      await navigator.clipboard.writeText(window.location.href);
-      showToast("Lien copié dans le presse-papier", "success");
-    }
-  };
-
-  if (loading) return <Skeleton />;
-
-  if (error || !product) {
-    return (
-      <div className="min-h-screen flex flex-col bg-[#F9F9F7]">
-        <Header />
-        <main className="flex-1 flex items-center justify-center p-6 text-center">
-          <div className="max-w-md space-y-4">
-            <h1 className="font-serif text-3xl font-light text-stone-900">
-              Pièce introuvable
-            </h1>
-            <p className="text-stone-500 text-sm font-light">
-              Cet article a été retiré de nos collections ou l'adresse n'est plus valide.
-            </p>
-            <Link
-              to="/products"
-              className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-stone-950 text-white text-xs uppercase tracking-wider font-semibold hover:bg-stone-800 transition-colors shadow-md"
-            >
-              <ChevronLeft className="w-4 h-4" />
-              Retour aux collections
-            </Link>
-          </div>
-        </main>
-        <Footer />
-      </div>
-    );
-  }
-
-  const categoryName = product.category?.name || "Nouvelle Collection";
-  const mainImage = allImages[0] ? absoluteImageUrl(allImages[0]) : null;
+  const loading = state.slug !== slug;
+  const product = loading ? null : state.product;
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#F9F9F7] text-stone-950 antialiased selection:bg-stone-950 selection:text-white">
-      <Seo
-        title={product.name}
-        description={product.description}
-        path={`/products/${product.slug || slug}`}
-        image={mainImage}
-        type="product"
-        jsonLd={[
-          buildProductJsonLd(product),
-          buildBreadcrumbJsonLd([
-            { name: "Accueil", path: "/" },
-            { name: "Collections", path: "/products" },
-            { name: product.name, path: `/products/${product.slug || slug}` },
-          ]),
-        ].filter(Boolean)}
-      />
-
+    <div className="min-h-screen bg-white text-[#111] font-admin antialiased">
+      {product && (
+        <Seo
+          title={product.name}
+          description={product.description}
+          path={`/products/${product.slug}`}
+          image={product.image_path?.[0] ? absoluteImageUrl(resolveMediaUrl(product.image_path[0])) : undefined}
+          type="product"
+          jsonLd={[
+            buildProductJsonLd(product),
+            buildBreadcrumbJsonLd([
+              { name: "Accueil", path: "/" },
+              { name: "Boutique", path: "/products" },
+              { name: product.name, path: `/products/${product.slug}` },
+            ]),
+          ].filter(Boolean)}
+        />
+      )}
       <Header />
 
-      <AnimatePresence>
-        {toast && (
-          <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />
-        )}
-      </AnimatePresence>
-
-      <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-10 w-full">
-        {/* Fil d'Ariane Éditorial */}
-        <nav className="mb-6 flex items-center gap-2 text-[11px] uppercase tracking-wider text-stone-400 font-medium">
-          <Link to="/" className="hover:text-stone-900 transition-colors">Accueil</Link>
-          <span>/</span>
-          <Link to="/products" className="hover:text-stone-900 transition-colors">Collections</Link>
-          <span>/</span>
-          <span className="text-stone-900 font-bold truncate max-w-[200px] sm:max-w-none">
-            {product.name}
-          </span>
-        </nav>
-
-        {/* Grille Principale 2 Colonnes Nobles */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-14 items-start">
-          
-          {/* Colonne Gauche (58%) : Grande Galerie Photo */}
-          <div className="lg:col-span-7 w-full">
-            <ProductGallery images={allImages} selectedIndex={activeGalleryIndex} />
-          </div>
-
-          {/* Colonne Droite (42%) : Informations & Décision d'Achat */}
-          <div className="lg:col-span-5 space-y-6 lg:sticky lg:top-24">
-            
-            {/* 1. Catégorie, Titre & Prix */}
-            <div className="space-y-3 pb-4 border-b border-stone-200/60">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] uppercase tracking-[0.25em] font-bold text-stone-400">
-                  {categoryName}
-                </span>
-
-                {/* Boutons Favoris & Partage discrets */}
-                <div className="flex items-center gap-1.5">
-                  <button
-                    onClick={() => toggleWishlist(product)}
-                    title={isInWishlist(product.id) ? "Retirer des favoris" : "Ajouter aux favoris"}
-                    className={`p-2 rounded-full border transition-all ${
-                      isInWishlist(product.id)
-                        ? "border-rose-300 bg-rose-50 text-rose-600"
-                        : "border-stone-200 text-stone-400 hover:text-stone-800 hover:border-stone-300"
-                    }`}
-                  >
-                    <Heart
-                      className={`w-4 h-4 ${
-                        isInWishlist(product.id) ? "fill-rose-500 text-rose-500" : ""
-                      }`}
-                    />
-                  </button>
-
-                  <button
-                    onClick={handleShare}
-                    title="Partager cette pièce"
-                    className="p-2 rounded-full border border-stone-200 text-stone-400 hover:text-stone-800 hover:border-stone-300 transition-all"
-                  >
-                    <Share2 className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-
-              <h1 className="font-serif text-3xl sm:text-4xl lg:text-5xl font-normal text-stone-950 tracking-tight leading-[1.1]">
-                {product.name}
-              </h1>
-
-              {/* Prix & Remise */}
-              <div className="flex items-baseline gap-3 pt-1">
-                <span className="font-serif text-2xl sm:text-3xl font-medium text-stone-950">
-                  {currentPrice.toLocaleString()}{" "}
-                  <span className="text-sm font-sans font-light text-stone-600">FCFA</span>
-                </span>
-
-                {currentOldPrice && currentOldPrice > currentPrice && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-light text-stone-400 line-through">
-                      {currentOldPrice.toLocaleString()} FCFA
-                    </span>
-                    <span className="bg-[#c07b5a] text-white text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-full">
-                      -{discountPercentage}%
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              {/* Badge Disponibilité & Réassurance immédiate */}
-              <div className="flex items-center gap-2 pt-1 text-xs">
-                <span
-                  className={`inline-flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-bold px-2.5 py-0.5 rounded-full ${
-                    isAvailable
-                      ? "bg-emerald-50 text-emerald-800 border border-emerald-200/50"
-                      : "bg-rose-50 text-rose-800 border border-rose-200/50"
-                  }`}
-                >
-                  <span
-                    className={`w-1.5 h-1.5 rounded-full ${
-                      isAvailable ? "bg-emerald-500 animate-pulse" : "bg-rose-500"
-                    }`}
-                  />
-                  {isAvailable ? "En stock" : "Rupture de stock"}
-                </span>
-
-                {isAvailable && (
-                  <span className="text-stone-500 text-[11px] font-light flex items-center gap-1">
-                    <Clock className="w-3.5 h-3.5 text-stone-400" /> Expédition sous 24h
-                  </span>
-                )}
-              </div>
-            </div>
-
-            {/* 2. Sélecteur de Variantes Moderne (Couleur en pastilles / Taille en boutons) */}
-            {hasVariants && (
-              <ProductVariantSelector
-                variants={product.variants || []}
-                selectedVariant={selectedVariant}
-                onSelectVariant={(v) => {
-                  setSelectedVariant(v);
-                  setQuantity(1);
-                }}
-                onOpenSizeGuide={() => setSizeGuideOpen(true)}
-              />
-            )}
-
-            {/* 3. Sélecteur de Quantité */}
-            <div className="space-y-2 pt-1">
-              <label
-                htmlFor="product-quantity"
-                className="text-[10px] uppercase tracking-[0.2em] font-bold block text-stone-500"
-              >
-                Quantité
-              </label>
-
-              <div className="flex items-center border border-stone-200 rounded-xl w-fit overflow-hidden bg-white shadow-sm">
-                <button
-                  type="button"
-                  onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                  aria-label="Diminuer la quantité"
-                  className="px-4 py-2.5 text-sm font-medium hover:bg-stone-100 active:bg-stone-200 text-stone-700 transition-colors"
-                >
-                  −
-                </button>
-                <span
-                  id="product-quantity"
-                  className="px-5 py-2.5 text-xs font-mono font-bold text-stone-950 min-w-[42px] text-center select-none"
-                >
-                  {quantity}
-                </span>
-                <button
-                  type="button"
-                  disabled={quantity >= maxAvailableStock}
-                  onClick={() => setQuantity(Math.min(maxAvailableStock, quantity + 1))}
-                  aria-label="Augmenter la quantité"
-                  className="px-4 py-2.5 text-sm font-medium hover:bg-stone-100 active:bg-stone-200 text-stone-700 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                >
-                  +
-                </button>
-              </div>
-            </div>
-
-            {/* 4. Boutons d'Action Hiérarchisés */}
-            <div id="buy-actions" ref={buyActionsRef} className="space-y-3 pt-3">
-              {/* Action Principale : Ajouter au panier */}
-              <button
-                type="button"
-                onClick={handleAddToCart}
-                disabled={!isAvailable}
-                className={`w-full py-4 px-6 rounded-2xl text-xs sm:text-sm font-bold uppercase tracking-widest flex items-center justify-center gap-3 transition-all duration-300 shadow-lg ${
-                  isAvailable
-                    ? "bg-[#c07b5a] text-white hover:bg-[#a5684a] active:scale-[0.99] shadow-[#c07b5a]/30 hover:shadow-xl cursor-pointer"
-                    : "bg-stone-200 text-stone-400 cursor-not-allowed"
-                }`}
-              >
-                <ShoppingBag className="w-4 h-4 sm:w-5 sm:h-5" />
-                <span>{isAvailable ? "Ajouter au panier" : "Article indisponible"}</span>
-              </button>
-
-              {/* Action Complémentaire : Commande Express 1 Clic (WhatsApp) */}
-              <button
-                type="button"
-                onClick={() => setWhatsAppDrawerOpen(true)}
-                disabled={!isAvailable}
-                className={`w-full py-3.5 px-6 rounded-2xl text-xs sm:text-sm font-semibold uppercase tracking-wider flex items-center justify-center gap-3 transition-all duration-300 border ${
-                  isAvailable
-                    ? "bg-stone-950 text-white hover:bg-stone-800 border-stone-950 active:scale-[0.99] shadow-md cursor-pointer"
-                    : "bg-stone-100 text-stone-400 border-stone-200 cursor-not-allowed"
-                }`}
-              >
-                <WhatsAppIcon />
-                <span>Achat Express en 1 Clic (WhatsApp)</span>
-              </button>
-            </div>
-
-            {/* 5. Réassurances & Engagements de Marque */}
-            <div className="grid grid-cols-3 gap-2 py-3 px-3 bg-stone-100/70 rounded-2xl border border-stone-200/60 text-center">
-              <div className="space-y-1">
-                <Truck className="w-4 h-4 mx-auto text-[#c07b5a]" />
-                <span className="text-[10px] uppercase font-bold text-stone-800 block">
-                  Expédition 24h
-                </span>
-                <span className="text-[9px] text-stone-500 font-light block">
-                  Abidjan & Intérieur
-                </span>
-              </div>
-
-              <div className="space-y-1 border-x border-stone-200/80">
-                <ShieldCheck className="w-4 h-4 mx-auto text-[#c07b5a]" />
-                <span className="text-[10px] uppercase font-bold text-stone-800 block">
-                  Paiement Réception
-                </span>
-                <span className="text-[9px] text-stone-500 font-light block">
-                  Cash ou Wave / Orange
-                </span>
-              </div>
-
-              <div className="space-y-1">
-                <RotateCcw className="w-4 h-4 mx-auto text-[#c07b5a]" />
-                <span className="text-[10px] uppercase font-bold text-stone-800 block">
-                  Échange 48h
-                </span>
-                <span className="text-[9px] text-stone-500 font-light block">
-                  Si souci de taille
-                </span>
-              </div>
-            </div>
-
-            {/* 6. Accordéons Techniques : Matières, Entretien, Livraison */}
-            <ProductAccordions
-              description={product.description}
-              categoryName={categoryName}
-            />
+      {loading && (
+        <div className={`${wrapClass} pt-16 grid grid-cols-1 lg:grid-cols-2 gap-14`} aria-busy="true" aria-label="Chargement du produit">
+          <div className="aspect-[3/4] bg-[#f3f3f3] animate-pulse rounded-sm" />
+          <div className="space-y-4">
+            <div className="h-4 w-32 bg-[#f1f1f1] rounded" />
+            <div className="h-9 w-3/4 bg-[#f1f1f1] rounded" />
+            <div className="h-6 w-28 bg-[#f1f1f1] rounded" />
           </div>
         </div>
+      )}
 
-        {/* Section Produits Similaires */}
-        <div className="mt-16 sm:mt-24 pt-12 border-t border-stone-200/80">
-          <RelatedProducts products={relatedProducts} currentProductId={product.id} />
-        </div>
-      </main>
+      {!loading && state.error && (
+        <main className={`${wrapClass} py-24 text-center`}>
+          <h1 className="text-2xl font-semibold">Produit introuvable</h1>
+          <p className="text-[15px] text-[#666] mt-2">{state.error}</p>
+          <Link to="/products" className={`${shopButton("primary")} mt-6`}>Retour à la boutique</Link>
+        </main>
+      )}
+
+      {product && <ProductView key={product.id} product={product} />}
 
       <Footer />
-
-      {/* Tiroir Achat Express WhatsApp */}
-      <WhatsAppOrderDrawer
-        isOpen={whatsAppDrawerOpen}
-        onClose={() => setWhatsAppDrawerOpen(false)}
-        product={product}
-        selectedVariant={selectedVariant}
-        quantity={quantity}
-        setQuantity={setQuantity}
-        shippingZones={shippingZones}
-        onOrderCompleted={() => {
-          showToast("Votre commande a été préparée pour WhatsApp !", "success");
-        }}
-      />
-
-      {/* Modal Guide des Tailles */}
-      <SizeGuideModal
-        isOpen={sizeGuideOpen}
-        onClose={() => setSizeGuideOpen(false)}
-        defaultTab={product.category?.name?.toLowerCase().includes("chauss") ? "chaussures" : "vetements"}
-      />
-
-      {/* Barre d'action fixe mobile */}
-      <StickyMobileBar
-        isVisible={stickyBarVisible}
-        product={product}
-        selectedVariant={selectedVariant}
-        onAddToCart={handleAddToCart}
-        onOpenWhatsApp={() => setWhatsAppDrawerOpen(true)}
-      />
     </div>
   );
 }

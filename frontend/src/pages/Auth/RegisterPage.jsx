@@ -1,263 +1,96 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
 import { register } from '../../services/auth';
 import { useAuth } from '../../contexts/AuthContext';
 import Seo from '../../components/Seo';
+import AuthLayout, { PasswordInput } from '../../components/shop/AuthLayout';
+import { authField, authLabel, shopButton } from '../../components/shop/shopUtils';
 
-/* ---------- Icônes ---------- */
-function ErrorIcon() {
-  return (
-    <svg className="w-3 h-3 mr-1 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" />
-    </svg>
-  );
-}
-function MailIcon({ className = '' }) {
-  return (
-    <svg className={`w-4 h-4 ${className}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="2" y="4" width="20" height="16" rx="2" /><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
-    </svg>
-  );
-}
-function LockIcon({ className = '' }) {
-  return (
-    <svg className={`w-4 h-4 ${className}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" />
-    </svg>
-  );
-}
-function UserIcon({ className = '' }) {
-  return (
-    <svg className={`w-4 h-4 ${className}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
-    </svg>
-  );
-}
-function PhoneIcon({ className = '' }) {
-  return (
-    <svg className={`w-4 h-4 ${className}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.18 2 2 0 0 1 3.58 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.6a16 16 0 0 0 5.5 5.5l.97-.97a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z" />
-    </svg>
-  );
-}
-function EyeIcon({ className = '' }) {
-  return (
-    <svg className={`w-4 h-4 ${className}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" />
-    </svg>
-  );
-}
-function EyeOffIcon({ className = '' }) {
-  return (
-    <svg className={`w-4 h-4 ${className}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
-      <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
-      <line x1="1" y1="1" x2="23" y2="23" />
-    </svg>
-  );
-}
-function Spinner() {
-  return (
-    <svg className="animate-spin h-4 w-4 text-[#F9F9F7]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-    </svg>
-  );
-}
-
-/* ---------- Variants ---------- */
-const containerVariants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: 'easeOut' } },
-};
-const logoVariants = {
-  hidden: { scale: 0.9, opacity: 0 },
-  visible: { scale: 1, opacity: 1, transition: { delay: 0.1, duration: 0.3 } },
-};
-const errorVariants = {
-  hidden: { opacity: 0, height: 0, marginBottom: 0 },
-  visible: { opacity: 1, height: 'auto', marginBottom: '0.5rem' },
-  exit:   { opacity: 0, height: 0, marginBottom: 0 },
-};
-
-/* ---------- Composant ---------- */
 export default function RegisterPage() {
   const navigate = useNavigate();
   const { setAuthUser } = useAuth();
-  const [formData, setFormData] = useState({ name: '', email: '', phone: '', password: '', password_confirmation: '' });
+  const [form, setForm] = useState({ name: '', email: '', phone: '', password: '', password_confirmation: '' });
+  const [accepted, setAccepted] = useState(false);
   const [errors, setErrors] = useState({});
-  const [isLoading, setIsLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-    if (errors[name]) setErrors(prev => ({ ...prev, [name]: '' }));
+  const change = (e) => {
+    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    if (errors[e.target.name]) setErrors((prev) => ({ ...prev, [e.target.name]: null }));
   };
 
-  const validate = () => {
-    const e = {};
-    if (!formData.name.trim())  e.name = 'Le nom est requis';
-    if (!formData.email.trim()) e.email = "L'email est requis";
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) e.email = 'Email invalide';
-    if (!formData.password)     e.password = 'Le mot de passe est requis';
-    else if (formData.password.length < 8) e.password = '8 caractères minimum';
-    if (formData.password !== formData.password_confirmation) e.password_confirmation = 'Les mots de passe ne correspondent pas';
-    return e;
-  };
-
-  const handleSubmit = async (e) => {
+  const submit = async (e) => {
     e.preventDefault();
-    const validationErrors = validate();
-    if (Object.keys(validationErrors).length > 0) { setErrors(validationErrors); return; }
+    const found = {};
+    if (!form.name.trim()) found.name = 'Indiquez votre nom.';
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) found.email = 'Adresse e-mail invalide.';
+    if (form.password.length < 8) found.password = '8 caractères minimum.';
+    if (form.password !== form.password_confirmation) found.password_confirmation = 'Les mots de passe ne correspondent pas.';
+    if (!accepted) found.terms = 'Acceptez les conditions pour créer votre compte.';
+    setErrors(found);
+    if (Object.keys(found).length) return;
 
-    setIsLoading(true);
-    const result = await register(formData);
+    setLoading(true);
+    const result = await register({ ...form, name: form.name.trim(), email: form.email.trim(), phone: form.phone.trim() || null });
     if (result.success) {
       if (result.data?.user) setAuthUser(result.data.user);
       navigate('/compte');
-    } else {
-      // Erreurs de validation Laravel (email déjà pris, etc.)
-      const apiErrors = result.data?.errors || {};
-      const mapped = {};
-      Object.entries(apiErrors).forEach(([key, msgs]) => { mapped[key] = Array.isArray(msgs) ? msgs[0] : msgs; });
-      setErrors(Object.keys(mapped).length ? mapped : { submit: result.error || "Erreur lors de l'inscription." });
-      setIsLoading(false);
+      return;
     }
+    const apiErrors = result.data?.errors ?? {};
+    const mapped = Object.fromEntries(Object.entries(apiErrors).map(([k, v]) => [k, Array.isArray(v) ? v[0] : v]));
+    setErrors(Object.keys(mapped).length ? mapped : { submit: result.error || "L'inscription a échoué." });
+    setLoading(false);
   };
 
-  const inputCls = (field) =>
-    `w-full pl-10 pr-4 py-3 border text-sm bg-white transition-all duration-200 focus:outline-none rounded-xl ${
-      errors[field]
-        ? 'border-red-400 focus:border-red-600 focus:ring-2 focus:ring-red-200'
-        : 'border-stone-300 focus:border-black focus:ring-2 focus:ring-stone-200'
-    }`;
-
-  const fields = [
-    { id: 'name',     label: 'Nom complet',           type: 'text',     icon: UserIcon,  placeholder: 'Marie Kouassi' },
-    { id: 'email',    label: 'Adresse email',          type: 'email',    icon: MailIcon,  placeholder: 'exemple@mail.com' },
-    { id: 'phone',    label: 'Téléphone (optionnel)',  type: 'tel',      icon: PhoneIcon, placeholder: '+225 07 00 00 00 00' },
-  ];
+  const error = (key) => errors[key] && <p className="mt-1.5 text-[12.5px] text-[#b42318]">{errors[key]}</p>;
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#F9F9F7] to-[#f0efea] text-black antialiased flex flex-col">
+    <AuthLayout visualTitle="Créez votre compte et suivez vos commandes." visualText="Favoris enregistrés, suivi de livraison et envoi de votre panier sur WhatsApp en un clic.">
       <Seo title="Créer un compte" noindex path="/register" />
+      <h1 className="text-[30px] font-semibold tracking-[-0.02em] mt-10 mb-2">Créer un compte</h1>
+      <p className="text-[15px] text-[#666] mb-[30px]">Quelques informations suffisent.</p>
 
-      {/* Header logo */}
-      <div className="px-6 py-6 md:py-8">
-        <Link to="/" aria-label="Retour à l'accueil MK Bazaar">
-          <img src="/mk_bazaar_logo.png" alt="MK Bazaar" className="h-16 w-auto hover:opacity-80 transition-opacity" />
-        </Link>
-      </div>
+      <form onSubmit={submit} noValidate className="space-y-[18px]">
+        {errors.submit && <p role="alert" className="text-[13px] text-[#b42318] bg-[#fdeaea] rounded px-3 py-2">{errors.submit}</p>}
+        <div>
+          <label htmlFor="reg-name" className={authLabel}>Nom complet</label>
+          <input id="reg-name" name="name" autoComplete="name" value={form.name} onChange={change} placeholder="Prénom Nom" aria-invalid={Boolean(errors.name)} className={authField(errors.name)} />
+          {error('name')}
+        </div>
+        <div>
+          <label htmlFor="reg-email" className={authLabel}>Adresse e-mail</label>
+          <input id="reg-email" name="email" type="email" autoComplete="email" value={form.email} onChange={change} placeholder="exemple@mail.com" aria-invalid={Boolean(errors.email)} className={authField(errors.email)} />
+          {error('email')}
+        </div>
+        <div>
+          <label htmlFor="reg-phone" className={authLabel}>Téléphone WhatsApp <span className="font-normal text-[#6b6b6b]">(facultatif)</span></label>
+          <input id="reg-phone" name="phone" type="tel" autoComplete="tel" value={form.phone} onChange={change} placeholder="+225 07 00 00 00 00" className={authField(errors.phone)} />
+          {error('phone')}
+        </div>
+        <div>
+          <label htmlFor="reg-password" className={authLabel}>Mot de passe</label>
+          <PasswordInput id="reg-password" name="password" value={form.password} onChange={change} error={errors.password} autoComplete="new-password" />
+          {errors.password ? error('password') : <p className="mt-1.5 text-[12.5px] text-[#6b6b6b]">8 caractères minimum.</p>}
+        </div>
+        <div>
+          <label htmlFor="reg-confirm" className={authLabel}>Confirmer le mot de passe</label>
+          <PasswordInput id="reg-confirm" name="password_confirmation" value={form.password_confirmation} onChange={change} error={errors.password_confirmation} autoComplete="new-password" />
+          {error('password_confirmation')}
+        </div>
+        <div>
+          <label className="flex gap-2.5 text-[13.5px] text-[#444] leading-[1.45] cursor-pointer">
+            <input type="checkbox" checked={accepted} onChange={(e) => setAccepted(e.target.checked)} className="w-4 h-4 mt-0.5 accent-[#111] shrink-0" />
+            <span>J'accepte les <Link to="/about#cgv" className="underline">conditions générales de vente</Link> et la <Link to="/about#confidentialite" className="underline">politique de confidentialité</Link>.</span>
+          </label>
+          {error('terms')}
+        </div>
+        <button type="submit" disabled={loading} className={`${shopButton('primary', 'lg')} w-full`}>{loading ? 'Création…' : 'Créer mon compte'}</button>
+      </form>
 
-      <main className="flex-1 flex items-center justify-center px-4 sm:px-6 pb-10">
-        <motion.div className="w-full max-w-md" variants={containerVariants} initial="hidden" animate="visible">
-          <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-stone-200/60 p-8 md:p-10 hover:shadow-2xl transition-shadow duration-300">
-
-            {/* Logo + titre */}
-            <div className="text-center mb-6">
-              <motion.img
-                src="/mk_bazaar_logo.png" alt="MK Bazaar"
-                className="mx-auto w-24 h-24 md:w-32 md:h-32 object-contain drop-shadow-sm"
-                variants={logoVariants} initial="hidden" animate="visible"
-              />
-              <p className="mt-3 text-[9px] uppercase tracking-[0.3em] text-stone-400 font-medium">
-                Créer un compte
-              </p>
-            </div>
-
-            {/* Erreur globale */}
-            <AnimatePresence mode="wait">
-              {errors.submit && (
-                <motion.div key="global-error"
-                  className="mb-6 p-4 border border-red-300 bg-red-50 text-red-700 text-[11px] uppercase tracking-wide flex items-center rounded-lg"
-                  variants={errorVariants} initial="hidden" animate="visible" exit="exit">
-                  <ErrorIcon /><span>{errors.submit}</span>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Champs texte */}
-              {fields.map(({ id, label, type, icon: Icon, placeholder }) => (
-                <div key={id} className="space-y-1.5">
-                  <label htmlFor={id} className="text-[10px] uppercase tracking-[0.2em] font-bold block">{label}</label>
-                  <div className="relative group">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <Icon className="text-stone-400 group-focus-within:text-black transition-colors" />
-                    </div>
-                    <input
-                      type={type} id={id} name={id}
-                      value={formData[id]} onChange={handleChange}
-                      placeholder={placeholder}
-                      className={inputCls(id)}
-                    />
-                  </div>
-                  <AnimatePresence mode="wait">
-                    {errors[id] && (
-                      <motion.p key={`${id}-err`} className="text-[10px] text-red-600 uppercase tracking-wide flex items-center"
-                        variants={errorVariants} initial="hidden" animate="visible" exit="exit">
-                        <ErrorIcon /><span>{errors[id]}</span>
-                      </motion.p>
-                    )}
-                  </AnimatePresence>
-                </div>
-              ))}
-
-              {/* Mot de passe */}
-              {[
-                { id: 'password',              label: 'Mot de passe',          placeholder: '••••••••' },
-                { id: 'password_confirmation', label: 'Confirmer le mot de passe', placeholder: '••••••••' },
-              ].map(({ id, label, placeholder }) => (
-                <div key={id} className="space-y-1.5">
-                  <label htmlFor={id} className="text-[10px] uppercase tracking-[0.2em] font-bold block">{label}</label>
-                  <div className="relative group">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <LockIcon className="text-stone-400 group-focus-within:text-black transition-colors" />
-                    </div>
-                    <input
-                      type={showPassword ? 'text' : 'password'} id={id} name={id}
-                      value={formData[id]} onChange={handleChange}
-                      placeholder={placeholder}
-                      className={`${inputCls(id)} pr-12`}
-                    />
-                    {id === 'password' && (
-                      <button type="button" onClick={() => setShowPassword(p => !p)} tabIndex={-1}
-                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-stone-400 hover:text-black transition-colors"
-                        aria-label={showPassword ? 'Masquer' : 'Afficher'}>
-                        {showPassword ? <EyeOffIcon /> : <EyeIcon />}
-                      </button>
-                    )}
-                  </div>
-                  <AnimatePresence mode="wait">
-                    {errors[id] && (
-                      <motion.p key={`${id}-err`} className="text-[10px] text-red-600 uppercase tracking-wide flex items-center"
-                        variants={errorVariants} initial="hidden" animate="visible" exit="exit">
-                        <ErrorIcon /><span>{errors[id]}</span>
-                      </motion.p>
-                    )}
-                  </AnimatePresence>
-                </div>
-              ))}
-
-              {/* Submit */}
-              <button type="submit" disabled={isLoading}
-                className="w-full bg-black text-[#F9F9F7] py-3 px-4 text-[11px] uppercase tracking-wider font-medium hover:bg-stone-900 active:scale-[0.98] transition-all duration-300 disabled:opacity-70 disabled:cursor-not-allowed rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-black/10 mt-2">
-                {isLoading ? <><Spinner />Création du compte…</> : "Créer mon compte"}
-              </button>
-            </form>
-
-            {/* Lien connexion */}
-            <p className="mt-6 text-center text-[10px] text-stone-500 uppercase tracking-wider">
-              Déjà un compte ?{' '}
-              <Link to="/login" className="font-bold text-black hover:underline underline-offset-4">
-                Se connecter
-              </Link>
-            </p>
-          </div>
-        </motion.div>
-      </main>
-    </div>
+      <p className="text-sm text-[#555] mt-[26px] text-center">
+        Déjà un compte ? <Link to="/login" className="font-semibold underline text-[#111]">Se connecter</Link>
+      </p>
+    </AuthLayout>
   );
 }

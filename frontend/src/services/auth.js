@@ -63,6 +63,11 @@ export const updateProfile = async (data) => {
     return res;
 };
 
+// Changer son mot de passe : { current_password, password, password_confirmation }
+export const updatePassword = async (data) => {
+    return fetchAPI('/profile/password', { method: 'PUT', body: data });
+};
+
 // Upload photo de profil
 export const uploadAvatar = async (file) => {
     const formData = new FormData();

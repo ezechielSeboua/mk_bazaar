@@ -62,7 +62,7 @@ export const formatVariantLabel = (attributes) => {
  * @param {object}   params
  * @param {object}   params.order  Commande renvoyée par l'API — source de vérité
  *                                 pour la référence et tous les montants.
- * @param {Array}    params.items  Libellés locaux : [{ name, variantLabel, quantity }].
+ * @param {Array}    params.items  Libellés locaux : [{ name, variantLabel, quantity, promotion? }].
  *                                 Sert uniquement à nommer les articles, jamais
  *                                 à calculer un montant.
  * @param {string}   params.customerName
@@ -88,6 +88,7 @@ export const buildOrderMessage = ({
         `🛍️ *${title}*`,
         `📌 *Référence :* #${reference}`,
         `💰 *Total à régler :* ${formatAmount(totalPrice)}`,
+        ...(order?.discount_total > 0 ? [`🏷️ *Remises appliquées :* −${formatAmount(order.discount_total)}`] : []),
         '',
         `👤 *Client :* ${sanitizeForWhatsApp(customerName)}`,
         `📞 *Téléphone :* ${sanitizeForWhatsApp(customerPhone, 25)}`,
@@ -100,7 +101,8 @@ export const buildOrderMessage = ({
         const variant = sanitizeForWhatsApp(item.variantLabel || '', 40);
         const name = sanitizeForWhatsApp(item.name || 'Article');
         const quantity = Number(item.quantity) || 1;
-        lines.push(`${index + 1}. ${name}${variant ? ` (${variant})` : ''} — x${quantity}`);
+        const promo = item.promotion ? ` · remise « ${sanitizeForWhatsApp(item.promotion, 40)} »` : '';
+        lines.push(`${index + 1}. ${name}${variant ? ` (${variant})` : ''} — x${quantity}${promo}`);
     });
 
     const remaining = items.length - listed.length;

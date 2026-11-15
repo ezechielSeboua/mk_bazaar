@@ -19,8 +19,12 @@ export function WishlistProvider({ children }) {
                     name: product.name,
                     slug: product.slug,
                     price: product.price,
-                    image: product.image_path?.[0] || null,
-                    category: product.category?.name || product.category || null,
+                    image: product.image_path?.[0] || product.image || null,
+                    image_path: product.image_path || (product.image ? [product.image] : []),
+                    category: product.category,
+                    variants: product.variants || [],
+                    is_active: product.is_active ?? true,
+                    stock: product.stock ?? 10,
                 }];
             localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
             return next;

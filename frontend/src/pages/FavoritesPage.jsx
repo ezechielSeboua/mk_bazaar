@@ -1,109 +1,74 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
-import { Heart, ArrowLeft, ShoppingBag } from "lucide-react";
+import { Heart } from "lucide-react";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 import ProductCard from "../components/ProductCard";
 import Seo from "../components/Seo";
 import { useWishlist } from "../contexts/WishlistContext";
+import { getProductById } from "../services/product";
+import { shopButton, wrapClass } from "../components/shop/shopUtils";
 
-const containerVariants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: { staggerChildren: 0.08 },
-  },
-};
-
-const itemVariants = {
-  hidden: { opacity: 0, y: 15 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.4 } },
-};
-
+/*
+ * Favoris (maquette « 05 · Favoris ») : les articles sauvegardés sur cet
+ * appareil, relus auprès de l'API pour afficher prix et stock à jour.
+ */
 export default function FavoritesPage() {
   const { wishlist } = useWishlist();
+  const [fresh, setFresh] = useState({});
+
+  const ids = wishlist.map((p) => p.id).join(",");
+  useEffect(() => {
+    let cancelled = false;
+    const list = ids ? ids.split(",").map(Number) : [];
+    Promise.all(list.map((id) => getProductById(id))).then((results) => {
+      if (cancelled) return;
+      const map = {};
+      results.forEach((res, i) => { map[list[i]] = res?.success ? res.data : null; });
+      setFresh(map);
+    });
+    return () => { cancelled = true; };
+  }, [ids]);
+
+  // Produit à jour s'il existe encore, sinon l'instantané enregistré
+  const products = wishlist
+    .map((saved) => (fresh[saved.id] === null ? null : fresh[saved.id] ?? saved))
+    .filter(Boolean);
+  const removed = wishlist.filter((saved) => fresh[saved.id] === null);
 
   return (
-    <div className="min-h-screen flex flex-col bg-brand-sand text-black antialiased selection:bg-black selection:text-brand-sand">
-      <Seo
-        title="Mes Favoris – MK BAZAAR"
-        description="Retrouvez toutes vos pièces favorites MK BAZAAR."
-        path="/favoris"
-      />
+    <div className="min-h-screen bg-white text-[#111] font-admin antialiased">
+      <Seo title="Mes favoris" path="/favoris" noindex />
       <Header />
 
-      <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 md:py-16 w-full">
-        {/* En-tête */}
-        <div className="mb-8 md:mb-12 flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-stone-200/80 pb-6">
-          <div>
-            <Link
-              to="/products"
-              className="inline-flex items-center gap-1.5 text-xs text-stone-500 hover:text-stone-900 transition-colors mb-3 group"
-            >
-              <ArrowLeft className="w-3.5 h-3.5 transition-transform group-hover:-translate-x-1" />
-              <span>Retour au catalogue</span>
-            </Link>
-            <div className="flex items-center gap-3">
-              <h1 className="text-3xl sm:text-4xl md:text-5xl font-serif font-normal text-stone-950 tracking-tight">
-                Mes Favoris
-              </h1>
-              {wishlist.length > 0 && (
-                <span className="px-3 py-1 rounded-full text-xs font-semibold bg-rose-50 text-rose-600 border border-rose-200/60">
-                  {wishlist.length} pièce{wishlist.length > 1 ? "s" : ""}
-                </span>
-              )}
-            </div>
-            <p className="text-xs sm:text-sm text-stone-500 mt-2 font-light max-w-md">
-              Vos articles sauvegardés sont conservés sur cet appareil pour vos futures commandes.
-            </p>
-          </div>
-        </div>
+      <main className={wrapClass}>
+        <nav className="text-[13px] text-[#777] py-[22px]" aria-label="Fil d'Ariane">
+          <Link to="/" className="hover:underline">Accueil</Link> / <b className="font-medium text-[#111]">Favoris</b>
+        </nav>
 
-        {/* Contenu */}
+        <h1 className="text-[26px] sm:text-[32px] font-semibold tracking-[-0.02em]">
+          Mes favoris {wishlist.length > 0 && <span className="text-[#767676] font-normal">({wishlist.length})</span>}
+        </h1>
+        <p className="text-[15px] text-[#6b6b6b] mt-1.5">Vos articles sauvegardés sont conservés sur cet appareil.</p>
+
         {wishlist.length === 0 ? (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="flex flex-col items-center justify-center text-center py-20 sm:py-28 px-4 bg-white/60 border border-stone-200/80 rounded-3xl"
-          >
-            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-rose-50 flex items-center justify-center text-rose-400 mb-6 border border-rose-100 shadow-sm">
-              <Heart className="w-8 h-8 sm:w-10 sm:h-10 stroke-[1.5]" />
-            </div>
-            <h2 className="text-xl sm:text-2xl font-serif text-stone-900 mb-2">
-              Votre liste de favoris est vide
-            </h2>
-            <p className="text-xs sm:text-sm text-stone-500 max-w-sm mb-8 font-light leading-relaxed">
-              Explorez nos collections et cliquez sur le cœur pour conserver vos pièces favorites.
-            </p>
-            <Link
-              to="/products"
-              className="inline-flex items-center gap-2.5 px-6 sm:px-8 py-3.5 sm:py-4 rounded-xl bg-stone-950 text-white text-xs uppercase tracking-widest font-semibold hover:bg-stone-800 transition-all shadow-md active:scale-[0.98]"
-            >
-              <ShoppingBag className="w-4 h-4" />
-              <span>Découvrir la collection</span>
-            </Link>
-          </motion.div>
+          <div className="text-center py-20">
+            <Heart className="w-10 h-10 mx-auto text-[#bbb]" strokeWidth={1.2} aria-hidden="true" />
+            <p className="text-[17px] font-medium mt-4">Aucun favori pour le moment</p>
+            <p className="text-sm text-[#666] mt-1">Touchez le cœur d'un article pour le retrouver ici.</p>
+            <Link to="/products" className={`${shopButton("primary")} mt-6`}>Découvrir la boutique</Link>
+          </div>
         ) : (
-          <motion.div
-            variants={containerVariants}
-            initial="hidden"
-            animate="visible"
-            className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-3 sm:gap-x-6 gap-y-6 sm:gap-y-10"
-          >
-            <AnimatePresence>
-              {wishlist.map((item) => (
-                <motion.div
-                  key={item.id}
-                  variants={itemVariants}
-                  layout
-                  exit={{ opacity: 0, scale: 0.9 }}
-                >
-                  <ProductCard product={item} />
-                </motion.div>
-              ))}
-            </AnimatePresence>
-          </motion.div>
+          <>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-3 sm:gap-x-5 gap-y-9 mt-8">
+              {products.map((product) => <ProductCard key={product.id} product={product} />)}
+            </div>
+            {removed.length > 0 && (
+              <p className="mt-10 text-sm text-[#666]">
+                {removed.length} article{removed.length > 1 ? "s ne sont" : " n'est"} plus disponible{removed.length > 1 ? "s" : ""} et {removed.length > 1 ? "ont été masqués" : "a été masqué"}.
+              </p>
+            )}
+          </>
         )}
       </main>
 
@@ -111,4 +76,3 @@ export default function FavoritesPage() {
     </div>
   );
 }
-
