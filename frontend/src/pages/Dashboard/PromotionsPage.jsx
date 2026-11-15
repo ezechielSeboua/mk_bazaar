@@ -278,8 +278,8 @@ export default function PromotionsPage() {
     // Filtre dont la liste affichée provient : tant qu'il diffère du filtre choisi, on charge.
     const [loadedFilter, setLoadedFilter] = useState(null);
     const [barsLoaded, setBarsLoaded] = useState(false);
-    const promotionsLoading = loadedFilter !== filter;
     const [filter, setFilter] = useState('all');
+    const promotionsLoading = loadedFilter !== filter;
     const [pageError, setPageError] = useState(null);
 
     const [form, setForm] = useState(EMPTY_PROMO);
